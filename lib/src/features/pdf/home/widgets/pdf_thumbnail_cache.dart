@@ -1,0 +1,73 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdfrx/pdfrx.dart';
+
+class PdfThumbnailCache {
+  static final _memCache = <String, Uint8List>{};
+  static String? _cacheDir;
+
+  static Future<String> get _dir async {
+    if (_cacheDir != null) return _cacheDir!;
+    final dir = await getApplicationSupportDirectory();
+    final thumbDir = Directory('${dir.path}/thumbnails');
+    if (!thumbDir.existsSync()) thumbDir.createSync();
+    _cacheDir = thumbDir.path;
+    return _cacheDir!;
+  }
+
+  static String _key(String path) => path.hashCode.toString();
+
+  static Uint8List? getCached(String pdfPath) => _memCache[pdfPath];
+
+  static Future<Uint8List?> getThumbnail(String pdfPath) async {
+    if (_memCache.containsKey(pdfPath)) return _memCache[pdfPath];
+
+    final key = _key(pdfPath);
+    final dir = await _dir;
+    final file = File('$dir/$key.png');
+
+    if (file.existsSync()) {
+      final bytes = await file.readAsBytes();
+      _memCache[pdfPath] = bytes;
+      return bytes;
+    }
+
+    try {
+      final doc = await PdfDocument.openFile(pdfPath);
+      if (doc.pages.isEmpty) {
+        doc.dispose();
+        return null;
+      }
+      
+      final page = doc.pages.first;
+      
+      // Render small thumbnail (e.g. max width 400)
+      double scale = 400 / page.width;
+      if (scale > 2.0) scale = 2.0;
+
+      final pdfImage = await page.render(
+        fullWidth: page.width * scale,
+        fullHeight: page.height * scale,
+      );
+      
+      doc.dispose();
+
+      if (pdfImage != null) {
+        final image = await pdfImage.createImage();
+        pdfImage.dispose();
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          final bytes = byteData.buffer.asUint8List();
+          // Write asynchronously so we don't block
+          file.writeAsBytes(bytes);
+          _memCache[pdfPath] = bytes;
+          return bytes;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+}
