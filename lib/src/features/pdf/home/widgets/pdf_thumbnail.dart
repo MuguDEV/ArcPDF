@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -16,7 +15,15 @@ class PdfThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (!File(path).existsSync()) return const _Fallback();
+    final file = File(path);
+    if (!file.existsSync()) return const _Fallback();
+
+    // Check if the file is empty/corrupted (0 bytes)
+    try {
+      if (file.lengthSync() == 0) return _CorruptedFallback(theme: theme);
+    } catch (_) {
+      return _CorruptedFallback(theme: theme);
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -47,6 +54,25 @@ class PdfThumbnail extends StatelessWidget {
                   );
                 },
               ),
+      ),
+    );
+  }
+}
+
+class _CorruptedFallback extends StatelessWidget {
+  const _CorruptedFallback({required this.theme});
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 0.75, // Default ratio
+      child: Center(
+        child: Icon(
+          Icons.broken_image_rounded,
+          color: theme.colorScheme.error.withValues(alpha: 0.7),
+          size: 32,
+        ),
       ),
     );
   }
