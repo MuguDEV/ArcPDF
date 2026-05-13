@@ -72,13 +72,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       },
     );
     if (password == null && mounted) {
-      // If the user dismissed the bottom sheet, delay pop slightly so we don't
-      // clash with pdfrx error handling/rendering immediately
-      Future.microtask(() {
-        if (mounted) {
-          Navigator.of(context).maybePop();
-        }
-      });
+      // If the user dismissed the bottom sheet, pop synchronously so the viewer
+      // doesn't flash a broken state or attempt to render a failure.
+      Navigator.of(context).pop();
     }
     return password;
   }
@@ -97,7 +93,28 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 _docRef,
                 controller: _controller,
                 params: PdfViewerParams(
-                  // Remove layoutPages configuration to default to smooth continuous vertical scroll
+                  // Layout pages continuously in a vertical direction
+                  layoutPages: (pages, params) {
+                    final pageLayouts = <Rect>[];
+                    double y = params.margin;
+                    double maxWidth = 0;
+                    for (final page in pages) {
+                      pageLayouts.add(
+                        Rect.fromLTWH(
+                          params.margin,
+                          y,
+                          page.width,
+                          page.height,
+                        ),
+                      );
+                      y += page.height + params.margin;
+                      if (page.width > maxWidth) maxWidth = page.width;
+                    }
+                    return PdfPageLayout(
+                      pageLayouts: pageLayouts,
+                      documentSize: Size(maxWidth + params.margin * 2, y),
+                    );
+                  },
                   maxScale: 6,
                   minScale: 1,
                   enableTextSelection: false,
