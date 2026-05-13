@@ -1,14 +1,23 @@
-name: Release
+name: ArcPDF Release
 
 on:
   push:
     tags:
       - 'v*'
+
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release latest'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build & Release
+    name: Build & Release ArcPDF
     runs-on: ubuntu-latest
 
     steps:
@@ -32,8 +41,26 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Create Release
+      - name: Rename APK
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk
+
+      - name: Create tag for manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Create ArcPDF Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/app/outputs/flutter-apk/app-release.apk
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: ArcPDF ${{ github.event.inputs.version || github.ref_name }}
+          files: release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk
           generate_release_notes: true
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
