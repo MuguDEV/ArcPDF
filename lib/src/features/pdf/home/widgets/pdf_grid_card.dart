@@ -44,7 +44,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
         child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 0.5,
@@ -63,7 +63,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                     child: AspectRatio(
                       aspectRatio: 0.75,
                       child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),

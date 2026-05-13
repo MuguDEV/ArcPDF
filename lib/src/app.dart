@@ -14,37 +14,41 @@ class ArcPdfApp extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final font = settings.fontFamily;
 
-    // Monochrome theme with pure greyscale. Disable dynamic color for pure monochrome.
-    const seed = Color(0xFF808080);
+    // Softened greyscale theme based on user request.
+    const seed = Color(0xFF757575);
 
     const subThemes = FlexSubThemesData(
       interactionEffects: true,
-      cardRadius: 20,
-      inputDecoratorRadius: 16,
-      chipRadius: 12,
-      navigationBarIndicatorRadius: 18,
+      cardRadius: 28,
+      inputDecoratorRadius: 28,
+      chipRadius: 50,
+      navigationBarIndicatorRadius: 28,
       navigationBarBackgroundSchemeColor: SchemeColor.surfaceContainerLow,
-      bottomSheetRadius: 24,
+      bottomSheetRadius: 28,
+      dialogRadius: 28,
+      buttonMinSize: Size(64, 48),
+      thickBorderWidth: 2.0,
+      thinBorderWidth: 1.0,
     );
 
     final light = FlexThemeData.light(
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.light,
-        primary: const Color(0xFF000000),
+        primary: const Color(0xFF303030),
         onPrimary: const Color(0xFFFFFFFF),
-        secondary: const Color(0xFF404040),
+        secondary: const Color(0xFF606060),
         onSecondary: const Color(0xFFFFFFFF),
-        surface: const Color(0xFFF9F9F9),
+        surface: const Color(0xFFF5F5F5),
         surfaceContainerLow: const Color(0xFFFFFFFF),
-        surfaceContainerHigh: const Color(0xFFE0E0E0),
+        surfaceContainerHigh: const Color(0xFFEBEBEB),
       ),
       useMaterial3: true,
       appBarStyle: FlexAppBarStyle.surface,
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.light, family: font),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 0,
+      blendLevel: 2, // Slight blend for softer look
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
     );
 
@@ -52,21 +56,21 @@ class ArcPdfApp extends ConsumerWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.dark,
-        primary: const Color(0xFFFFFFFF),
-        onPrimary: const Color(0xFF000000),
-        secondary: const Color(0xFFC0C0C0),
-        onSecondary: const Color(0xFF000000),
-        surface: const Color(0xFF000000), // Pure black
-        surfaceContainerLow: const Color(0xFF1A1A1A),
-        surfaceContainerHigh: const Color(0xFF2A2A2A),
+        primary: const Color(0xFFE0E0E0),
+        onPrimary: const Color(0xFF1E1E1E),
+        secondary: const Color(0xFFA0A0A0),
+        onSecondary: const Color(0xFF1E1E1E),
+        surface: const Color(0xFF121212), // Soft dark instead of pure black
+        surfaceContainerLow: const Color(0xFF1E1E1E),
+        surfaceContainerHigh: const Color(0xFF2C2C2C),
       ),
       useMaterial3: true,
       appBarStyle: FlexAppBarStyle.surface,
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.dark, family: font),
       surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-      blendLevel: 0,
-      darkIsTrueBlack: true, // Pure black AMOLED
+      blendLevel: 2, // Slight blend
+      darkIsTrueBlack: false, // Turned off pure black
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
     );
 

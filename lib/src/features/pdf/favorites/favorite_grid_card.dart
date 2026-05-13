@@ -45,7 +45,7 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
               content: const Text('Removed from favorites'),
               action: SnackBarAction(label: 'Undo', onPressed: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(widget.item)),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             ),
           );
         }
@@ -57,7 +57,7 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
         child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(color: theme.colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
@@ -72,7 +72,7 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
             children: [
               // Thumbnail
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 child: AspectRatio(
                   aspectRatio: 0.75,
                   child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),

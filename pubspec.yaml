@@ -30,6 +30,7 @@ dependencies:
   collection: ^1.18.0
   google_fonts: ^6.2.1
   lottie: ^3.1.2
+  flutter_displaymode: ^0.7.0
 
 dev_dependencies:
   flutter_test:

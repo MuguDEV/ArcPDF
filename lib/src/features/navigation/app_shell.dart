@@ -79,7 +79,7 @@ class _ArcNavBar extends ConsumerWidget {
               elevation: 0,
               selectedIndex: selectedIndex,
               indicatorShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
               ),
               indicatorColor: isDark
                   ? Colors.white.withValues(alpha: 0.08)

@@ -207,11 +207,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 16),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(28),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(28),
                         borderSide: BorderSide(
                           color: Theme.of(context)
                               .colorScheme

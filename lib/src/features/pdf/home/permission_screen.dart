@@ -77,7 +77,7 @@ class PermissionScreen extends ConsumerWidget {
                 label: const Text('Open Settings'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                 ),
               ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
             ] else ...[
@@ -87,7 +87,7 @@ class PermissionScreen extends ConsumerWidget {
                 label: const Text('Grant Access'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                 ),
               ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
 

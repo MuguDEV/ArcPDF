@@ -243,11 +243,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                       },
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(28),
                           border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
+                          borderRadius: BorderRadius.circular(28),
                           child: PdfPageView(document: document, pageNumber: index + 1, alignment: Alignment.center),
                         ),
                       ),
@@ -291,7 +291,7 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(28),
                         ),
                         child: Icon(Icons.info_outline_rounded, color: theme.colorScheme.onPrimaryContainer),
                       ),
@@ -373,13 +373,13 @@ class _FrostedBar extends StatelessWidget {
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: navBg.withValues(alpha: isDark ? 0.7 : 0.8),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
             ),
@@ -445,7 +445,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
               filled: true,
               fillColor: theme.colorScheme.surfaceContainerHigh,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -468,7 +468,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             width: double.infinity,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () {

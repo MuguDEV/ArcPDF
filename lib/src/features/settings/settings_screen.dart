@@ -48,7 +48,7 @@ class SettingsScreen extends ConsumerWidget {
                         onSelectionChanged: (s) => ctrl.setThemeMode(s.first),
                         style: ButtonStyle(
                           shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                           ),
                         ),
                       ),
@@ -153,7 +153,7 @@ class SettingsScreen extends ConsumerWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(28),
                     ),
                     child: const Icon(Icons.picture_as_pdf_rounded, size: 22),
                   ),
@@ -206,7 +206,7 @@ class _SettingsCard extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
