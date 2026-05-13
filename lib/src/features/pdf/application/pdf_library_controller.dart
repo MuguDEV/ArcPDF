@@ -7,8 +7,6 @@ import '../domain/pdf_file_item.dart';
 
 export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
 
-import 'package:flutter_dynamic_icon/flutter_dynamic_icon.dart';
-
 enum PdfFilter { all, recent, downloads, large }
 
 enum PdfSortField { name, date, size }
@@ -103,14 +101,6 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       items: result.files,
       permissionStatus: result.permissionStatus,
     );
-
-    // Update app badge if supported
-    try {
-      await FlutterDynamicIcon.setApplicationIconBadgeNumber(
-          result.files.length);
-    } catch (e) {
-      // Ignore errors if badge setting fails
-    }
   }
 
   void setQuery(String query) => state = state.copyWith(query: query);
