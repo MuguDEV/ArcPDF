@@ -1,7 +1,7 @@
 name: arcpdf
 description: ArcPDF - premium local-first PDF manager and viewer.
 publish_to: "none"
-version: 1.0.2+1
+version: 1.0.2-beta2+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   pdfrx: ^1.0.103
-  flex_color_scheme: ^8.1.0
   flutter_animate: ^4.5.0
   animations: ^2.0.11
   external_path: ^2.2.0
