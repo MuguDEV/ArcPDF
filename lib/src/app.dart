@@ -3,13 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/navigation/app_shell.dart';
 import 'features/settings/settings_controller.dart';
+import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
 
-class ArcPdfApp extends ConsumerWidget {
+class ArcPdfApp extends ConsumerStatefulWidget {
   const ArcPdfApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ArcPdfApp> createState() => _ArcPdfAppState();
+}
+
+class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(intentServiceProvider).init();
+  }
+
+  @override
+  void dispose() {
+    ref.read(intentServiceProvider).dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final font = settings.fontFamily;
 
@@ -178,6 +196,7 @@ class ArcPdfApp extends ConsumerWidget {
 
     return MaterialApp(
       title: 'ArcPDF',
+      navigatorKey: ref.read(intentServiceProvider).navigatorKey,
       debugShowCheckedModeBanner: false,
       themeMode: settings.themeMode,
       theme: buildTheme(lightColorScheme, Brightness.light),

@@ -1,14 +1,93 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../updater/updater_service.dart';
 import 'settings_controller.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  String _version = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = 'v${info.version} (${info.buildNumber})';
+      });
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final release = await UpdaterService.checkForUpdates();
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // dismiss loading
+
+    if (release != null) {
+      _showUpdateDialog(release);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are on the latest version!')),
+      );
+    }
+  }
+
+  void _showUpdateDialog(GitHubRelease release) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Available: ${release.version}'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Changelog:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(release.body),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () {
+              launchUrl(Uri.parse(release.url), mode: LaunchMode.externalApplication);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Download'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final ctrl = ref.read(settingsControllerProvider.notifier);
     final theme = Theme.of(context);
@@ -77,13 +156,6 @@ class SettingsScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const Divider(height: 16),
-                    SwitchListTile.adaptive(
-                      value: settings.useDynamicColor,
-                      onChanged: ctrl.setDynamicColor,
-                      title: const Text('Material You colors'),
-                      subtitle: const Text('Use wallpaper-based color extraction'),
-                    ),
                   ],
                 ),
               ).animate(delay: 40.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
@@ -120,8 +192,8 @@ class SettingsScreen extends ConsumerWidget {
                         width: 160,
                         child: Slider.adaptive(
                           value: settings.animationIntensity,
-                          min: 0.4,
-                          max: 1.4,
+                          min: 0.01,
+                          max: 1.0,
                           onChanged: ctrl.setAnimationIntensity,
                         ),
                       ),
@@ -133,7 +205,7 @@ class SettingsScreen extends ConsumerWidget {
                         width: 160,
                         child: Slider.adaptive(
                           value: settings.thumbnailQuality,
-                          min: 0.5,
+                          min: 0.01,
                           max: 1.0,
                           onChanged: ctrl.setThumbnailQuality,
                         ),
@@ -147,18 +219,29 @@ class SettingsScreen extends ConsumerWidget {
 
               // ── About ────────────────────────────────────────
               _SettingsCard(
-                child: ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(28),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: const Icon(Icons.picture_as_pdf_rounded, size: 22),
+                      ),
+                      title: const Text('ArcPDF'),
+                      subtitle: Text('$_version · Your local PDF workspace'),
                     ),
-                    child: const Icon(Icons.picture_as_pdf_rounded, size: 22),
-                  ),
-                  title: const Text('ArcPDF'),
-                  subtitle: const Text('v1.0.0 · Your local PDF workspace'),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.system_update_rounded),
+                      title: const Text('Check for Updates'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _checkForUpdates,
+                    ),
+                  ],
                 ),
               ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 

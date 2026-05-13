@@ -33,7 +33,6 @@ extension AppFontFamilyX on AppFontFamily {
 class AppSettings {
   const AppSettings({
     required this.themeMode,
-    required this.useDynamicColor,
     required this.useGrid,
     required this.animationIntensity,
     required this.thumbnailQuality,
@@ -41,7 +40,6 @@ class AppSettings {
   });
 
   final ThemeMode themeMode;
-  final bool useDynamicColor;
   final bool useGrid;
   final double animationIntensity;
   final double thumbnailQuality;
@@ -49,7 +47,6 @@ class AppSettings {
 
   AppSettings copyWith({
     ThemeMode? themeMode,
-    bool? useDynamicColor,
     bool? useGrid,
     double? animationIntensity,
     double? thumbnailQuality,
@@ -57,7 +54,6 @@ class AppSettings {
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
-      useDynamicColor: useDynamicColor ?? this.useDynamicColor,
       useGrid: useGrid ?? this.useGrid,
       animationIntensity: animationIntensity ?? this.animationIntensity,
       thumbnailQuality: thumbnailQuality ?? this.thumbnailQuality,
@@ -72,10 +68,9 @@ class SettingsController extends StateNotifier<AppSettings> {
   SettingsController(this._box)
       : super(AppSettings(
           themeMode: ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
-          useDynamicColor: _box.get('dynamic', defaultValue: false) as bool,
           useGrid: _box.get('grid', defaultValue: false) as bool,
-          animationIntensity: (_box.get('anim', defaultValue: 1.0) as num).toDouble(),
-          thumbnailQuality: (_box.get('thumbQ', defaultValue: 0.8) as num).toDouble(),
+          animationIntensity: ((_box.get('anim', defaultValue: 1.0) as num).toDouble()).clamp(0.01, 1.0),
+          thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
           fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
         ));
 
@@ -84,11 +79,6 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(themeMode: mode);
     await _box.put('themeMode', mode.index);
-  }
-
-  Future<void> setDynamicColor(bool value) async {
-    state = state.copyWith(useDynamicColor: value);
-    await _box.put('dynamic', value);
   }
 
   Future<void> setGrid(bool value) async {
