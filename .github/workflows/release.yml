@@ -44,7 +44,7 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p release
-          cp build/app/outputs/flutter-apk/app-release.apk release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk"
 
       - name: Create tag for manual release
         if: github.event_name == 'workflow_dispatch'
@@ -59,7 +59,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
           name: ArcPDF ${{ github.event.inputs.version || github.ref_name }}
-          files: release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk
+          files: "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk"
           generate_release_notes: true
           overwrite_files: true
         env:
