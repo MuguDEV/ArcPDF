@@ -175,7 +175,7 @@ class _RecentTileState extends State<_RecentTile> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(28),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Row(
@@ -185,7 +185,7 @@ class _RecentTileState extends State<_RecentTile> {
                   height: 40,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                   child: Icon(
                     Icons.picture_as_pdf_rounded,

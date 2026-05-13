@@ -47,7 +47,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
           curve: Curves.easeOutCubic,
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(28),
               color: theme.colorScheme.surfaceContainerLow,
               border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),

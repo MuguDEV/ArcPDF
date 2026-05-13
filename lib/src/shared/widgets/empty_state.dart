@@ -74,7 +74,7 @@ class ArcEmptyState extends StatelessWidget {
               FilledButton.tonal(
                 onPressed: action,
                 style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                   minimumSize: const Size(160, 48),
                 ),
                 child: Text(actionLabel!),

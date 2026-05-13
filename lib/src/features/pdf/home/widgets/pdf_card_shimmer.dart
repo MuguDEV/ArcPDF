@@ -17,7 +17,7 @@ class PdfCardShimmer extends StatelessWidget {
           height: 136,
           decoration: BoxDecoration(
             color: base,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
         ),
       ),
