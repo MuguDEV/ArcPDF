@@ -7,7 +7,13 @@ import '../domain/pdf_file_item.dart';
 
 export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
 
+import 'package:flutter_dynamic_icon/flutter_dynamic_icon.dart';
+
 enum PdfFilter { all, recent, downloads, large }
+
+enum PdfSortField { name, date, size }
+
+enum PdfSortDirection { ascending, descending }
 
 class PdfLibraryState {
   const PdfLibraryState({
@@ -15,6 +21,8 @@ class PdfLibraryState {
     this.items = const [],
     this.query = '',
     this.filter = PdfFilter.all,
+    this.sortField = PdfSortField.date,
+    this.sortDirection = PdfSortDirection.descending,
     this.favorites = const {},
     this.recents = const {},
     this.permissionStatus = StoragePermissionStatus.granted,
@@ -24,6 +32,8 @@ class PdfLibraryState {
   final List<PdfFileItem> items;
   final String query;
   final PdfFilter filter;
+  final PdfSortField sortField;
+  final PdfSortDirection sortDirection;
   final Set<String> favorites;
   final Map<String, DateTime> recents; // path → openedAt
   final StoragePermissionStatus permissionStatus;
@@ -33,6 +43,8 @@ class PdfLibraryState {
     List<PdfFileItem>? items,
     String? query,
     PdfFilter? filter,
+    PdfSortField? sortField,
+    PdfSortDirection? sortDirection,
     Set<String>? favorites,
     Map<String, DateTime>? recents,
     StoragePermissionStatus? permissionStatus,
@@ -42,6 +54,8 @@ class PdfLibraryState {
       items: items ?? this.items,
       query: query ?? this.query,
       filter: filter ?? this.filter,
+      sortField: sortField ?? this.sortField,
+      sortDirection: sortDirection ?? this.sortDirection,
       favorites: favorites ?? this.favorites,
       recents: recents ?? this.recents,
       permissionStatus: permissionStatus ?? this.permissionStatus,
@@ -89,10 +103,22 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       items: result.files,
       permissionStatus: result.permissionStatus,
     );
+
+    // Update app badge if supported
+    try {
+      await FlutterDynamicIcon.setApplicationIconBadgeNumber(
+          result.files.length);
+    } catch (e) {
+      // Ignore errors if badge setting fails
+    }
   }
 
   void setQuery(String query) => state = state.copyWith(query: query);
   void setFilter(PdfFilter filter) => state = state.copyWith(filter: filter);
+  void setSortField(PdfSortField field) =>
+      state = state.copyWith(sortField: field);
+  void setSortDirection(PdfSortDirection direction) =>
+      state = state.copyWith(sortDirection: direction);
 
   Future<void> toggleFavorite(PdfFileItem item) async {
     final favorites = {...state.favorites};
@@ -129,17 +155,46 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     state = state.copyWith(recents: recents);
   }
 
-  List<PdfFileItem> filteredItems({bool favoritesOnly = false, bool recentsOnly = false}) {
+  List<PdfFileItem> filteredItems(
+      {bool favoritesOnly = false, bool recentsOnly = false}) {
     final q = state.query.trim().toLowerCase();
-    return state.items.where((e) {
+    var filtered = state.items.where((e) {
       if (favoritesOnly && !state.favorites.contains(e.path)) return false;
       if (recentsOnly && !state.recents.containsKey(e.path)) return false;
-      if (state.filter == PdfFilter.downloads && !e.path.toLowerCase().contains('download')) return false;
-      if (state.filter == PdfFilter.recent && DateTime.now().difference(e.lastModified).inDays > 7) return false;
-      if (state.filter == PdfFilter.large && e.sizeBytes < 10 * 1024 * 1024) return false;
-      if (q.isNotEmpty && !e.name.toLowerCase().contains(q)) return false;
+      if (state.filter == PdfFilter.downloads &&
+          !e.path.toLowerCase().contains('download')) {
+        return false;
+      }
+      if (state.filter == PdfFilter.recent &&
+          DateTime.now().difference(e.lastModified).inDays > 7) {
+        return false;
+      }
+      if (state.filter == PdfFilter.large && e.sizeBytes < 10 * 1024 * 1024) {
+        return false;
+      }
+      if (q.isNotEmpty && !e.name.toLowerCase().contains(q)) {
+        return false;
+      }
       return true;
-    }).toList(growable: false);
+    }).toList();
+
+    filtered.sort((a, b) {
+      int cmp = 0;
+      switch (state.sortField) {
+        case PdfSortField.name:
+          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          break;
+        case PdfSortField.date:
+          cmp = a.lastModified.compareTo(b.lastModified);
+          break;
+        case PdfSortField.size:
+          cmp = a.sizeBytes.compareTo(b.sizeBytes);
+          break;
+      }
+      return state.sortDirection == PdfSortDirection.ascending ? cmp : -cmp;
+    });
+
+    return filtered;
   }
 
   /// Returns recents enriched with openedAt, grouped: Today / Yesterday / This Week / Older
@@ -153,7 +208,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         .where((e) => state.recents.containsKey(e.path))
         .map((e) => e.copyWith(openedAt: state.recents[e.path]))
         .toList()
-      ..sort((a, b) => (b.openedAt ?? DateTime(0)).compareTo(a.openedAt ?? DateTime(0)));
+      ..sort((a, b) =>
+          (b.openedAt ?? DateTime(0)).compareTo(a.openedAt ?? DateTime(0)));
 
     final groups = <String, List<PdfFileItem>>{
       'Today': [],
@@ -163,7 +219,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     };
 
     for (final item in enriched) {
-      final d = DateTime(item.openedAt!.year, item.openedAt!.month, item.openedAt!.day);
+      final d = DateTime(
+          item.openedAt!.year, item.openedAt!.month, item.openedAt!.day);
       if (!d.isBefore(today)) {
         groups['Today']!.add(item);
       } else if (!d.isBefore(yesterday)) {
