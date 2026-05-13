@@ -15,10 +15,6 @@ compileOptions {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-kotlinOptions {
-    jvmTarget = "17"
-}
-
     defaultConfig {
         applicationId = "com.arcpdf.app"
         // You can update the following values to match your application needs.
