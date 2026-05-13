@@ -8,6 +8,7 @@ class PdfFileItem {
     required this.lastModified,
     required this.locationLabel,
     this.isEncrypted = false,
+    this.isCorrupted = false,
     this.pageCount,
     this.openedAt,
   });
@@ -18,6 +19,7 @@ class PdfFileItem {
   final DateTime lastModified;
   final String locationLabel;
   final bool isEncrypted;
+  final bool isCorrupted;
   final int? pageCount;
   final DateTime? openedAt;
 
@@ -31,12 +33,13 @@ class PdfFileItem {
       lastModified: lastModified,
       locationLabel: locationLabel,
       isEncrypted: isEncrypted,
+      isCorrupted: isCorrupted,
       pageCount: pageCount,
       openedAt: openedAt ?? this.openedAt,
     );
   }
 
-  static PdfFileItem fromFile(File file, {bool isEncrypted = false}) {
+  static PdfFileItem fromFile(File file, {bool isEncrypted = false, bool isCorrupted = false}) {
     final stat = file.statSync();
     final p = file.path;
     final parts = p.split(Platform.pathSeparator);
@@ -47,6 +50,7 @@ class PdfFileItem {
       lastModified: stat.modified,
       locationLabel: parts.length > 1 ? parts[parts.length - 2] : 'Storage',
       isEncrypted: isEncrypted,
+      isCorrupted: isCorrupted,
     );
   }
 }

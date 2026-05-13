@@ -8,22 +8,21 @@ import 'package:shimmer/shimmer.dart';
 import 'pdf_thumbnail_cache.dart';
 
 class PdfThumbnail extends StatelessWidget {
-  const PdfThumbnail({super.key, required this.path, this.isEncrypted = false});
+  const PdfThumbnail({super.key, required this.path, this.isEncrypted = false, this.isCorrupted = false});
   final String path;
   final bool isEncrypted;
+  final bool isCorrupted;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final file = File(path);
-    if (!file.existsSync()) return const _Fallback();
 
-    // Check if the file is empty/corrupted (0 bytes)
-    try {
-      if (file.lengthSync() == 0) return _CorruptedFallback(theme: theme);
-    } catch (_) {
+    if (isCorrupted) {
       return _CorruptedFallback(theme: theme);
     }
+
+    final file = File(path);
+    if (!file.existsSync()) return const _Fallback();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),

@@ -98,8 +98,9 @@ List<PdfFileItem> _walkRoots(List<String> roots) {
         if (seen.contains(entity.path)) continue;
         seen.add(entity.path);
         try {
-          final isEncrypted = _isEncrypted(entity);
-          out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted));
+          final isCorrupted = entity.lengthSync() == 0;
+          final isEncrypted = !isCorrupted && _isEncrypted(entity);
+          out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted, isCorrupted: isCorrupted));
         } catch (_) {}
       }
     } catch (_) {}

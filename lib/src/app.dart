@@ -15,7 +15,7 @@ class ArcPdfApp extends ConsumerWidget {
     final font = settings.fontFamily;
 
     // Monochrome theme with pure greyscale. Disable dynamic color for pure monochrome.
-    const seed = Colors.grey;
+    const seed = Color(0xFF808080);
 
     const subThemes = FlexSubThemesData(
       interactionEffects: true,
@@ -31,10 +31,10 @@ class ArcPdfApp extends ConsumerWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.light,
-        primary: Colors.black,
-        onPrimary: Colors.white,
-        secondary: Colors.grey.shade800,
-        onSecondary: Colors.white,
+        primary: const Color(0xFF000000),
+        onPrimary: const Color(0xFFFFFFFF),
+        secondary: const Color(0xFF404040),
+        onSecondary: const Color(0xFFFFFFFF),
         surface: const Color(0xFFF9F9F9),
         surfaceContainerLow: const Color(0xFFFFFFFF),
         surfaceContainerHigh: const Color(0xFFE0E0E0),
@@ -52,13 +52,13 @@ class ArcPdfApp extends ConsumerWidget {
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
         brightness: Brightness.dark,
-        primary: Colors.white,
-        onPrimary: Colors.black,
-        secondary: Colors.grey.shade300,
-        onSecondary: Colors.black,
-        surface: const Color(0xFF121212),
-        surfaceContainerLow: const Color(0xFF1E1E1E),
-        surfaceContainerHigh: const Color(0xFF2C2C2C),
+        primary: const Color(0xFFFFFFFF),
+        onPrimary: const Color(0xFF000000),
+        secondary: const Color(0xFFC0C0C0),
+        onSecondary: const Color(0xFF000000),
+        surface: const Color(0xFF000000), // Pure black
+        surfaceContainerLow: const Color(0xFF1A1A1A),
+        surfaceContainerHigh: const Color(0xFF2A2A2A),
       ),
       useMaterial3: true,
       appBarStyle: FlexAppBarStyle.surface,
