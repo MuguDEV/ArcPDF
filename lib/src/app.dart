@@ -1,4 +1,3 @@
-import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,104 +13,175 @@ class ArcPdfApp extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final font = settings.fontFamily;
 
-    // Softened greyscale theme based on user request.
-    const seed = Color(0xFF757575);
-
-    const subThemes = FlexSubThemesData(
-      interactionEffects: true,
-      cardRadius: 28,
-      inputDecoratorRadius: 28,
-      chipRadius: 50,
-      navigationBarIndicatorRadius: 28,
-      navigationBarBackgroundSchemeColor: SchemeColor.surfaceContainerLow,
-      bottomSheetRadius: 28,
-      dialogRadius: 28,
-      buttonMinSize: Size(64, 48),
-      thickBorderWidth: 2.0,
-      thinBorderWidth: 1.0,
+    const lightColorScheme = ColorScheme(
+      brightness: Brightness.light,
+      primary: Color(0xFF303030),
+      onPrimary: Color(0xFFFFFFFF),
+      primaryContainer: Color(0xFFE0E0E0),
+      onPrimaryContainer: Color(0xFF1E1E1E),
+      secondary: Color(0xFF606060),
+      onSecondary: Color(0xFFFFFFFF),
+      secondaryContainer: Color(0xFFEBEBEB),
+      onSecondaryContainer: Color(0xFF1E1E1E),
+      tertiary: Color(0xFF757575),
+      onTertiary: Color(0xFFFFFFFF),
+      tertiaryContainer: Color(0xFFEEEEEE),
+      onTertiaryContainer: Color(0xFF1E1E1E),
+      error: Color(0xFF424242),
+      onError: Color(0xFFFFFFFF),
+      errorContainer: Color(0xFFE0E0E0),
+      onErrorContainer: Color(0xFF1E1E1E),
+      surface: Color(0xFFF5F5F5),
+      onSurface: Color(0xFF1E1E1E),
+      surfaceContainerHighest: Color(0xFFD4D4D4),
+      surfaceContainerHigh: Color(0xFFEBEBEB),
+      surfaceContainer: Color(0xFFF0F0F0),
+      surfaceContainerLow: Color(0xFFFFFFFF),
+      surfaceContainerLowest: Color(0xFFFFFFFF),
+      onSurfaceVariant: Color(0xFF424242),
+      outline: Color(0xFF9E9E9E),
+      outlineVariant: Color(0xFFE0E0E0),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFF303030),
+      onInverseSurface: Color(0xFFF5F5F5),
+      inversePrimary: Color(0xFFE0E0E0),
+      surfaceTint: Colors.transparent,
     );
 
-    final light = FlexThemeData.light(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Brightness.light,
-        primary: const Color(0xFF303030),
-        onPrimary: const Color(0xFFFFFFFF),
-        secondary: const Color(0xFF606060),
-        onSecondary: const Color(0xFFFFFFFF),
-        surface: const Color(0xFFF5F5F5),
-        surfaceContainerLow: const Color(0xFFFFFFFF),
-        surfaceContainerHigh: const Color(0xFFEBEBEB),
-      ),
-      useMaterial3: true,
-      appBarStyle: FlexAppBarStyle.surface,
-      subThemesData: subThemes,
-      textTheme: ArcTypography.textTheme(Brightness.light, family: font),
-      surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 0, // No blending, enforce pure neutral greys
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
-    ).copyWith(
-      splashColor: Colors.black12,
-      highlightColor: Colors.black12,
-      // Remove M3 surface tint that adds colors to cards/surfaces
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Brightness.light,
-        primary: const Color(0xFF303030),
-        onPrimary: const Color(0xFFFFFFFF),
-        secondary: const Color(0xFF606060),
-        onSecondary: const Color(0xFFFFFFFF),
-        surface: const Color(0xFFF5F5F5),
-        surfaceContainerLow: const Color(0xFFFFFFFF),
-        surfaceContainerHigh: const Color(0xFFEBEBEB),
-        surfaceTint: Colors.transparent,
-      ),
+    const darkColorScheme = ColorScheme(
+      brightness: Brightness.dark,
+      primary: Color(0xFFE0E0E0),
+      onPrimary: Color(0xFF1E1E1E),
+      primaryContainer: Color(0xFF424242),
+      onPrimaryContainer: Color(0xFFFFFFFF),
+      secondary: Color(0xFFA0A0A0),
+      onSecondary: Color(0xFF1E1E1E),
+      secondaryContainer: Color(0xFF303030),
+      onSecondaryContainer: Color(0xFFFFFFFF),
+      tertiary: Color(0xFF9E9E9E),
+      onTertiary: Color(0xFF1E1E1E),
+      tertiaryContainer: Color(0xFF424242),
+      onTertiaryContainer: Color(0xFFFFFFFF),
+      error: Color(0xFFBDBDBD),
+      onError: Color(0xFF1E1E1E),
+      errorContainer: Color(0xFF424242),
+      onErrorContainer: Color(0xFFFFFFFF),
+      surface: Color(0xFF121212),
+      onSurface: Color(0xFFE0E0E0),
+      surfaceContainerHighest: Color(0xFF383838),
+      surfaceContainerHigh: Color(0xFF2C2C2C),
+      surfaceContainer: Color(0xFF242424),
+      surfaceContainerLow: Color(0xFF1E1E1E),
+      surfaceContainerLowest: Color(0xFF0F0F0F),
+      onSurfaceVariant: Color(0xFFBDBDBD),
+      outline: Color(0xFF757575),
+      outlineVariant: Color(0xFF424242),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFFE0E0E0),
+      onInverseSurface: Color(0xFF1E1E1E),
+      inversePrimary: Color(0xFF303030),
+      surfaceTint: Colors.transparent,
     );
 
-    final dark = FlexThemeData.dark(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Brightness.dark,
-        primary: const Color(0xFFE0E0E0),
-        onPrimary: const Color(0xFF1E1E1E),
-        secondary: const Color(0xFFA0A0A0),
-        onSecondary: const Color(0xFF1E1E1E),
-        surface: const Color(0xFF121212), // Soft dark instead of pure black
-        surfaceContainerLow: const Color(0xFF1E1E1E),
-        surfaceContainerHigh: const Color(0xFF2C2C2C),
-      ),
-      useMaterial3: true,
-      appBarStyle: FlexAppBarStyle.surface,
-      subThemesData: subThemes,
-      textTheme: ArcTypography.textTheme(Brightness.dark, family: font),
-      surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-      blendLevel: 0, // No blending, enforce pure neutral greys
-      darkIsTrueBlack: false, // Turned off pure black
-      visualDensity: FlexColorScheme.comfortablePlatformDensity,
-    ).copyWith(
-      splashColor: Colors.white12,
-      highlightColor: Colors.white12,
-      // Remove M3 surface tint that adds colors to cards/surfaces
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: Brightness.dark,
-        primary: const Color(0xFFE0E0E0),
-        onPrimary: const Color(0xFF1E1E1E),
-        secondary: const Color(0xFFA0A0A0),
-        onSecondary: const Color(0xFF1E1E1E),
-        surface: const Color(0xFF121212),
-        surfaceContainerLow: const Color(0xFF1E1E1E),
-        surfaceContainerHigh: const Color(0xFF2C2C2C),
-        surfaceTint: Colors.transparent,
-      ),
-    );
+    ThemeData buildTheme(ColorScheme colorScheme, Brightness brightness) {
+      final textTheme = ArcTypography.textTheme(brightness, family: font);
+
+      return ThemeData(
+        useMaterial3: true,
+        colorScheme: colorScheme,
+        brightness: brightness,
+        textTheme: textTheme,
+        scaffoldBackgroundColor: colorScheme.surface,
+        splashColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
+        highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        appBarTheme: AppBarTheme(
+          backgroundColor: colorScheme.surface,
+          foregroundColor: colorScheme.onSurface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          color: colorScheme.surfaceContainerLow,
+          elevation: 0,
+        ),
+        dialogTheme: DialogThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: colorScheme.surfaceContainerHigh,
+          elevation: 0,
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          elevation: 0,
+        ),
+        chipTheme: ChipThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+          side: BorderSide.none,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: const BorderSide(width: 1.0),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(width: 1.0, color: colorScheme.outline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(width: 2.0, color: colorScheme.primary),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(width: 1.0, color: colorScheme.error),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide(width: 2.0, color: colorScheme.error),
+          ),
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: colorScheme.surfaceContainerLow,
+          indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(64, 48),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(64, 48),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(64, 48),
+            side: BorderSide(width: 1.0, color: colorScheme.outline),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(64, 48),
+          ),
+        ),
+      );
+    }
 
     return MaterialApp(
       title: 'ArcPDF',
       debugShowCheckedModeBanner: false,
       themeMode: settings.themeMode,
-      theme: light,
-      darkTheme: dark,
+      theme: buildTheme(lightColorScheme, Brightness.light),
+      darkTheme: buildTheme(darkColorScheme, Brightness.dark),
       home: const AppShell(),
     );
   }
