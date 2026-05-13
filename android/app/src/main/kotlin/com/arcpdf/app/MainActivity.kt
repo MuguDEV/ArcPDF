@@ -1,4 +1,4 @@
-package com.example.arcpdf
+package com.arcpdf.app
 
 import io.flutter.embedding.android.FlutterActivity
 
