@@ -48,8 +48,24 @@ class ArcPdfApp extends ConsumerWidget {
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.light, family: font),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 2, // Slight blend for softer look
+      blendLevel: 0, // No blending, enforce pure neutral greys
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
+    ).copyWith(
+      splashColor: Colors.black12,
+      highlightColor: Colors.black12,
+      // Remove M3 surface tint that adds colors to cards/surfaces
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.light,
+        primary: const Color(0xFF303030),
+        onPrimary: const Color(0xFFFFFFFF),
+        secondary: const Color(0xFF606060),
+        onSecondary: const Color(0xFFFFFFFF),
+        surface: const Color(0xFFF5F5F5),
+        surfaceContainerLow: const Color(0xFFFFFFFF),
+        surfaceContainerHigh: const Color(0xFFEBEBEB),
+        surfaceTint: Colors.transparent,
+      ),
     );
 
     final dark = FlexThemeData.dark(
@@ -69,9 +85,25 @@ class ArcPdfApp extends ConsumerWidget {
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.dark, family: font),
       surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-      blendLevel: 2, // Slight blend
+      blendLevel: 0, // No blending, enforce pure neutral greys
       darkIsTrueBlack: false, // Turned off pure black
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
+    ).copyWith(
+      splashColor: Colors.white12,
+      highlightColor: Colors.white12,
+      // Remove M3 surface tint that adds colors to cards/surfaces
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.dark,
+        primary: const Color(0xFFE0E0E0),
+        onPrimary: const Color(0xFF1E1E1E),
+        secondary: const Color(0xFFA0A0A0),
+        onSecondary: const Color(0xFF1E1E1E),
+        surface: const Color(0xFF121212),
+        surfaceContainerLow: const Color(0xFF1E1E1E),
+        surfaceContainerHigh: const Color(0xFF2C2C2C),
+        surfaceTint: Colors.transparent,
+      ),
     );
 
     return MaterialApp(
