@@ -14,6 +14,7 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
+
     
     afterEvaluate {
         if (project.hasProperty("android")) {
@@ -23,6 +24,13 @@ subprojects {
                     targetCompatibility = JavaVersion.VERSION_17
                 }
             }
+        }
+    }
+}
+subprojects {
+    project.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
 }
