@@ -25,7 +25,7 @@ class SettingsScreen extends ConsumerWidget {
           sliver: SliverList.list(
             children: [
               // ── Appearance ───────────────────────────────────
-              _SectionHeader(label: 'Appearance').animate().fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Appearance').animate().fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -91,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── Layout ───────────────────────────────────────
-              _SectionHeader(label: 'Layout').animate(delay: 120.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Layout').animate(delay: 120.ms).fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -106,7 +106,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── Reader ───────────────────────────────────────
-              _SectionHeader(label: 'Reader').animate(delay: 160.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Reader').animate(delay: 160.ms).fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(

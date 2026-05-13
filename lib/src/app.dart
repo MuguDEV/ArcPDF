@@ -14,9 +14,8 @@ class ArcPdfApp extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final font = settings.fontFamily;
 
-    // Charcoal dark — NOT pure AMOLED black, NOT dynamic colour by default.
-    // Default grey premium accent
-    const seed = Color(0xFF8E959B);
+    // Monochrome theme with pure greyscale. Disable dynamic color for pure monochrome.
+    const seed = Colors.grey;
 
     const subThemes = FlexSubThemesData(
       interactionEffects: true,
@@ -29,39 +28,45 @@ class ArcPdfApp extends ConsumerWidget {
     );
 
     final light = FlexThemeData.light(
-      colorScheme: settings.useDynamicColor
-          ? null
-          : ColorScheme.fromSeed(
-              seedColor: seed,
-              brightness: Brightness.light,
-              surface: const Color(0xFFF9F9F9),
-              surfaceContainerLow: const Color(0xFFFFFFFF),
-              surfaceContainerHigh: const Color(0xFFF0F0F0),
-            ),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.light,
+        primary: Colors.black,
+        onPrimary: Colors.white,
+        secondary: Colors.grey.shade800,
+        onSecondary: Colors.white,
+        surface: const Color(0xFFF9F9F9),
+        surfaceContainerLow: const Color(0xFFFFFFFF),
+        surfaceContainerHigh: const Color(0xFFE0E0E0),
+      ),
       useMaterial3: true,
       appBarStyle: FlexAppBarStyle.surface,
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.light, family: font),
       surfaceMode: FlexSurfaceMode.levelSurfacesLowScaffold,
-      blendLevel: 2,
+      blendLevel: 0,
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
     );
 
     final dark = FlexThemeData.dark(
-      // Layered charcoal: scaffold #121212, surface #181818, container #222222
-      colorScheme: settings.useDynamicColor
-          ? null
-          : ColorScheme.fromSeed(
-              seedColor: seed,
-              brightness: Brightness.dark,
-            ),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: Brightness.dark,
+        primary: Colors.white,
+        onPrimary: Colors.black,
+        secondary: Colors.grey.shade300,
+        onSecondary: Colors.black,
+        surface: const Color(0xFF121212),
+        surfaceContainerLow: const Color(0xFF1E1E1E),
+        surfaceContainerHigh: const Color(0xFF2C2C2C),
+      ),
       useMaterial3: true,
       appBarStyle: FlexAppBarStyle.surface,
       subThemesData: subThemes,
       textTheme: ArcTypography.textTheme(Brightness.dark, family: font),
       surfaceMode: FlexSurfaceMode.highScaffoldLowSurfaces,
-      blendLevel: 2,
-      darkIsTrueBlack: false, // Explicitly NOT AMOLED
+      blendLevel: 0,
+      darkIsTrueBlack: true, // Pure black AMOLED
       visualDensity: FlexColorScheme.comfortablePlatformDensity,
     );
 

@@ -230,6 +230,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       index: index,
       onFavorite: () => ctrl.toggleFavorite(item),
       onTap: () async {
+        if (item.sizeBytes == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot open empty or corrupted file')),
+          );
+          return;
+        }
         await ctrl.markRecent(item);
         if (!context.mounted) return;
         await Navigator.of(context)
@@ -245,6 +251,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       index: index,
       onFavorite: () => ctrl.toggleFavorite(item),
       onTap: () async {
+        if (item.sizeBytes == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot open empty or corrupted file')),
+          );
+          return;
+        }
         await ctrl.markRecent(item);
         if (!context.mounted) return;
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)));
