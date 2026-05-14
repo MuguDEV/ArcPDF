@@ -67,7 +67,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     for (final selection in selections) {
       if (selection.isEmpty) continue;
       final pageText = selection.pageText;
-
+      
       // Convert ranges to bounds
       final boundsList = <double>[];
       for (final range in selection.ranges) {
@@ -211,6 +211,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 _docRef,
                 controller: _controller,
                 params: PdfViewerParams(
+                  viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                    PdfViewerScrollThumb(controller: _controller, orientation: ScrollbarOrientation.right),
+                  ],
                   pageOverlaysBuilder: (context, pageRect, page) => [
                     PdfAnnotationOverlay(
                       item: widget.item,
