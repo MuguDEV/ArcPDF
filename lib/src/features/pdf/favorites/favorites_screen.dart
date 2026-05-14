@@ -49,7 +49,7 @@ class FavoritesScreen extends ConsumerWidget {
                 icon: Icons.favorite_border_rounded,
                 title: 'No favorites yet',
                 subtitle: 'Long-press any PDF in the Home tab to add it to your favorites.',
-                iconColor: Colors.pink.shade300,
+                iconColor: Colors.grey.shade400,
                 animated: true,
               ),
             )

@@ -134,7 +134,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                       onPressed: widget.onFavorite,
                       icon: Icon(
                         isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: isFav ? Colors.pink.shade400 : null,
+                        color: isFav ? Colors.grey.shade400 : null,
                       ),
                     ),
                   ),

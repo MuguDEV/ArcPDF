@@ -78,14 +78,20 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   final Box<int> _timestampsBox;
 
   void _loadSavedState() {
+    // Migration: Wipe out old numeric keys in _favBox and _recentsBox
+    final favKeysToDelete = _favBox.keys.where((k) => k is! String).toList();
+    if (favKeysToDelete.isNotEmpty) _favBox.deleteAll(favKeysToDelete);
+
+    final recentKeysToDelete = _recentsBox.keys.where((k) => k is! String).toList();
+    if (recentKeysToDelete.isNotEmpty) _recentsBox.deleteAll(recentKeysToDelete);
+
     final recents = <String, DateTime>{};
-    for (final key in _recentsBox.keys) {
-      final path = _recentsBox.get(key);
-      if (path == null) continue;
+    final now = DateTime.now();
+    for (final path in _recentsBox.values) {
       final ms = _timestampsBox.get(path);
       recents[path] = ms != null
           ? DateTime.fromMillisecondsSinceEpoch(ms)
-          : DateTime.now().subtract(const Duration(days: 30));
+          : now.subtract(const Duration(days: 30));
     }
     state = state.copyWith(
       favorites: _favBox.values.toSet(),
@@ -114,17 +120,10 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     final favorites = {...state.favorites};
     if (favorites.contains(item.path)) {
       favorites.remove(item.path);
-      dynamic keyToDelete;
-      for (final key in _favBox.keys) {
-        if (_favBox.get(key) == item.path) {
-          keyToDelete = key;
-          break;
-        }
-      }
-      if (keyToDelete != null) await _favBox.delete(keyToDelete);
+      await _favBox.delete(item.path);
     } else {
       favorites.add(item.path);
-      await _favBox.add(item.path);
+      await _favBox.put(item.path, item.path);
     }
     state = state.copyWith(favorites: favorites);
   }
@@ -132,15 +131,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   Future<void> markRecent(PdfFileItem item) async {
     final now = DateTime.now();
     final recents = {...state.recents, item.path: now};
-    // Upsert path in recents box
-    bool found = false;
-    for (final key in _recentsBox.keys) {
-      if (_recentsBox.get(key) == item.path) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) await _recentsBox.add(item.path);
+    await _recentsBox.put(item.path, item.path);
     await _timestampsBox.put(item.path, now.millisecondsSinceEpoch);
     state = state.copyWith(recents: recents);
   }
@@ -148,6 +139,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   List<PdfFileItem> filteredItems(
       {bool favoritesOnly = false, bool recentsOnly = false}) {
     final q = state.query.trim().toLowerCase();
+    final now = DateTime.now();
     var filtered = state.items.where((e) {
       if (favoritesOnly && !state.favorites.contains(e.path)) return false;
       if (recentsOnly && !state.recents.containsKey(e.path)) return false;
@@ -156,7 +148,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         return false;
       }
       if (state.filter == PdfFilter.recent &&
-          DateTime.now().difference(e.lastModified).inDays > 7) {
+          now.difference(e.lastModified).inDays > 7) {
         return false;
       }
       if (state.filter == PdfFilter.large && e.sizeBytes < 10 * 1024 * 1024) {
@@ -168,21 +160,32 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       return true;
     }).toList();
 
-    filtered.sort((a, b) {
-      int cmp = 0;
-      switch (state.sortField) {
-        case PdfSortField.name:
-          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          break;
-        case PdfSortField.date:
-          cmp = a.lastModified.compareTo(b.lastModified);
-          break;
-        case PdfSortField.size:
-          cmp = a.sizeBytes.compareTo(b.sizeBytes);
-          break;
-      }
-      return state.sortDirection == PdfSortDirection.ascending ? cmp : -cmp;
-    });
+    if (state.sortField == PdfSortField.name) {
+      final nameCache = <String, String>{};
+      String getLowerName(String name) => nameCache.putIfAbsent(name, () => name.toLowerCase());
+
+      filtered.sort((a, b) {
+        final nameA = getLowerName(a.name);
+        final nameB = getLowerName(b.name);
+        final cmp = nameA.compareTo(nameB);
+        return state.sortDirection == PdfSortDirection.ascending ? cmp : -cmp;
+      });
+    } else {
+      filtered.sort((a, b) {
+        int cmp = 0;
+        switch (state.sortField) {
+          case PdfSortField.name:
+            break; // Handled above
+          case PdfSortField.date:
+            cmp = a.lastModified.compareTo(b.lastModified);
+            break;
+          case PdfSortField.size:
+            cmp = a.sizeBytes.compareTo(b.sizeBytes);
+            break;
+        }
+        return state.sortDirection == PdfSortDirection.ascending ? cmp : -cmp;
+      });
+    }
 
     return filtered;
   }

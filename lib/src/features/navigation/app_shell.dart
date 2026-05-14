@@ -23,17 +23,29 @@ class AppShell extends ConsumerWidget {
 
     return Scaffold(
       // IndexedStack preserves all tab states + scroll positions
-      body: IndexedStack(
-        index: nav.index,
-        children: const [
-          HomeScreen(),
-          FavoritesScreen(),
-          RecentScreen(),
-          SettingsScreen(),
+      body: Stack(
+        children: [
+          _buildOffstage(0, nav.index, const HomeScreen()),
+          _buildOffstage(1, nav.index, const FavoritesScreen()),
+          _buildOffstage(2, nav.index, const RecentScreen()),
+          _buildOffstage(3, nav.index, const SettingsScreen()),
         ],
       ),
       extendBody: true,
       bottomNavigationBar: _ArcNavBar(selectedIndex: nav.index),
+    );
+  }
+
+  Widget _buildOffstage(int tabIndex, int currentIndex, Widget child) {
+    final isSelected = tabIndex == currentIndex;
+    return Offstage(
+      offstage: !isSelected,
+      child: AnimatedOpacity(
+        opacity: isSelected ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.fastLinearToSlowEaseIn,
+        child: child,
+      ),
     );
   }
 }
