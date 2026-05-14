@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version'
+        description: 'Release version (example: v1.0.2-beta6)'
         required: true
         default: 'v1.0.0'
 
@@ -44,10 +44,14 @@ jobs:
         run: flutter build apk --release
 
       - name: Set version variable
-        id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+            VERSION="${{ github.event.inputs.version }}"
+
+            # Remove spaces automatically
+            VERSION=$(echo "$VERSION" | tr ' ' '-')
+
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
           else
             echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
@@ -55,6 +59,7 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p release
+
           cp build/app/outputs/flutter-apk/app-release.apk \
           "release/ArcPDF-${VERSION}.apk"
 
