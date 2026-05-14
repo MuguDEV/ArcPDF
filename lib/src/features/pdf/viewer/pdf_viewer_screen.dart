@@ -51,7 +51,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   List<PdfTextRanges>? _currentSelections;
-  final List<PdfAnnotation> _unsavedHighlights = [];
 
   void _handleSelection(List<PdfTextRanges>? selections) {
     setState(() {
@@ -66,6 +65,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Future<void> _createHighlight() async {
     final selections = _currentSelections;
     if (selections == null || selections.isEmpty) return;
+
+    final repo = ref.read(annotationRepositoryProvider);
 
     for (final selection in selections) {
       if (selection.isEmpty) continue;
@@ -99,7 +100,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         createdAt: DateTime.now(),
       );
 
-      _unsavedHighlights.add(annotation);
+      await repo.addAnnotation(annotation);
     }
 
     setState(() {
@@ -175,37 +176,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _exitHighlightMode() async {
-    if (_unsavedHighlights.isNotEmpty) {
-      final save = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Save Highlights?'),
-          content: const Text('You have unsaved highlights. Do you want to save them?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Discard'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      );
-
-      if (save == true) {
-        final repo = ref.read(annotationRepositoryProvider);
-        for (final ann in _unsavedHighlights) {
-          await repo.addAnnotation(ann);
-        }
-      }
-
-      setState(() {
-        _unsavedHighlights.clear();
-      });
-    }
-
     setState(() {
       _isHighlightMode = false;
       _showToolbar = true;
@@ -258,7 +228,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                       item: widget.item,
                       pageRect: pageRect,
                       page: page,
-                      unsavedHighlights: _unsavedHighlights,
                     ),
                     PdfTextSearchOverlay(
                       textSearcher: _textSearcher,

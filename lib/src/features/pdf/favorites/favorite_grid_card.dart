@@ -100,7 +100,7 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
                     if (isFav)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Icon(Icons.favorite_rounded, size: 14, color: Colors.pink.shade400),
+                        child: Icon(Icons.favorite_rounded, size: 14, color: Colors.grey.shade400),
                       ),
                   ],
                 ),
