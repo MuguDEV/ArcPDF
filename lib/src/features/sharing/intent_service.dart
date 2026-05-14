@@ -32,20 +32,23 @@ class IntentService {
   void _handleSharedFiles(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
 
-    for (final file in files) {
-      if (file.path.toLowerCase().endsWith('.pdf')) {
-        final pdfItem = PdfFileItem.fromFile(File(file.path));
+    // Delay handling to ensure navigator is fully initialized
+    Future.delayed(const Duration(milliseconds: 500), () {
+      for (final file in files) {
+        if (file.path.toLowerCase().endsWith('.pdf')) {
+          final pdfItem = PdfFileItem.fromFile(File(file.path));
 
-        final context = navigatorKey.currentContext;
-        if (context != null) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(item: pdfItem),
-            ),
-          );
+          final context = navigatorKey.currentContext;
+          if (context != null) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => PdfViewerScreen(item: pdfItem),
+              ),
+            );
+          }
         }
       }
-    }
+    });
   }
 
   void dispose() {
