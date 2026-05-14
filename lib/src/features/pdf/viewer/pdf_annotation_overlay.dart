@@ -12,11 +12,13 @@ class PdfAnnotationOverlay extends ConsumerStatefulWidget {
     required this.item,
     required this.pageRect,
     required this.page,
+    this.unsavedHighlights = const [],
   });
 
   final PdfFileItem item;
   final Rect pageRect;
   final PdfPage page;
+  final List<PdfAnnotation> unsavedHighlights;
 
   @override
   ConsumerState<PdfAnnotationOverlay> createState() => _PdfAnnotationOverlayState();
@@ -36,8 +38,8 @@ class _PdfAnnotationOverlayState extends ConsumerState<PdfAnnotationOverlay> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.path != widget.item.path || oldWidget.page.pageNumber != widget.page.pageNumber) {
       _loadAnnotations();
-    } else {
-      // also re-load to catch new annotations that might have been added
+    } else if (oldWidget.unsavedHighlights.length != widget.unsavedHighlights.length) {
+      // Re-load to catch new annotations that were saved and moved out of unsavedHighlights
       _loadAnnotations();
     }
   }
@@ -54,11 +56,16 @@ class _PdfAnnotationOverlayState extends ConsumerState<PdfAnnotationOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    if (_annotations.isEmpty) return const SizedBox.shrink();
+    final allAnnotations = [
+      ..._annotations,
+      ...widget.unsavedHighlights.where((a) => a.pageNumber == widget.page.pageNumber),
+    ];
+
+    if (allAnnotations.isEmpty) return const SizedBox.shrink();
 
     final overlays = <Widget>[];
 
-    for (final annotation in _annotations) {
+    for (final annotation in allAnnotations) {
       if (annotation.bounds.isEmpty || annotation.bounds.length % 4 != 0) continue;
 
       for (int i = 0; i < annotation.bounds.length; i += 4) {

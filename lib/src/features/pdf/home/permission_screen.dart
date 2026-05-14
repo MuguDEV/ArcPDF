@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../application/pdf_library_controller.dart';
@@ -20,28 +19,28 @@ class PermissionScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Lottie.asset(
+            Icon(
               status == StoragePermissionStatus.permanentlyDenied
-                  ? 'assets/lottie/denied.json'
-                  : 'assets/lottie/splash.json', // Using same for generic permission animation for now
-              width: 140,
-              height: 140,
-              repeat: true,
-            ),
-
-
+                  ? Icons.block_rounded
+                  : Icons.folder_open_rounded,
+              size: 140,
+              color: status == StoragePermissionStatus.permanentlyDenied
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.primary,
+            ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
             const SizedBox(height: 28),
-
             Text(
               status == StoragePermissionStatus.permanentlyDenied
                   ? 'Access Blocked'
                   : 'Storage Access Needed',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: 150.ms, duration: 400.ms).slideY(begin: 0.1),
-
+            )
+                .animate()
+                .fadeIn(delay: 150.ms, duration: 400.ms)
+                .slideY(begin: 0.1),
             const SizedBox(height: 10),
-
             Text(
               status == StoragePermissionStatus.permanentlyDenied
                   ? 'ArcPDF needs access to your files to display PDFs. Please open Settings and grant storage permission.'
@@ -52,9 +51,7 @@ class PermissionScreen extends ConsumerWidget {
               ),
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: 250.ms, duration: 400.ms),
-
             const SizedBox(height: 36),
-
             if (status == StoragePermissionStatus.permanentlyDenied) ...[
               FilledButton.icon(
                 onPressed: () => openAppSettings(),
@@ -62,7 +59,8 @@ class PermissionScreen extends ConsumerWidget {
                 label: const Text('Open Settings'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28)),
                 ),
               ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
             ] else ...[
@@ -72,12 +70,11 @@ class PermissionScreen extends ConsumerWidget {
                 label: const Text('Grant Access'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28)),
                 ),
               ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
-
               const SizedBox(height: 12),
-
               TextButton(
                 onPressed: () => openAppSettings(),
                 child: const Text('Open App Settings'),
