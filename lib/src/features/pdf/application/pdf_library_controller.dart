@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
 import '../../../data/local_boxes.dart';
+import 'package:flutter/services.dart';
+
 import '../data/pdf_scanner_service.dart';
 import '../domain/pdf_file_item.dart';
 
@@ -69,7 +71,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     this._timestampsBox,
   ) : super(const PdfLibraryState()) {
     _loadSavedState();
-    refresh();
+    // Delay initial refresh to allow the splash screen and initial UI to animate smoothly
+    Future.delayed(const Duration(milliseconds: 500), refresh);
   }
 
   final PdfScannerService _scanner;
@@ -117,6 +120,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       state = state.copyWith(sortDirection: direction);
 
   Future<void> toggleFavorite(PdfFileItem item) async {
+    HapticFeedback.selectionClick();
     final favorites = {...state.favorites};
     if (favorites.contains(item.path)) {
       favorites.remove(item.path);
@@ -197,13 +201,6 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     final yesterday = today.subtract(const Duration(days: 1));
     final weekAgo = today.subtract(const Duration(days: 7));
 
-    final enriched = state.items
-        .where((e) => state.recents.containsKey(e.path))
-        .map((e) => e.copyWith(openedAt: state.recents[e.path]))
-        .toList()
-      ..sort((a, b) =>
-          (b.openedAt ?? DateTime(0)).compareTo(a.openedAt ?? DateTime(0)));
-
     final groups = <String, List<PdfFileItem>>{
       'Today': [],
       'Yesterday': [],
@@ -211,9 +208,15 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       'Older': [],
     };
 
-    for (final item in enriched) {
-      final d = DateTime(
-          item.openedAt!.year, item.openedAt!.month, item.openedAt!.day);
+    final fallbackDate = DateTime(0);
+
+    for (final e in state.items) {
+      final openedAt = state.recents[e.path];
+      if (openedAt == null) continue;
+
+      final item = e.copyWith(openedAt: openedAt);
+      final d = DateTime(openedAt.year, openedAt.month, openedAt.day);
+
       if (!d.isBefore(today)) {
         groups['Today']!.add(item);
       } else if (!d.isBefore(yesterday)) {
@@ -224,7 +227,13 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         groups['Older']!.add(item);
       }
     }
-    groups.removeWhere((_, v) => v.isEmpty);
+
+    groups.removeWhere((_, list) {
+      if (list.isEmpty) return true;
+      list.sort((a, b) => (b.openedAt ?? fallbackDate).compareTo(a.openedAt ?? fallbackDate));
+      return false;
+    });
+
     return groups;
   }
 }
