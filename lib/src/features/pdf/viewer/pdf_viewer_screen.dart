@@ -244,29 +244,39 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleToolbar,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: PdfViewer(
-                _docRef,
-                controller: _controller,
-                params: PdfViewerParams(
-                  pageOverlaysBuilder: (context, pageRect, page) => [
-                    PdfAnnotationOverlay(
-                      item: widget.item,
-                      pageRect: pageRect,
-                      page: page,
-                      unsavedHighlights: _unsavedHighlights,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: PdfViewer(
+              _docRef,
+              controller: _controller,
+              params: PdfViewerParams(
+                viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: (details) {
+                        handleLinkTap(details.localPosition);
+                        _toggleToolbar();
+                      },
+                      child: const SizedBox.expand(),
                     ),
-                    PdfTextSearchOverlay(
-                      textSearcher: _textSearcher,
-                      pageRect: pageRect,
-                      page: page,
-                    ),
-                  ],
-                  // Layout pages continuously in a vertical direction
+                  ),
+                ],
+                pageOverlaysBuilder: (context, pageRect, page) => [
+                  PdfAnnotationOverlay(
+                    item: widget.item,
+                    pageRect: pageRect,
+                    page: page,
+                    unsavedHighlights: _unsavedHighlights,
+                  ),
+                  PdfTextSearchOverlay(
+                    textSearcher: _textSearcher,
+                    pageRect: pageRect,
+                    page: page,
+                  ),
+                ],
+                // Layout pages continuously in a vertical direction
                   layoutPages: (pages, params) {
                     final pageLayouts = <Rect>[];
                     double y = params.margin;
@@ -383,23 +393,23 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
-            if (_currentSelections != null)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 80,
-                right: 20,
-                child: FloatingActionButton.extended(
-                  onPressed: _createHighlight,
-                  icon: const Icon(Icons.highlight_rounded),
-                  label: const Text('Highlight'),
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  foregroundColor: theme.colorScheme.onPrimaryContainer,
-                ),
-              ),
+          if (_currentSelections != null)
             Positioned(
-              top: MediaQuery.paddingOf(context).top + 10,
-              left: 12,
-              right: 12,
-              child: AnimatedSlide(
+              top: MediaQuery.paddingOf(context).top + 80,
+              right: 20,
+              child: FloatingActionButton.extended(
+                onPressed: _createHighlight,
+                icon: const Icon(Icons.highlight_rounded),
+                label: const Text('Highlight'),
+                backgroundColor: theme.colorScheme.primaryContainer,
+                foregroundColor: theme.colorScheme.onPrimaryContainer,
+              ),
+            ),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 10,
+            left: 12,
+            right: 12,
+            child: AnimatedSlide(
                 duration: 240.ms,
                 offset: _showToolbar ? Offset.zero : const Offset(0, -1.2),
                 child: AnimatedOpacity(
@@ -513,13 +523,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               ),
             ),
 
-            // Highlight Toolbar Overlay
-            if (_isHighlightMode)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 10,
-                left: 12,
-                right: 12,
-                child: _FrostedBar(
+          // Highlight Toolbar Overlay
+          if (_isHighlightMode)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 10,
+              left: 12,
+              right: 12,
+              child: _FrostedBar(
                   child: Row(
                     children: [
                       IconButton(
@@ -551,11 +561,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   ),
                 ),
               ).animate().fadeIn(duration: 200.ms).slideY(begin: -1.2),
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: MediaQuery.paddingOf(context).bottom + 20,
-              child: AnimatedSlide(
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.paddingOf(context).bottom + 20,
+            child: AnimatedSlide(
                 duration: 240.ms,
                 offset: _showToolbar ? Offset.zero : const Offset(0, 1.3),
                 child: AnimatedOpacity(
@@ -591,8 +601,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
