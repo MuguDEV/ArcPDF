@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'data/local_boxes.dart';
 
 import 'features/pdf/domain/pdf_annotation.dart';
+import 'core/utils/logger.dart';
 
 Future<void> bootstrap() async {
   await Hive.initFlutter();
@@ -17,4 +18,7 @@ Future<void> bootstrap() async {
   await Hive.openBox<PdfAnnotation>('pdf_annotations');
   await Hive.openBox<int>('reading_progress_pages');
   await Hive.openBox<int>('reading_progress_time');
+
+  // Initialize Logger
+  await AppLogger.init();
 }

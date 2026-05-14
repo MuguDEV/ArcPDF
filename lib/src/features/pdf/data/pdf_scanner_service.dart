@@ -3,10 +3,10 @@ import 'dart:isolate';
 
 import 'package:collection/collection.dart';
 import 'package:external_path/external_path.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/utils/logger.dart';
 import '../domain/pdf_file_item.dart';
 
 enum StoragePermissionStatus {
@@ -106,12 +106,12 @@ List<PdfFileItem> _walkRoots(List<String> roots) {
 
           final isEncrypted = _isEncrypted(entity);
           out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted, isCorrupted: false));
-        } catch (e) {
-          debugPrint('Error processing file: [REDACTED]');
+        } catch (e, stack) {
+          AppLogger.error('Error processing file: [REDACTED]', e, stack);
         }
       }
-    } catch (e) {
-      debugPrint('Error walking directory: [REDACTED]');
+    } catch (e, stack) {
+      AppLogger.error('Error walking directory: [REDACTED]', e, stack);
     }
   }
   return out;
@@ -124,8 +124,8 @@ bool _isValidPdf(File file) {
     raf.closeSync();
     final header = String.fromCharCodes(bytes);
     return header == '%PDF-';
-  } catch (e) {
-    debugPrint('Error checking PDF header: [REDACTED]');
+  } catch (e, stack) {
+    AppLogger.error('Error checking PDF header: [REDACTED]', e, stack);
     return false;
   }
 }
@@ -147,8 +147,8 @@ bool _isEncrypted(File file) {
       final endStr = String.fromCharCodes(endBytes);
       if (endStr.contains('/Encrypt')) return true;
     }
-  } catch (e) {
-    debugPrint('Error checking if PDF is encrypted: [REDACTED]');
+  } catch (e, stack) {
+    AppLogger.error('Error checking if PDF is encrypted: [REDACTED]', e, stack);
   }
   return false;
 }
