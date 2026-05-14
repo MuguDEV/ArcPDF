@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
 
 import '../domain/pdf_file_item.dart';
 import '../domain/pdf_annotation.dart';
@@ -50,6 +51,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   List<PdfTextRanges>? _currentSelections;
+  final List<PdfAnnotation> _unsavedHighlights = [];
 
   void _handleSelection(List<PdfTextRanges>? selections) {
     setState(() {
@@ -65,8 +67,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     final selections = _currentSelections;
     if (selections == null || selections.isEmpty) return;
 
-    final repo = ref.read(annotationRepositoryProvider);
-
     for (final selection in selections) {
       if (selection.isEmpty) continue;
       final pageText = selection.pageText;
@@ -74,17 +74,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       // Convert ranges to bounds
       final boundsList = <double>[];
       for (final range in selection.ranges) {
-          final fragments = PdfTextRangeWithFragments.fromTextRange(pageText, range.start, range.end);
-          if (fragments != null) {
-             for (final f in fragments.fragments) {
-                 boundsList.addAll([
-                     f.bounds.left,
-                     f.bounds.top,
-                     f.bounds.right,
-                     f.bounds.bottom,
-                 ]);
-             }
+        final fragments = PdfTextRangeWithFragments.fromTextRange(pageText, range.start, range.end);
+        if (fragments != null) {
+          for (final f in fragments.fragments) {
+            boundsList.addAll([
+              f.bounds.left,
+              f.bounds.top,
+              f.bounds.right,
+              f.bounds.bottom,
+            ]);
           }
+        }
       }
 
       if (boundsList.isEmpty) continue;
@@ -99,13 +99,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         createdAt: DateTime.now(),
       );
 
-      await repo.addAnnotation(annotation);
+      _unsavedHighlights.add(annotation);
     }
 
-    // Unfortunately, we cannot programmatically clear the selection cleanly without using internals,
-    // but the selection typically goes away when we tap elsewhere. We'll hide our UI.
     setState(() {
-        _currentSelections = null;
+      _currentSelections = null;
     });
   }
 
@@ -158,8 +156,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
   void _scheduleHide() {
     _hideTimer?.cancel();
+    if (_isHighlightMode) return;
     _hideTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _showToolbar = false);
+      if (mounted && !_isHighlightMode) setState(() => _showToolbar = false);
     });
   }
 
@@ -173,6 +172,45 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       }
     });
     if (_showToolbar) _scheduleHide();
+  }
+
+  Future<void> _exitHighlightMode() async {
+    if (_unsavedHighlights.isNotEmpty) {
+      final save = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Save Highlights?'),
+          content: const Text('You have unsaved highlights. Do you want to save them?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Discard'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+
+      if (save == true) {
+        final repo = ref.read(annotationRepositoryProvider);
+        for (final ann in _unsavedHighlights) {
+          await repo.addAnnotation(ann);
+        }
+      }
+
+      setState(() {
+        _unsavedHighlights.clear();
+      });
+    }
+
+    setState(() {
+      _isHighlightMode = false;
+      _showToolbar = true;
+    });
+    _scheduleHide();
   }
 
   Future<String?> _promptPassword() async {
@@ -220,6 +258,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                       item: widget.item,
                       pageRect: pageRect,
                       page: page,
+                      unsavedHighlights: _unsavedHighlights,
                     ),
                     PdfTextSearchOverlay(
                       textSearcher: _textSearcher,
@@ -270,7 +309,73 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     }
                   },
                   errorBannerBuilder: (context, error, stackTrace, documentRef) {
-                    return const SizedBox.shrink();
+                    return Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline_rounded, size: 48, color: Theme.of(context).colorScheme.onErrorContainer),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Failed to load PDF',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Theme.of(context).colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.onErrorContainer.withValues(alpha: 0.1),
+                                foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+                              ),
+                              onPressed: () {
+                                showDialog<void>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Error Details'),
+                                    content: SingleChildScrollView(
+                                      child: Text(
+                                        'Error:\n$error\n\nStack Trace:\n$stackTrace',
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(),
+                                        child: const Text('Close'),
+                                      ),
+                                      FilledButton.icon(
+                                        onPressed: () {
+                                          Clipboard.setData(ClipboardData(text: 'Error:\n$error\n\nStack Trace:\n$stackTrace')).then((_) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Copied to clipboard')),
+                                              );
+                                              Navigator.of(context).pop();
+                                            }
+                                          });
+                                        },
+                                        icon: const Icon(Icons.copy_rounded),
+                                        label: const Text('Copy'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: const Text('Details'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
                   loadingBannerBuilder: (context, bytesDownloaded, totalBytes) {
                     return const Center(child: CircularProgressIndicator(color: Colors.white));
@@ -384,8 +489,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   onPressed: () {
                                     setState(() {
                                       _isHighlightMode = true;
-                                      _showToolbar = false;
+                                      _showToolbar = true; // KEEP IT TRUE SO IT STAYS VISIBLE
                                     });
+                                    _hideTimer?.cancel(); // Cancel any pending hides
                                   },
                                   icon: const Icon(Icons.border_color_rounded),
                                 ),
@@ -418,7 +524,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     children: [
                       IconButton(
                         color: theme.colorScheme.onSurface,
-                        onPressed: () => setState(() => _isHighlightMode = false),
+                        onPressed: _exitHighlightMode,
                         icon: const Icon(Icons.close_rounded),
                       ),
                       const Spacer(),

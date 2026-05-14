@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lottie/lottie.dart';
 
 import '../navigation/navigation_controller.dart';
 
@@ -19,7 +18,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))
+    _pulse = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1800))
       ..repeat(reverse: true);
     Future<void>.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) ref.read(splashDoneProvider.notifier).state = true;
@@ -36,7 +36,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF141414) : theme.colorScheme.surfaceContainerLowest;
+    final bgColor = isDark
+        ? const Color(0xFF141414)
+        : theme.colorScheme.surfaceContainerLowest;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -44,14 +46,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Lottie Animation
-            Lottie.asset(
-              'assets/lottie/splash.json',
-              width: 140,
-              height: 140,
-              fit: BoxFit.contain,
-              repeat: true,
-            ),
+            // Icon replacing Lottie Animation
+            Icon(
+              Icons.picture_as_pdf_rounded,
+              size: 140,
+              color: theme.colorScheme.primary,
+            ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
 
             const SizedBox(height: 22),
 
@@ -61,7 +61,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.8,
               ),
-            ).animate().fadeIn(delay: 200.ms, duration: 500.ms).slideY(begin: 0.15, curve: Curves.easeOutCubic),
+            )
+                .animate()
+                .fadeIn(delay: 200.ms, duration: 500.ms)
+                .slideY(begin: 0.15, curve: Curves.easeOutCubic),
 
             const SizedBox(height: 6),
 
@@ -84,7 +87,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.4),
                   ),
                 )
                     .animate(onPlay: (c) => c.repeat(reverse: true))
