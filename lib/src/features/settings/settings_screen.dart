@@ -180,8 +180,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     SwitchListTile.adaptive(
                       value: settings.useBlurEffect,
                       onChanged: ctrl.setUseBlurEffect,
-                      title: const Text('Liquid Glass Blur'),
-                      subtitle: const Text('Enable frosted glass effects on UI elements'),
+                      title: const Text('Frosted Glass (Blur)'),
+                      subtitle: const Text('Enable standard blur effects on UI elements'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile.adaptive(
+                      value: settings.useLiquidGlass,
+                      onChanged: settings.useBlurEffect ? ctrl.setUseLiquidGlass : null,
+                      title: const Text('Apple Liquid Glass'),
+                      subtitle: const Text('Premium iOS-style highly polished glass effect'),
                     ),
                   ],
                 ),
