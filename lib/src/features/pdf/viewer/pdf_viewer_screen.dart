@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../domain/pdf_file_item.dart';
@@ -123,25 +124,38 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           // 1. PDF Viewer
           GestureDetector(
             onTap: _toggleToolbar,
-            child: SfPdfViewer.file(
-              File(widget.item.path),
-              controller: _pdfViewerController,
-              canShowPasswordDialog: true, // We will use built-in for now to save hassle and handle gracefully
-              enableDocumentLinkAnnotation: true,
-              canShowScrollHead: false,
-              canShowScrollStatus: false,
-              pageSpacing: 4,
-              onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                setState(() {
-                  _pageCount = _pdfViewerController.pageCount;
-                });
+            // To ensure taps toggle the toolbar cleanly over Syncfusion without breaking inner scrolling,
+            // we wrap SfPdfViewer with a listener or rely on standard event bubbling.
+            // Since we want flawless monochrome UI, we force background colors to match surface.
+            child: Listener(
+              onPointerUp: (_) {
+                 if (!_showToolbar) _toggleToolbar();
               },
-              onPageChanged: (PdfPageChangedDetails details) {
-                setState(() {
-                  _page = details.newPageNumber;
-                });
-                if (_showToolbar) _scheduleHide();
-              },
+              child: SfPdfViewerTheme(
+                data: SfPdfViewerThemeData(
+                  backgroundColor: theme.colorScheme.surface,
+                ),
+                child: SfPdfViewer.file(
+                  File(widget.item.path),
+                  controller: _pdfViewerController,
+                  canShowPasswordDialog: true,
+                  enableDocumentLinkAnnotation: true,
+                  canShowScrollHead: false,
+                  canShowScrollStatus: false,
+                  pageSpacing: 4,
+                  onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                    setState(() {
+                      _pageCount = _pdfViewerController.pageCount;
+                    });
+                  },
+                  onPageChanged: (PdfPageChangedDetails details) {
+                    setState(() {
+                      _page = details.newPageNumber;
+                    });
+                    if (_showToolbar) _scheduleHide();
+                  },
+                ),
+              ),
             ),
           ),
 
