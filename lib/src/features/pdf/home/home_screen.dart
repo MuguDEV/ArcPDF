@@ -88,6 +88,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             PopupMenuButton<String>(
               icon: const Icon(HugeIcons.strokeRoundedMoreVerticalCircle01),
               tooltip: 'Menu',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              elevation: 8,
+              offset: const Offset(0, 48),
               onSelected: (value) {
                 switch (value) {
                   case 'refresh':

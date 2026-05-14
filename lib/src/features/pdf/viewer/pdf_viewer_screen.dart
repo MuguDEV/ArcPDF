@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../domain/pdf_file_item.dart';
 import '../domain/pdf_annotation.dart';
@@ -39,6 +40,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pendingReadingTime = 0;
 
   bool _isSearching = false;
+  bool _isHighlightMode = false;
+  int _highlightColor = 0xFFFFEB3B; // Default yellow
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
@@ -91,7 +94,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         pdfPath: widget.item.path,
         pageNumber: pageText.pageNumber,
         type: 'highlight',
-        color: Colors.yellow.toARGB32(),
+        color: _highlightColor,
         bounds: boundsList, // Storing all bounds continuously [l1,t1,r1,b1, l2,t2,r2,b2...]
         createdAt: DateTime.now(),
       );
@@ -161,6 +164,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   void _toggleToolbar() {
+    if (_isHighlightMode) return; // Intercept tapping in highlight mode
     setState(() {
       _showToolbar = !_showToolbar;
       if (!_showToolbar && _isSearching) {
@@ -377,6 +381,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 ),
                                 IconButton(
                                   color: Theme.of(context).colorScheme.onSurface,
+                                  onPressed: () {
+                                    setState(() {
+                                      _isHighlightMode = true;
+                                      _showToolbar = false;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.border_color_rounded),
+                                ),
+                                IconButton(
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   onPressed: _showPdfInfo,
                                   icon: const Icon(Icons.info_outline_rounded),
                                 ),
@@ -392,6 +406,45 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
+
+            // Highlight Toolbar Overlay
+            if (_isHighlightMode)
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 10,
+                left: 12,
+                right: 12,
+                child: _FrostedBar(
+                  child: Row(
+                    children: [
+                      IconButton(
+                        color: theme.colorScheme.onSurface,
+                        onPressed: () => setState(() => _isHighlightMode = false),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                      const Spacer(),
+                      _buildColorPicker(0xFFFFEB3B, theme),
+                      _buildColorPicker(0xFF8BC34A, theme),
+                      _buildColorPicker(0xFF03A9F4, theme),
+                      _buildColorPicker(0xFFE91E63, theme),
+                      const Spacer(),
+                      IconButton(
+                        color: theme.colorScheme.onSurface,
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Note functionality coming soon!')),
+                          );
+                        },
+                        icon: const Icon(Icons.post_add_rounded),
+                      ),
+                      IconButton(
+                        color: theme.colorScheme.onSurface,
+                        onPressed: () => Share.shareXFiles([XFile(widget.item.path)]), // ignore: deprecated_member_use
+                        icon: const Icon(Icons.ios_share_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+              ).animate().fadeIn(duration: 200.ms).slideY(begin: -1.2),
             Positioned(
               left: 20,
               right: 20,
@@ -485,6 +538,24 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           ),
         );
       },
+    );
+  }
+
+  Widget _buildColorPicker(int color, ThemeData theme) {
+    final isSelected = _highlightColor == color;
+    return GestureDetector(
+      onTap: () => setState(() => _highlightColor = color),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        width: isSelected ? 28 : 24,
+        height: isSelected ? 28 : 24,
+        decoration: BoxDecoration(
+          color: Color(color),
+          shape: BoxShape.circle,
+          border: isSelected ? Border.all(color: theme.colorScheme.onSurface, width: 2) : null,
+        ),
+      ),
     );
   }
 

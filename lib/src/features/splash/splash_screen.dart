@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 
 import '../navigation/navigation_controller.dart';
 
@@ -43,41 +44,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated icon with glow pulse
-            AnimatedBuilder(
-              animation: _pulse,
-              builder: (context, child) {
-                return Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(32),
-                    color: isDark ? const Color(0xFF2A2A2A) : theme.colorScheme.surfaceContainerHigh,
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08 + _pulse.value * 0.06)
-                          : Colors.black.withValues(alpha: 0.06),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: _pulse.value * (isDark ? 0.04 : 0.02)),
-                        blurRadius: 32,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: child,
-                );
-              },
-              child: Icon(
-                Icons.picture_as_pdf_rounded,
-                size: 44,
-                color: theme.colorScheme.onSurface,
-              ),
-            )
-                .animate()
-                .scale(begin: const Offset(0.7, 0.7), duration: 700.ms, curve: Curves.easeOutCubic)
-                .fadeIn(duration: 500.ms),
+            // Lottie Animation
+            Lottie.asset(
+              'assets/lottie/splash.json',
+              width: 140,
+              height: 140,
+              fit: BoxFit.contain,
+              repeat: true,
+            ),
 
             const SizedBox(height: 22),
 

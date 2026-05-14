@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
@@ -31,6 +32,8 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
     final theme = Theme.of(context);
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
 
+    final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -39,12 +42,12 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
       onLongPress: widget.onFavorite,
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        duration: Duration(milliseconds: (120 ~/ animSpeed)),
+        curve: Curves.fastLinearToSlowEaseIn,
         child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(32),
             border: Border.all(
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               width: 0.5,
@@ -63,7 +66,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                     child: AspectRatio(
                       aspectRatio: 0.75,
                       child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
@@ -95,11 +98,24 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                       widget.item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(height: 1.3),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        _Badge(label: _fileSize(widget.item.sizeBytes), theme: theme),
+                        if (widget.item.pageCount != null)
+                          _Badge(label: '${widget.item.pageCount}p', theme: theme),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Text(
-                      DateFormat.MMMd().format(widget.item.lastModified),
+                      DateFormat.yMMMd().format(widget.item.lastModified),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -109,6 +125,35 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  String _fileSize(int bytes) {
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.theme});
+  final String label;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontSize: 10,
         ),
       ),
     );

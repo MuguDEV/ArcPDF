@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
@@ -30,6 +31,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
   @override
   Widget build(BuildContext context) {
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
+    final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
 
@@ -43,11 +45,11 @@ class _PdfCardState extends ConsumerState<PdfCard> {
         onLongPress: widget.onFavorite,
         child: AnimatedScale(
           scale: _pressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
+          duration: Duration(milliseconds: (120 ~/ animSpeed)),
+          curve: Curves.fastLinearToSlowEaseIn,
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(32),
               color: theme.colorScheme.surfaceContainerLow,
               border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
