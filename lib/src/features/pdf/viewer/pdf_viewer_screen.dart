@@ -33,6 +33,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pendingReadingTime = 0;
 
   bool _isSearching = false;
+  bool _isReadyToRender = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
@@ -45,6 +46,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _textSearcher.addListener(_onSearcherChanged);
     _scheduleHide();
     _startReadingTimer();
+
+    // Delay rendering slightly to ensure the page transition animation
+    // stays at 120fps before locking the thread to load the PDF.
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _isReadyToRender = true);
+    });
   }
 
   @override
@@ -60,6 +67,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _searchController.dispose();
     _searchFocus.dispose();
     _textSearcher.dispose();
+
 
     super.dispose();
   }
@@ -136,36 +144,44 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect));
+    final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass));
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
           // 1. PDF Viewer
-          PdfViewer.file(
-            widget.item.path,
-            controller: _pdfViewerController,
-            passwordProvider: () async => _showPasswordPrompt(context),
-            params: PdfViewerParams(
-              backgroundColor: theme.colorScheme.surface,
-              pageDropShadow: const BoxShadow(color: Colors.transparent),
-              margin: 4.0,
-              viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTapUp: (details) {
-                    if (!handleLinkTap(details.localPosition)) {
-                      _toggleToolbar();
-                    }
-                  },
-                  child: SizedBox(width: size.width, height: size.height),
-                ),
-              ],
-              pagePaintCallbacks: [
-                _textSearcher.pageTextMatchPaintCallback,
-              ],
+          if (!_isReadyToRender)
+            Center(
+              child: CircularProgressIndicator.adaptive(
+                valueColor: AlwaysStoppedAnimation(theme.colorScheme.onSurfaceVariant),
+              ),
+            )
+          else
+            PdfViewer.file(
+              widget.item.path,
+              controller: _pdfViewerController,
+              passwordProvider: () async => _showPasswordPrompt(context),
+              params: PdfViewerParams(
+                backgroundColor: theme.colorScheme.surface,
+                pageDropShadow: const BoxShadow(color: Colors.transparent),
+                margin: 4.0,
+                viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                  GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTapUp: (details) {
+                      if (!handleLinkTap(details.localPosition)) {
+                        _toggleToolbar();
+                      }
+                    },
+                    child: SizedBox(width: size.width, height: size.height),
+                  ),
+                ],
+                pagePaintCallbacks: [
+                  _textSearcher.pageTextMatchPaintCallback,
+                ],
+              ),
             ),
-          ),
 
           // 2. Top App Bar / Search Bar
           Positioned(
@@ -182,6 +198,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,
+                  useLiquidGlass: isLiquidGlass,
                   child: Row(
                     children: [
                       if (_isSearching) ...[
@@ -287,6 +304,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,
+                  useLiquidGlass: isLiquidGlass,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Text(
@@ -487,9 +505,10 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _FrostedBar extends StatelessWidget {
-  const _FrostedBar({required this.child, required this.useBlur});
+  const _FrostedBar({required this.child, required this.useBlur, required this.useLiquidGlass});
   final Widget child;
   final bool useBlur;
+  final bool useLiquidGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -497,16 +516,21 @@ class _FrostedBar extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFF5F5F5);
 
+    final double sigma = useLiquidGlass ? 48.0 : 16.0;
+    final Color bgColor = useLiquidGlass
+        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        : navBg.withValues(alpha: isDark ? 0.7 : 0.85);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: useBlur ? BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: navBg.withValues(alpha: isDark ? 0.6 : 0.75),
+            color: bgColor,
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
             ),
           ),
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: child),
