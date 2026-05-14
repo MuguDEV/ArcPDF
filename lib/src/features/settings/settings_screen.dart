@@ -164,15 +164,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 20),
 
               // ── Layout ───────────────────────────────────────
-              const _SectionHeader(label: 'Layout').animate(delay: 120.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Layout & Appearance').animate(delay: 120.ms).fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
-                child: SwitchListTile.adaptive(
-                  value: settings.useGrid,
-                  onChanged: ctrl.setGrid,
-                  title: const Text('Grid layout'),
-                  subtitle: const Text('Show PDFs in a masonry grid instead of a list'),
+                child: Column(
+                  children: [
+                    SwitchListTile.adaptive(
+                      value: settings.useGrid,
+                      onChanged: ctrl.setGrid,
+                      title: const Text('Grid layout'),
+                      subtitle: const Text('Show PDFs in a masonry grid instead of a list'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile.adaptive(
+                      value: settings.useBlurEffect,
+                      onChanged: ctrl.setUseBlurEffect,
+                      title: const Text('Liquid Glass Blur'),
+                      subtitle: const Text('Enable frosted glass effects on UI elements'),
+                    ),
+                  ],
                 ),
               ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 

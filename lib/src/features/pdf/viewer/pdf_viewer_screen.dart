@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:io';
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'package:syncfusion_flutter_core/theme.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../settings/settings_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 
@@ -23,7 +23,7 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
 
 class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver {
   final PdfViewerController _pdfViewerController = PdfViewerController();
-  PdfTextSearchResult _searchResult = PdfTextSearchResult();
+  late final PdfTextSearcher _textSearcher;
 
   Timer? _hideTimer;
   bool _showToolbar = true;
@@ -39,7 +39,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   @override
   void initState() {
     super.initState();
+    _textSearcher = PdfTextSearcher(_pdfViewerController);
     WidgetsBinding.instance.addObserver(this);
+    _pdfViewerController.addListener(_onPdfViewerChanged);
+    _textSearcher.addListener(_onSearcherChanged);
     _scheduleHide();
     _startReadingTimer();
   }
@@ -47,6 +50,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pdfViewerController.removeListener(_onPdfViewerChanged);
+    _textSearcher.removeListener(_onSearcherChanged);
     _hideTimer?.cancel();
     _readingTimer?.cancel();
     if (_pendingReadingTime > 0) {
@@ -54,8 +59,26 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     }
     _searchController.dispose();
     _searchFocus.dispose();
-    _pdfViewerController.dispose();
+    _textSearcher.dispose();
+
     super.dispose();
+  }
+
+  void _onPdfViewerChanged() {
+    if (_pdfViewerController.isReady) {
+      final newPage = _pdfViewerController.pageNumber ?? 1;
+      final newPageCount = _pdfViewerController.pageCount;
+      if (newPage != _page || newPageCount != _pageCount) {
+        setState(() {
+          _page = newPage;
+          _pageCount = newPageCount;
+        });
+      }
+    }
+  }
+
+  void _onSearcherChanged() {
+    setState(() {});
   }
 
   @override
@@ -95,7 +118,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       if (!_showToolbar && _isSearching) {
         _isSearching = false;
         _searchFocus.unfocus();
-        _searchResult.clear();
+        _textSearcher.resetTextSearch();
       }
     });
     if (_showToolbar) _scheduleHide();
@@ -103,72 +126,62 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
   void _performSearch(String query) {
     if (query.isEmpty) {
-      _searchResult.clear();
-      setState(() {});
+      _textSearcher.resetTextSearch();
       return;
     }
-    final result = _pdfViewerController.searchText(query);
-    setState(() {
-      _searchResult = result;
-    });
+    _textSearcher.startTextSearch(query);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect));
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
           // 1. PDF Viewer
-          GestureDetector(
-            onTap: _toggleToolbar,
-            // To ensure taps toggle the toolbar cleanly over Syncfusion without breaking inner scrolling,
-            // we wrap SfPdfViewer with a listener or rely on standard event bubbling.
-            // Since we want flawless monochrome UI, we force background colors to match surface.
-            child: Listener(
-              onPointerUp: (_) {
-                 if (!_showToolbar) _toggleToolbar();
-              },
-              child: SfPdfViewerTheme(
-                data: SfPdfViewerThemeData(
-                  backgroundColor: theme.colorScheme.surface,
-                ),
-                child: SfPdfViewer.file(
-                  File(widget.item.path),
-                  controller: _pdfViewerController,
-                  canShowPasswordDialog: true,
-                  enableDocumentLinkAnnotation: true,
-                  canShowScrollHead: false,
-                  canShowScrollStatus: false,
-                  pageSpacing: 4,
-                  onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                    setState(() {
-                      _pageCount = _pdfViewerController.pageCount;
-                    });
+          PdfViewer.file(
+            widget.item.path,
+            controller: _pdfViewerController,
+            passwordProvider: () async => _showPasswordPrompt(context),
+            params: PdfViewerParams(
+              backgroundColor: theme.colorScheme.surface,
+              pageDropShadow: const BoxShadow(color: Colors.transparent),
+              margin: 4.0,
+              viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapUp: (details) {
+                    if (!handleLinkTap(details.localPosition)) {
+                      _toggleToolbar();
+                    }
                   },
-                  onPageChanged: (PdfPageChangedDetails details) {
-                    setState(() {
-                      _page = details.newPageNumber;
-                    });
-                    if (_showToolbar) _scheduleHide();
-                  },
+                  child: SizedBox(width: size.width, height: size.height),
                 ),
-              ),
+              ],
+              pagePaintCallbacks: [
+                _textSearcher.pageTextMatchPaintCallback,
+              ],
             ),
           ),
 
           // 2. Top App Bar / Search Bar
-          if (_showToolbar)
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 8,
-              left: 16,
-              right: 16,
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 8,
+            left: 16,
+            right: 16,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.fastLinearToSlowEaseIn,
+              offset: _showToolbar ? Offset.zero : const Offset(0, -1.5),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 300),
+                curve: Curves.fastLinearToSlowEaseIn,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
+                  useBlur: isBlurEnabled,
                   child: Row(
                     children: [
                       if (_isSearching) ...[
@@ -188,20 +201,18 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             ),
                           ),
                         ),
-                        if (_searchResult.hasResult) ...[
-                          Text('${_searchResult.currentInstanceIndex}/${_searchResult.totalInstanceCount}'),
+                        if (_textSearcher.hasMatches) ...[
+                          Text('${_textSearcher.currentIndex == null ? 0 : _textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}'),
                           IconButton(
                             icon: const Icon(Icons.keyboard_arrow_up),
                             onPressed: () {
-                              _searchResult.previousInstance();
-                              setState(() {});
+                              _textSearcher.goToPrevMatch();
                             },
                           ),
                           IconButton(
                             icon: const Icon(Icons.keyboard_arrow_down),
                             onPressed: () {
-                              _searchResult.nextInstance();
-                              setState(() {});
+                              _textSearcher.goToNextMatch();
                             },
                           ),
                         ],
@@ -211,7 +222,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             setState(() {
                               _isSearching = false;
                               _searchController.clear();
-                              _searchResult.clear();
+                              _textSearcher.resetTextSearch();
                             });
                             _scheduleHide();
                           },
@@ -260,16 +271,22 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
+          ),
 
           // 3. Page Indicator (Bottom)
-          if (_showToolbar)
-            Positioned(
-              bottom: MediaQuery.paddingOf(context).bottom + 16,
-              right: 16,
+          Positioned(
+            bottom: MediaQuery.paddingOf(context).bottom + 16,
+            right: 16,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.fastLinearToSlowEaseIn,
+              offset: _showToolbar ? Offset.zero : const Offset(0, 1.5),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 300),
+                curve: Curves.fastLinearToSlowEaseIn,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
+                  useBlur: isBlurEnabled,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Text(
@@ -283,8 +300,80 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<String?> _showPasswordPrompt(BuildContext context) async {
+    final theme = Theme.of(context);
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        String password = '';
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.lock_rounded, size: 32, color: theme.colorScheme.onPrimaryContainer),
+                ),
+                const SizedBox(height: 24),
+                Text('Password Required', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Text('This document is protected.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 24),
+                TextField(
+                  obscureText: true,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Enter password',
+                    prefixIcon: const Icon(Icons.key_rounded),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainerHighest,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (val) => password = val,
+                  onSubmitted: (_) => Navigator.of(context).pop(password),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop(); // Exit screen if they cancel
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(password),
+                      child: const Text('Unlock'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -398,22 +487,23 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _FrostedBar extends StatelessWidget {
-  const _FrostedBar({required this.child});
+  const _FrostedBar({required this.child, required this.useBlur});
   final Widget child;
+  final bool useBlur;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
+    final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFF5F5F5);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+      child: useBlur ? BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: navBg.withValues(alpha: isDark ? 0.7 : 0.8),
+            color: navBg.withValues(alpha: isDark ? 0.6 : 0.75),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
@@ -421,6 +511,15 @@ class _FrostedBar extends StatelessWidget {
           ),
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: child),
         ),
+      ) : DecoratedBox(
+        decoration: BoxDecoration(
+          color: navBg,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+          ),
+        ),
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: child),
       ),
     );
   }

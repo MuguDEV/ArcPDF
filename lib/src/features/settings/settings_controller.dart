@@ -34,6 +34,7 @@ class AppSettings {
   const AppSettings({
     required this.themeMode,
     required this.useGrid,
+    required this.useBlurEffect,
     required this.animationIntensity,
     required this.animationSpeed,
     required this.thumbnailQuality,
@@ -42,6 +43,7 @@ class AppSettings {
 
   final ThemeMode themeMode;
   final bool useGrid;
+  final bool useBlurEffect;
   final double animationIntensity;
   final double animationSpeed;
   final double thumbnailQuality;
@@ -50,6 +52,7 @@ class AppSettings {
   AppSettings copyWith({
     ThemeMode? themeMode,
     bool? useGrid,
+    bool? useBlurEffect,
     double? animationIntensity,
     double? animationSpeed,
     double? thumbnailQuality,
@@ -58,6 +61,7 @@ class AppSettings {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
       useGrid: useGrid ?? this.useGrid,
+      useBlurEffect: useBlurEffect ?? this.useBlurEffect,
       animationIntensity: animationIntensity ?? this.animationIntensity,
       animationSpeed: animationSpeed ?? this.animationSpeed,
       thumbnailQuality: thumbnailQuality ?? this.thumbnailQuality,
@@ -73,6 +77,7 @@ class SettingsController extends StateNotifier<AppSettings> {
       : super(AppSettings(
           themeMode: ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
           useGrid: _box.get('grid', defaultValue: false) as bool,
+          useBlurEffect: _box.get('useBlurEffect', defaultValue: true) as bool,
           animationIntensity: ((_box.get('anim', defaultValue: 1.0) as num).toDouble()).clamp(0.01, 1.0),
           animationSpeed: ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble()).clamp(0.5, 2.0),
           thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
@@ -89,6 +94,11 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setGrid(bool value) async {
     state = state.copyWith(useGrid: value);
     await _box.put('grid', value);
+  }
+
+  Future<void> setUseBlurEffect(bool value) async {
+    state = state.copyWith(useBlurEffect: value);
+    await _box.put('useBlurEffect', value);
   }
 
   Future<void> setAnimationIntensity(double value) async {
