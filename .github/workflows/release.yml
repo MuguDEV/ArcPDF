@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release latest'
+        description: 'Release version'
         required: true
         default: 'v1.0.0'
 
@@ -23,17 +23,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
 
       - name: Install dependencies
         run: flutter pub get
@@ -41,25 +43,40 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Set version variable
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+
       - name: Rename APK
         run: |
           mkdir -p release
-          cp build/app/outputs/flutter-apk/app-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk \
+          "release/ArcPDF-${VERSION}.apk"
 
       - name: Create tag for manual release
         if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag "${{ github.event.inputs.version }}"
-          git push origin "${{ github.event.inputs.version }}"
 
-      - name: Create ArcPDF Release
+          if git rev-parse "${VERSION}" >/dev/null 2>&1; then
+            echo "Tag already exists"
+          else
+            git tag "${VERSION}"
+            git push origin "${VERSION}"
+          fi
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version || github.ref_name }}
-          name: ArcPDF ${{ github.event.inputs.version || github.ref_name }}
-          files: "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk"
+          tag_name: ${{ env.VERSION }}
+          name: ArcPDF ${{ env.VERSION }}
+          files: release/ArcPDF-${{ env.VERSION }}.apk
           generate_release_notes: true
           overwrite_files: true
         env:
