@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../application/pdf_library_controller.dart';
@@ -13,37 +14,21 @@ class PermissionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 36),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon container with subtle glow
-            Container(
-              width: 104,
-              height: 104,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(36),
-                color: isDark ? const Color(0xFF252525) : theme.colorScheme.surfaceContainerHigh,
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant,
-                  width: 1.5,
-                ),
-              ),
-              child: Icon(
-                status == StoragePermissionStatus.permanentlyDenied
-                    ? Icons.folder_off_rounded
-                    : Icons.folder_open_rounded,
-                size: 48,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            )
-                .animate()
-                .scale(begin: const Offset(0.8, 0.8), duration: 600.ms, curve: Curves.easeOutBack)
-                .fadeIn(duration: 400.ms),
+            Lottie.asset(
+              status == StoragePermissionStatus.permanentlyDenied
+                  ? 'assets/lottie/denied.json'
+                  : 'assets/lottie/splash.json', // Using same for generic permission animation for now
+              width: 140,
+              height: 140,
+              repeat: true,
+            ),
+
 
             const SizedBox(height: 28),
 

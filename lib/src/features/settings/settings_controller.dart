@@ -35,6 +35,7 @@ class AppSettings {
     required this.themeMode,
     required this.useGrid,
     required this.animationIntensity,
+    required this.animationSpeed,
     required this.thumbnailQuality,
     required this.fontFamily,
   });
@@ -42,6 +43,7 @@ class AppSettings {
   final ThemeMode themeMode;
   final bool useGrid;
   final double animationIntensity;
+  final double animationSpeed;
   final double thumbnailQuality;
   final AppFontFamily fontFamily;
 
@@ -49,6 +51,7 @@ class AppSettings {
     ThemeMode? themeMode,
     bool? useGrid,
     double? animationIntensity,
+    double? animationSpeed,
     double? thumbnailQuality,
     AppFontFamily? fontFamily,
   }) {
@@ -56,6 +59,7 @@ class AppSettings {
       themeMode: themeMode ?? this.themeMode,
       useGrid: useGrid ?? this.useGrid,
       animationIntensity: animationIntensity ?? this.animationIntensity,
+      animationSpeed: animationSpeed ?? this.animationSpeed,
       thumbnailQuality: thumbnailQuality ?? this.thumbnailQuality,
       fontFamily: fontFamily ?? this.fontFamily,
     );
@@ -70,6 +74,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           themeMode: ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
           useGrid: _box.get('grid', defaultValue: false) as bool,
           animationIntensity: ((_box.get('anim', defaultValue: 1.0) as num).toDouble()).clamp(0.01, 1.0),
+          animationSpeed: ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble()).clamp(0.5, 2.0),
           thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
           fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
         ));
@@ -89,6 +94,11 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setAnimationIntensity(double value) async {
     state = state.copyWith(animationIntensity: value);
     await _box.put('anim', value);
+  }
+
+  Future<void> setAnimationSpeed(double value) async {
+    state = state.copyWith(animationSpeed: value);
+    await _box.put('animSpeed', value);
   }
 
   Future<void> setThumbnailQuality(double value) async {

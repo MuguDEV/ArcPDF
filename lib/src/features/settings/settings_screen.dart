@@ -199,6 +199,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     ListTile(
+                      title: const Text('Animation Speed'),
+                      subtitle: Text('${settings.animationSpeed.toStringAsFixed(1)}x'),
+                      trailing: SizedBox(
+                        width: 160,
+                        child: Slider.adaptive(
+                          value: settings.animationSpeed,
+                          min: 0.5,
+                          max: 2.0,
+                          divisions: 15,
+                          onChanged: ctrl.setAnimationSpeed,
+                        ),
+                      ),
+                    ),
+                    ListTile(
                       title: const Text('Thumbnail quality'),
                       subtitle: Text('${(settings.thumbnailQuality * 100).round()}%'),
                       trailing: SizedBox(
