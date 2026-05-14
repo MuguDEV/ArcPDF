@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -103,8 +104,12 @@ class _ArcNavBar extends ConsumerWidget {
                 _buildDest(HugeIcons.strokeRoundedClock01, 'Recent', 2, isDark, theme),
                 _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 3, isDark, theme),
               ],
-              onDestinationSelected: (i) =>
-                  ref.read(navigationControllerProvider.notifier).setIndex(i),
+              onDestinationSelected: (i) {
+                if (i != selectedIndex) {
+                  HapticFeedback.selectionClick();
+                  ref.read(navigationControllerProvider.notifier).setIndex(i);
+                }
+              },
             ),
           ),
         ),

@@ -107,25 +107,37 @@ List<PdfFileItem> _walkRoots(List<String> roots) {
           final isEncrypted = _isEncrypted(entity);
           out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted, isCorrupted: false));
         } catch (e, stack) {
-          AppLogger.error('Error processing file: [REDACTED]', e, stack);
+          final redactedName = _redactPath(entity.path);
+          AppLogger.error('Error processing file: $redactedName', e, stack);
         }
       }
     } catch (e, stack) {
-      AppLogger.error('Error walking directory: [REDACTED]', e, stack);
+      final redactedRoot = _redactPath(root);
+      AppLogger.error('Error walking directory: $redactedRoot', e, stack);
     }
   }
   return out;
 }
 
+String _redactPath(String path) {
+  final parts = path.split(Platform.pathSeparator);
+  if (parts.isEmpty) return 'unknown';
+  final name = parts.last;
+  if (name.length <= 4) return name;
+  return '${name.substring(0, 2)}...${name.substring(name.length - 2)}';
+}
+
 bool _isValidPdf(File file) {
   try {
+    if (file.lengthSync() < 5) return false;
     final raf = file.openSync();
     final bytes = raf.readSync(5);
     raf.closeSync();
     final header = String.fromCharCodes(bytes);
     return header == '%PDF-';
   } catch (e, stack) {
-    AppLogger.error('Error checking PDF header: [REDACTED]', e, stack);
+    final redactedName = _redactPath(file.path);
+    AppLogger.error('Error checking PDF header: $redactedName', e, stack);
     return false;
   }
 }
@@ -148,7 +160,8 @@ bool _isEncrypted(File file) {
       if (endStr.contains('/Encrypt')) return true;
     }
   } catch (e, stack) {
-    AppLogger.error('Error checking if PDF is encrypted: [REDACTED]', e, stack);
+    final redactedName = _redactPath(file.path);
+    AppLogger.error('Error checking if PDF is encrypted: $redactedName', e, stack);
   }
   return false;
 }

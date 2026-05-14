@@ -65,6 +65,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Future<void> _createHighlight() async {
     final selections = _currentSelections;
     if (selections == null || selections.isEmpty) return;
+    HapticFeedback.lightImpact();
 
     final repo = ref.read(annotationRepositoryProvider);
 

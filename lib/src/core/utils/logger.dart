@@ -73,6 +73,10 @@ class AppLogger {
 
     if (_box != null) {
       await _box!.add(entry.toMap());
+      if (_box!.length > 500) {
+        // Remove the oldest log to maintain a max of 500
+        await _box!.deleteAt(0);
+      }
     }
   }
 
