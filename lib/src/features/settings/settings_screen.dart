@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../updater/updater_service.dart';
+import 'log_viewer_screen.dart';
 import 'settings_controller.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -228,6 +229,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ).animate(delay: 180.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+
+              const SizedBox(height: 20),
+
+              // ── Diagnostics ──────────────────────────────────
+              const _SectionHeader(label: 'Diagnostics').animate(delay: 190.ms).fadeIn(duration: 260.ms),
+              const SizedBox(height: 8),
+
+              _SettingsCard(
+                child: ListTile(
+                  leading: const Icon(Icons.bug_report_rounded),
+                  title: const Text('View Logs'),
+                  subtitle: const Text('Check app diagnostics and errors'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const LogViewerScreen()),
+                    );
+                  },
+                ),
+              ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 

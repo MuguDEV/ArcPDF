@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../../core/utils/logger.dart';
+
 class PdfThumbnailCache {
   static final _memCache = <String, Uint8List>{};
   static String? _cacheDir;
@@ -67,7 +69,10 @@ class PdfThumbnailCache {
           return bytes;
         }
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      final redactedPath = pdfPath.split('/').lastOrNull ?? 'unknown_file';
+      AppLogger.error('Failed to generate thumbnail for $redactedPath', e, stackTrace);
+    }
     return null;
   }
 }
