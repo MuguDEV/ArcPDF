@@ -3,23 +3,30 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../domain/pdf_file_item.dart';
+import '../domain/pdf_annotation.dart';
+import '../data/annotation_repository.dart';
+import 'pdf_annotation_overlay.dart';
+import 'pdf_text_search_overlay.dart';
+import '../data/reading_progress_repository.dart';
 
-class PdfViewerScreen extends StatefulWidget {
+class PdfViewerScreen extends ConsumerStatefulWidget {
   const PdfViewerScreen({super.key, required this.item});
 
   final PdfFileItem item;
 
   @override
-  State<PdfViewerScreen> createState() => _PdfViewerScreenState();
+  ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
 }
 
-class _PdfViewerScreenState extends State<PdfViewerScreen> {
+class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver {
   final _controller = PdfViewerController();
+  late final PdfTextSearcher _textSearcher = PdfTextSearcher(_controller)..addListener(_update);
   late final PdfDocumentRef _docRef = PdfDocumentRefFile(
     widget.item.path,
     passwordProvider: () => _promptPassword(),
@@ -28,17 +35,122 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   bool _showToolbar = true;
   int _page = 1;
   int _pageCount = 1;
+  Timer? _readingTimer;
+  int _pendingReadingTime = 0;
+
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
+  void _update() {
+    if (mounted) setState(() {});
+  }
+
+  List<PdfTextRanges>? _currentSelections;
+
+  void _handleSelection(List<PdfTextRanges>? selections) {
+    setState(() {
+      if (selections != null && selections.isNotEmpty && selections.any((s) => s.isNotEmpty)) {
+        _currentSelections = selections;
+      } else {
+        _currentSelections = null;
+      }
+    });
+  }
+
+  Future<void> _createHighlight() async {
+    final selections = _currentSelections;
+    if (selections == null || selections.isEmpty) return;
+
+    final repo = ref.read(annotationRepositoryProvider);
+
+    for (final selection in selections) {
+      if (selection.isEmpty) continue;
+      final pageText = selection.pageText;
+
+      // Convert ranges to bounds
+      final boundsList = <double>[];
+      for (final range in selection.ranges) {
+          final fragments = PdfTextRangeWithFragments.fromTextRange(pageText, range.start, range.end);
+          if (fragments != null) {
+             for (final f in fragments.fragments) {
+                 boundsList.addAll([
+                     f.bounds.left,
+                     f.bounds.top,
+                     f.bounds.right,
+                     f.bounds.bottom,
+                 ]);
+             }
+          }
+      }
+
+      if (boundsList.isEmpty) continue;
+
+      final annotation = PdfAnnotation(
+        id: '${DateTime.now().millisecondsSinceEpoch}_${pageText.pageNumber}',
+        pdfPath: widget.item.path,
+        pageNumber: pageText.pageNumber,
+        type: 'highlight',
+        color: Colors.yellow.toARGB32(),
+        bounds: boundsList, // Storing all bounds continuously [l1,t1,r1,b1, l2,t2,r2,b2...]
+        createdAt: DateTime.now(),
+      );
+
+      await repo.addAnnotation(annotation);
+    }
+
+    // Unfortunately, we cannot programmatically clear the selection cleanly without using internals,
+    // but the selection typically goes away when we tap elsewhere. We'll hide our UI.
+    setState(() {
+        _currentSelections = null;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scheduleHide();
+    _startReadingTimer();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
+    _readingTimer?.cancel();
+    if (_pendingReadingTime > 0) {
+      ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+    }
+    _textSearcher.removeListener(_update);
+    _textSearcher.dispose();
+    _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startReadingTimer();
+    } else if (state == AppLifecycleState.paused) {
+      _readingTimer?.cancel();
+      if (_pendingReadingTime > 0) {
+        ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+        _pendingReadingTime = 0;
+      }
+    }
+  }
+
+  void _startReadingTimer() {
+    _readingTimer?.cancel();
+    _readingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _pendingReadingTime++;
+      if (_pendingReadingTime >= 10) {
+        ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+        _pendingReadingTime = 0;
+      }
+    });
   }
 
   void _scheduleHide() {
@@ -49,7 +161,13 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   }
 
   void _toggleToolbar() {
-    setState(() => _showToolbar = !_showToolbar);
+    setState(() {
+      _showToolbar = !_showToolbar;
+      if (!_showToolbar && _isSearching) {
+        _isSearching = false;
+        _searchFocus.unfocus();
+      }
+    });
     if (_showToolbar) _scheduleHide();
   }
 
@@ -93,6 +211,18 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 _docRef,
                 controller: _controller,
                 params: PdfViewerParams(
+                  pageOverlaysBuilder: (context, pageRect, page) => [
+                    PdfAnnotationOverlay(
+                      item: widget.item,
+                      pageRect: pageRect,
+                      page: page,
+                    ),
+                    PdfTextSearchOverlay(
+                      textSearcher: _textSearcher,
+                      pageRect: pageRect,
+                      page: page,
+                    ),
+                  ],
                   // Layout pages continuously in a vertical direction
                   layoutPages: (pages, params) {
                     final pageLayouts = <Rect>[];
@@ -117,9 +247,24 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   },
                   maxScale: 6,
                   minScale: 1,
-                  enableTextSelection: false,
-                  onPageChanged: (page) => setState(() => _page = page ?? _page),
-                  onViewerReady: (document, controller) => setState(() => _pageCount = document.pages.length),
+                  enableTextSelection: true,
+                  onTextSelectionChange: _handleSelection,
+                  onPageChanged: (page) {
+                    if (page != null) {
+                      setState(() => _page = page);
+                      ref.read(readingProgressRepositoryProvider).saveLastReadPage(widget.item.path, page);
+                    }
+                  },
+                  onViewerReady: (document, controller) {
+                    setState(() {
+                      _pageCount = document.pages.length;
+                    });
+                    final repo = ref.read(readingProgressRepositoryProvider);
+                    final lastPage = repo.getLastReadPage(widget.item.path);
+                    if (lastPage > 1 && lastPage <= _pageCount) {
+                       _controller.goToPage(pageNumber: lastPage);
+                    }
+                  },
                   errorBannerBuilder: (context, error, stackTrace, documentRef) {
                     return const SizedBox.shrink();
                   },
@@ -129,6 +274,18 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                 ),
               ),
             ),
+            if (_currentSelections != null)
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 80,
+                right: 20,
+                child: FloatingActionButton.extended(
+                  onPressed: _createHighlight,
+                  icon: const Icon(Icons.highlight_rounded),
+                  label: const Text('Highlight'),
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  foregroundColor: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
             Positioned(
               top: MediaQuery.paddingOf(context).top + 10,
               left: 12,
@@ -140,27 +297,96 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   duration: 200.ms,
                   opacity: _showToolbar ? 1 : 0,
                   child: _FrostedBar(
-                    child: Row(
-                      children: [
-                        IconButton(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                        Expanded(
-                          child: Text(widget.item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface)),
-                        ),
-                        IconButton(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          onPressed: _showPdfInfo,
-                          icon: const Icon(Icons.info_outline_rounded),
-                        ),
-                        IconButton(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          onPressed: _openThumbnails,
-                          icon: const Icon(Icons.grid_view_rounded),
-                        ),
-                      ],
+                    child: AnimatedSwitcher(
+                      duration: 200.ms,
+                      child: _isSearching
+                          ? Row(
+                              key: const ValueKey('search'),
+                              children: [
+                                IconButton(
+                                  color: theme.colorScheme.onSurface,
+                                  onPressed: () {
+                                    setState(() {
+                                      _isSearching = false;
+                                      _searchController.clear();
+                                      _textSearcher.resetTextSearch();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.arrow_back_rounded),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    focusNode: _searchFocus,
+                                    style: TextStyle(color: theme.colorScheme.onSurface),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search...',
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                                      contentPadding: EdgeInsets.zero,
+                                      isDense: true,
+                                      fillColor: Colors.transparent,
+                                    ),
+                                    onChanged: (query) {
+                                      if (query.isEmpty) {
+                                        _textSearcher.resetTextSearch();
+                                      } else {
+                                        _textSearcher.startTextSearch(query);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                if (_textSearcher.hasMatches) ...[
+                                  Text(
+                                    '${_textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}',
+                                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface),
+                                  ),
+                                  IconButton(
+                                    color: theme.colorScheme.onSurface,
+                                    onPressed: () => _textSearcher.goToPrevMatch(),
+                                    icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                                  ),
+                                  IconButton(
+                                    color: theme.colorScheme.onSurface,
+                                    onPressed: () => _textSearcher.goToNextMatch(),
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                                  ),
+                                ],
+                              ],
+                            )
+                          : Row(
+                              key: const ValueKey('toolbar'),
+                              children: [
+                                IconButton(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  onPressed: () => Navigator.of(context).maybePop(),
+                                  icon: const Icon(Icons.arrow_back_rounded),
+                                ),
+                                Expanded(
+                                  child: Text(widget.item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurface)),
+                                ),
+                                IconButton(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  onPressed: () {
+                                    setState(() => _isSearching = true);
+                                    _searchFocus.requestFocus();
+                                  },
+                                  icon: const Icon(Icons.search_rounded),
+                                ),
+                                IconButton(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  onPressed: _showPdfInfo,
+                                  icon: const Icon(Icons.info_outline_rounded),
+                                ),
+                                IconButton(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                  onPressed: _openThumbnails,
+                                  icon: const Icon(Icons.grid_view_rounded),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 ),
@@ -267,6 +493,11 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
     final sizeStr = (widget.item.sizeBytes / (1024 * 1024)).toStringAsFixed(2);
     final dateStr = DateFormat.yMMMd().add_jm().format(widget.item.lastModified);
     
+    final repo = ref.read(readingProgressRepositoryProvider);
+    final totalTimeSec = repo.getTotalReadTime(widget.item.path);
+    final timeStr = '${(totalTimeSec / 60).floor()} min ${totalTimeSec % 60} sec';
+    final completionStr = _pageCount > 0 ? '${((_page / _pageCount) * 100).toStringAsFixed(1)}%' : '0%';
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -318,6 +549,10 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
                   _InfoRow(icon: Icons.calendar_today_rounded, label: 'Modified', value: dateStr),
                   const Divider(height: 24),
                   _InfoRow(icon: Icons.file_copy_rounded, label: 'Pages', value: '$_pageCount pages'),
+                  const Divider(height: 24),
+                  _InfoRow(icon: Icons.timer_rounded, label: 'Total Reading Time', value: timeStr),
+                  const Divider(height: 24),
+                  _InfoRow(icon: Icons.trending_up_rounded, label: 'Completion', value: completionStr),
                   if (widget.item.isEncrypted) ...[
                     const Divider(height: 24),
                     const _InfoRow(icon: Icons.lock_rounded, label: 'Security', value: 'Password Protected'),
