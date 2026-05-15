@@ -32,14 +32,17 @@ class IntentService {
   void _handleSharedFiles(List<SharedMediaFile> files) {
     if (files.isEmpty) return;
 
-    // Delay handling to ensure navigator is fully initialized
-    Future.delayed(const Duration(milliseconds: 500), () {
-      for (final file in files) {
-        if (file.path.toLowerCase().endsWith('.pdf')) {
-          final pdfItem = PdfFileItem.fromFile(File(file.path));
+    _waitForContextAndNavigate(files);
+  }
 
-          final context = navigatorKey.currentContext;
-          if (context != null) {
+  Future<void> _waitForContextAndNavigate(List<SharedMediaFile> files, {int maxRetries = 20}) async {
+    for (int i = 0; i < maxRetries; i++) {
+      final context = navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        for (final file in files) {
+          if (file.path.toLowerCase().endsWith('.pdf')) {
+            final pdfItem = PdfFileItem.fromFile(File(file.path));
+
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => PdfViewerScreen(item: pdfItem),
@@ -47,8 +50,12 @@ class IntentService {
             );
           }
         }
+        return; // Successfully navigated
       }
-    });
+      // Wait a short duration before checking again
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    debugPrint("Failed to find Navigator context after waiting.");
   }
 
   void dispose() {
