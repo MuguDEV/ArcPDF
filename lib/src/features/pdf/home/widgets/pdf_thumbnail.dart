@@ -1,8 +1,8 @@
+import 'package:hugeicons/hugeicons.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'pdf_thumbnail_cache.dart';
@@ -86,7 +86,7 @@ class _Fallback extends StatelessWidget {
       aspectRatio: 0.75, // Default ratio
       child: Center(
         child: Icon(
-          Icons.picture_as_pdf_rounded,
+          HugeIcons.strokeRoundedPdf02,
           color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
           size: 28,
         ),
