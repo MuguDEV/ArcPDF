@@ -16,8 +16,8 @@ permissions:
   contents: write
 
 jobs:
-  build-android-linux:
-    name: Build Android & Linux
+  build-android:
+    name: Build Android
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +30,6 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -43,23 +38,28 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build Split APKs
+        run: flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/app/outputs/symbols
 
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Package Linux
-        run: |
-          cd build/linux/x64/release/bundle
-          tar -czvf ArcPDF-Linux.tar.gz *
-          cd ../../../../..
+      - name: Build AppBundle
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/app/outputs/symbols
 
       - name: Rename & Organize Artifacts
         run: |
           mkdir -p release
-          cp build/app/outputs/flutter-apk/app-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.apk"
-          cp build/linux/x64/release/bundle/ArcPDF-Linux.tar.gz "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-Linux.tar.gz"
+
+          # Universal APK (if it exists, though split-per-abi usually replaces it, we'll copy it if present)
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-universal.apk"
+          fi
+
+          # Split APKs
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-armeabi-v7a.apk" || true
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-arm64-v8a.apk" || true
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-x86_64.apk" || true
+
+          # App Bundle
+          cp build/app/outputs/bundle/release/app-release.aab "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}.aab" || true
 
       - name: Create tag for manual release
         if: github.event_name == 'workflow_dispatch'
@@ -72,94 +72,12 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-linux-artifacts
-          path: release/*
-
-  build-ios-macos:
-    name: Build iOS & macOS
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build iOS (No Codesign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Package iOS IPA
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r ArcPDF-iOS.ipa Payload
-          rm -rf Payload
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Package macOS
-        run: |
-          cd build/macos/Build/Products/Release
-          zip -r ArcPDF-macOS.zip arcpdf.app
-          cd ../../../../..
-
-      - name: Rename & Organize Artifacts
-        run: |
-          mkdir -p release
-          cp ArcPDF-iOS.ipa "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-iOS.ipa"
-          cp build/macos/Build/Products/Release/ArcPDF-macOS.zip "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-macOS.zip"
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-macos-artifacts
-          path: release/*
-
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Windows
-        run: flutter build windows --release
-
-      - name: Package Windows
-        run: |
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath ArcPDF-Windows.zip
-
-      - name: Rename & Organize Artifacts
-        shell: bash
-        run: |
-          mkdir -p release
-          cp ArcPDF-Windows.zip "release/ArcPDF-${{ github.event.inputs.version || github.ref_name }}-Windows.zip"
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-artifacts
+          name: android-artifacts
           path: release/*
 
   release:
     name: Create GitHub Release
-    needs: [build-android-linux, build-ios-macos, build-windows]
+    needs: [build-android]
     runs-on: ubuntu-latest
 
     steps:
