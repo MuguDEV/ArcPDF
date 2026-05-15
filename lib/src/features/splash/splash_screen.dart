@@ -1,3 +1,4 @@
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,7 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           children: [
             // Icon replacing Lottie Animation
             Icon(
-              Icons.picture_as_pdf_rounded,
+              HugeIcons.strokeRoundedPdf02,
               size: 140,
               color: theme.colorScheme.primary,
             ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),

@@ -1,3 +1,4 @@
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -188,7 +189,7 @@ class _RecentTileState extends State<_RecentTile> {
                     borderRadius: BorderRadius.circular(28),
                   ),
                   child: Icon(
-                    Icons.picture_as_pdf_rounded,
+                    HugeIcons.strokeRoundedPdf02,
                     size: 22,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

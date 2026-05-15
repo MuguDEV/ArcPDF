@@ -1,3 +1,4 @@
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -282,7 +283,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           color: theme.colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: const Icon(Icons.picture_as_pdf_rounded, size: 22),
+                        child: const Icon(HugeIcons.strokeRoundedPdf02, size: 22),
                       ),
                       title: const Text('ArcPDF'),
                       subtitle: Text('$_version · Your local PDF workspace'),
