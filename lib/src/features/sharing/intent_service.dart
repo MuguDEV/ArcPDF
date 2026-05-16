@@ -8,11 +8,16 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../pdf/viewer/pdf_viewer_screen.dart';
 
-final intentServiceProvider = Provider<IntentService>((ref) => IntentService());
+import '../navigation/navigation_controller.dart';
+
+final intentServiceProvider = Provider<IntentService>((ref) => IntentService(ref));
 
 class IntentService {
+  final Ref ref;
   StreamSubscription? _intentDataStreamSubscription;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  IntentService(this.ref);
 
   void init() {
     // For sharing or opening files while the app is already running
@@ -35,10 +40,12 @@ class IntentService {
     _waitForContextAndNavigate(files);
   }
 
-  Future<void> _waitForContextAndNavigate(List<SharedMediaFile> files, {int maxRetries = 20}) async {
+  Future<void> _waitForContextAndNavigate(List<SharedMediaFile> files, {int maxRetries = 50}) async {
     for (int i = 0; i < maxRetries; i++) {
+      final isSplashDone = ref.read(splashDoneProvider);
       final context = navigatorKey.currentContext;
-      if (context != null && context.mounted) {
+
+      if (isSplashDone && context != null && context.mounted) {
         for (final file in files) {
           if (file.path.toLowerCase().endsWith('.pdf')) {
             final pdfItem = PdfFileItem.fromFile(File(file.path));
