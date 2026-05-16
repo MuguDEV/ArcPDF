@@ -47,11 +47,13 @@ jobs:
 
       - name: Extract current version
         id: get_version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
           VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}')
           echo "Current pubspec version: $VERSION"
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            CLEAN_VERSION=$(echo "${{ github.event.inputs.version }}" | sed 's/^v//')
+          if [ -n "$INPUT_VERSION" ]; then
+            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//')
             echo "Using manual version: $CLEAN_VERSION"
             echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
           else
