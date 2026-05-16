@@ -138,13 +138,14 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          name: android-artifacts
           path: artifacts
           merge-multiple: true
 
       - name: Check for Artifacts
         id: check_artifacts
         run: |
-          if [ -z "$(ls -A artifacts)" ]; then
+          if [ ! -d "artifacts" ] || [ -z "$(ls -A artifacts)" ]; then
              echo "No artifacts found. Skipping release creation."
              echo "skip=true" >> $GITHUB_ENV
           else
