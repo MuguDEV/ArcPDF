@@ -163,6 +163,39 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               controller: _pdfViewerController,
               passwordProvider: () async => _showPasswordPrompt(context),
               params: PdfViewerParams(
+                errorBannerBuilder: (context, error, stackTrace, documentRef) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 48,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load PDF',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            error.toString(),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
                 backgroundColor: theme.colorScheme.surface,
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 margin: 4.0,
