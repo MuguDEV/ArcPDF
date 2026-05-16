@@ -225,9 +225,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     child: SizedBox(width: size.width, height: size.height),
                   ),
                 ],
-                pagePaintCallbacks: [
-                  _textSearcher.pageTextMatchPaintCallback,
-                ],
               ),
             ),
 
