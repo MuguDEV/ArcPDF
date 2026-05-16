@@ -1,0 +1,12 @@
+--- lib/src/features/pdf/viewer/pdf_viewer_screen.dart
++++ lib/src/features/pdf/viewer/pdf_viewer_screen.dart
+@@ -79,6 +79,7 @@
+       if (newPage != _page || newPageCount != _pageCount) {
+         setState(() {
+           _page = newPage;
+           _pageCount = newPageCount;
+         });
++        ref.read(readingProgressRepositoryProvider).saveLastReadPage(widget.item.path, newPage);
+       }
+     }
+   }

@@ -31,7 +31,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pageCount = 1;
   Timer? _readingTimer;
   int _pendingReadingTime = 0;
-  bool _fitWidth = true;
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
@@ -147,8 +146,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     final theme = Theme.of(context);
     final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect));
     final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass));
-    final isDarkMode = theme.brightness == Brightness.dark;
-    final repo = ref.read(readingProgressRepositoryProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -204,16 +201,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 backgroundColor: theme.colorScheme.surface,
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 margin: 4.0,
-                pagePaintCallbacks: [
-                  if (isDarkMode)
-                    (canvas, pageRect, page) {
-                      final paint = Paint()
-                        ..blendMode = BlendMode.difference
-                        ..color = Colors.white;
-                      canvas.drawRect(pageRect, paint);
-                    },
-                  _textSearcher.pageTextMatchPaintCallback
-                ],
                 viewerOverlayBuilder: (context, size, handleLinkTap) => [
                   GestureDetector(
                     behavior: HitTestBehavior.translucent,
@@ -305,29 +292,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() => _fitWidth = !_fitWidth);
-                            // We trigger relayout or zoom in a post-frame callback
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (_fitWidth) {
-                                  final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
-                                  if (m != null) {
-                                    final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
-                                  }
-                                } else {
-                                  final m = _pdfViewerController.calcMatrixForFit(pageNumber: _pdfViewerController.pageNumber ?? 1);
-                                  if (m != null) {
-                                    final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
-                                  }
-                                }
-                            });
-                          },
-                          icon: Icon(_fitWidth ? Icons.fit_screen_rounded : Icons.width_full_rounded),
-                          tooltip: _fitWidth ? 'Fit Page' : 'Fit Width',
                         ),
                         IconButton(
                           onPressed: () {
@@ -470,7 +434,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     final theme = Theme.of(context);
     final sizeStr = (widget.item.sizeBytes / (1024 * 1024)).toStringAsFixed(2);
     final dateStr = DateFormat.yMMMd().add_jm().format(widget.item.lastModified);
-    
+
     final repo = ref.read(readingProgressRepositoryProvider);
     final totalTimeSec = repo.getTotalReadTime(widget.item.path);
     final timeStr = '${(totalTimeSec / 60).floor()} min ${totalTimeSec % 60} sec';

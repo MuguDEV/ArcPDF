@@ -27,10 +27,36 @@ class RecentScreen extends ConsumerWidget {
         CupertinoSliverRefreshControl(
           onRefresh: ctrl.refresh,
         ),
-        const SliverAppBar(
+        SliverAppBar(
             floating: true,
             pinned: true,
-            title: Text('Recent', style: TextStyle(fontWeight: FontWeight.w700)),
+            title: const Text('Recent', style: TextStyle(fontWeight: FontWeight.w700)),
+            actions: [
+              if (!isEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('Clear Recent History'),
+                        content: const Text('Are you sure you want to clear your recent history? This cannot be undone.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, true),
+                            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                            child: const Text('Clear'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await ctrl.clearRecents();
+                    }
+                  },
+                ),
+            ],
           ),
 
           if (loading)

@@ -1,0 +1,26 @@
+--- lib/src/features/pdf/viewer/pdf_viewer_screen.dart
++++ lib/src/features/pdf/viewer/pdf_viewer_screen.dart
+@@ -155,6 +155,7 @@
+     final useBlur = isBlurEnabled;
+     final useGlass = isLiquidGlass;
+     final theme = Theme.of(context);
++    final isDarkMode = theme.brightness == Brightness.dark;
+
+     return Scaffold(
+       backgroundColor: theme.colorScheme.surface,
+@@ -203,6 +204,18 @@
+                 pageDropShadow: const BoxShadow(color: Colors.transparent),
+                 margin: 4.0,
++                pagePaintCallbacks: [
++                  if (isDarkMode)
++                    (canvas, pageRect, page) {
++                      final paint = Paint()
++                        ..blendMode = BlendMode.difference
++                        ..color = Colors.white;
++                      canvas.drawRect(pageRect, paint);
++                    },
++                  _textSearcher.pageTextMatchPaintCallback
++                ],
+                 viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                   GestureDetector(
+                     behavior: HitTestBehavior.translucent,

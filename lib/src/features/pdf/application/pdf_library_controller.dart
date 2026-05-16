@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
+import 'dart:io';
+
 import '../../../data/local_boxes.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +11,7 @@ import '../domain/pdf_file_item.dart';
 
 export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
 
-enum PdfFilter { all, recent, downloads, large }
+enum PdfFilter { all, recent, downloads, large, folders }
 
 enum PdfSortField { name, date, size }
 
@@ -140,6 +142,45 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     state = state.copyWith(recents: recents);
   }
 
+  Future<bool> renameFile(PdfFileItem item, String newName) async {
+    try {
+      final oldFile = File(item.path);
+      if (!await oldFile.exists()) return false;
+      final dir = oldFile.parent.path;
+      final newPath = '$dir${Platform.pathSeparator}$newName.pdf';
+      final newFile = File(newPath);
+      if (await newFile.exists()) return false;
+
+      await oldFile.rename(newPath);
+
+      // Update Hive boxes keys if they were favored or recent
+      if (state.favorites.contains(item.path)) {
+        await _favBox.delete(item.path);
+        await _favBox.put(newPath, newPath);
+      }
+      if (state.recents.containsKey(item.path)) {
+        await _recentsBox.delete(item.path);
+        await _recentsBox.put(newPath, newPath);
+        final ms = _timestampsBox.get(item.path);
+        if (ms != null) {
+          await _timestampsBox.delete(item.path);
+          await _timestampsBox.put(newPath, ms);
+        }
+      }
+
+      await refresh();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> clearRecents() async {
+    await _recentsBox.clear();
+    await _timestampsBox.clear();
+    state = state.copyWith(recents: const {});
+  }
+
   List<PdfFileItem> filteredItems(
       {bool favoritesOnly = false, bool recentsOnly = false}) {
     final q = state.query.trim().toLowerCase();
@@ -192,6 +233,16 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     }
 
     return filtered;
+  }
+
+  Map<String, List<PdfFileItem>> groupedByFolder() {
+    final filtered = filteredItems();
+    final groups = <String, List<PdfFileItem>>{};
+    for (final item in filtered) {
+      final folder = item.locationLabel;
+      groups.putIfAbsent(folder, () => []).add(item);
+    }
+    return groups;
   }
 
   /// Returns recents enriched with openedAt, grouped: Today / Yesterday / This Week / Older

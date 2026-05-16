@@ -1,0 +1,11 @@
+--- lib/src/features/pdf/home/home_screen.dart
++++ lib/src/features/pdf/home/home_screen.dart
+@@ -311,7 +311,7 @@
+             padding: const EdgeInsets.symmetric(horizontal: 16),
+             sliver: SliverList(
+               delegate: SliverChildListDelegate([
+-                ...ref.read(pdfLibraryControllerProvider.notifier).groupedByFolder().entries.map((e) {
++                ...ctrl.groupedByFolder().entries.map((e) {
+                   final folderName = e.key;
+                   final folderItems = e.value;
+                   return Column(

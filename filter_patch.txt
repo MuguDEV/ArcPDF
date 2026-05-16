@@ -1,0 +1,10 @@
+--- lib/src/features/pdf/application/pdf_library_controller.dart
++++ lib/src/features/pdf/application/pdf_library_controller.dart
+@@ -11,7 +11,7 @@
+
+ export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
+
+-enum PdfFilter { all, recent, downloads, large }
++enum PdfFilter { all, recent, downloads, large, folders }
+
+ enum PdfSortField { name, date, size }

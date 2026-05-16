@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
+import 'rename_dialog.dart';
 
 class PdfCard extends ConsumerStatefulWidget {
   const PdfCard({
@@ -120,6 +122,30 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                               ),
                             ),
                           ),
+                    Material(
+                      color: Colors.transparent,
+                      child: IconButton(
+                        onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
+                        icon: const Icon(Icons.share_rounded),
+                      ),
+                    ),
+                    Material(
+                      color: Colors.transparent,
+                      child: IconButton(
+                        onPressed: () async {
+                          final newName = await showRenameDialog(context, widget.item.name);
+                          if (newName != null && newName.isNotEmpty && mounted) {
+                            final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
+                            if (!success && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to rename file.')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.edit_rounded),
+                      ),
+                    ),
                       ],
                     ),
                   ),

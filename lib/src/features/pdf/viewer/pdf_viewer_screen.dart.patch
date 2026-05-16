@@ -1,0 +1,14 @@
+<<<<<<< SEARCH
+            PdfViewer.file(
+              widget.item.path,
+              controller: _pdfViewerController,
+              passwordProvider: () async => _showPasswordPrompt(context),
+              params: PdfViewerParams(
+=======
+            PdfViewer.file(
+              widget.item.path,
+              controller: _pdfViewerController,
+              initialPageNumber: repo.getLastReadPage(widget.item.path),
+              passwordProvider: () async => _showPasswordPrompt(context),
+              params: PdfViewerParams(
+>>>>>>> REPLACE

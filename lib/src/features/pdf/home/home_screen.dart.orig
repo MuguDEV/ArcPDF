@@ -310,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                ...ctrl.groupedByFolder().entries.map((e) {
+                ...ref.read(pdfLibraryControllerProvider.notifier).groupedByFolder().entries.map((e) {
                   final folderName = e.key;
                   final folderItems = e.value;
                   return Column(
