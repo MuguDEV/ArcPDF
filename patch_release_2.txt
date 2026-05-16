@@ -1,0 +1,11 @@
+--- .github/workflows/auto_release.yml
++++ .github/workflows/auto_release.yml
+@@ -51,7 +51,7 @@
+           VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+           echo "Current pubspec version: $VERSION"
+           if [ -n "$INPUT_VERSION" ]; then
+-            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//')
++            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//' | tr -d '\r')
+             echo "Using manual version: $CLEAN_VERSION"
+             echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+           else

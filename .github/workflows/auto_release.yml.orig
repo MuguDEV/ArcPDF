@@ -115,7 +115,7 @@ jobs:
           dart pub global activate cider
           export PATH="$PATH":"$HOME/.pub-cache/bin"
           cider bump build
-          NEW_VERSION=$(cider version | tr -d '\r')
+          NEW_VERSION=$(cider version)
           echo "New bumped version: $NEW_VERSION"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 

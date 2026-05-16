@@ -1,0 +1,10 @@
+--- .github/workflows/auto_release.yml
++++ .github/workflows/auto_release.yml
+@@ -116,7 +116,7 @@
+           dart pub global activate cider
+           export PATH="$PATH":"$HOME/.pub-cache/bin"
+           cider bump build
+-          NEW_VERSION=$(cider version)
++          NEW_VERSION=$(cider version | tr -d '\r')
+           echo "New bumped version: $NEW_VERSION"
+           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
