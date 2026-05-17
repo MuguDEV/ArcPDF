@@ -1,18 +1,23 @@
 --- lib/src/features/pdf/viewer/pdf_viewer_screen.dart
 +++ lib/src/features/pdf/viewer/pdf_viewer_screen.dart
-@@ -311,13 +311,13 @@
+@@ -310,18 +310,20 @@
+                             // We trigger relayout or zoom in a post-frame callback
+                             WidgetsBinding.instance.addPostFrameCallback((_) {
+                                 if (_fitWidth) {
                                    final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                    if (m != null) {
                                      final newZoom = m.getMaxScaleOnAxis();
--                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
-+                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
+-                                    final center = _pdfViewerController.centerPosition;
+-                                    _pdfViewerController.setZoom(center, newZoom);
++                                    _pdfViewerController.setZoom(Offset.zero, newZoom);
                                    }
                                  } else {
                                    final m = _pdfViewerController.calcMatrixForFit(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                    if (m != null) {
                                      final newZoom = m.getMaxScaleOnAxis();
--                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
-+                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
+-                                    final center = _pdfViewerController.centerPosition;
+-                                    _pdfViewerController.setZoom(center, newZoom);
++                                    _pdfViewerController.setZoom(Offset.zero, newZoom);
                                    }
                                  }
                              });

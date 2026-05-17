@@ -66,7 +66,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
