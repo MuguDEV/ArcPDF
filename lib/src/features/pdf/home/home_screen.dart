@@ -403,6 +403,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
+      ),
     );
   }
 
