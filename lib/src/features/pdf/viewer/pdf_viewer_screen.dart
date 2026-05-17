@@ -317,14 +317,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                   if (m != null) {
                                     final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(Offset.zero, newZoom, duration: const Duration(milliseconds: 250));
+                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
                                   }
                                 } else {
-                                  final m = _pdfViewerController.calcMatrixForFit(pageNumber: _pdfViewerController.pageNumber ?? 1);
-                                  if (m != null) {
-                                    final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(Offset.zero, newZoom, duration: const Duration(milliseconds: 250));
-                                  }
+                                  _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
                                 }
                             });
                           },

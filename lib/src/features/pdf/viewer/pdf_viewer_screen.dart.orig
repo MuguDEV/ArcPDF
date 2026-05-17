@@ -32,6 +32,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Timer? _readingTimer;
   int _pendingReadingTime = 0;
   bool _fitWidth = true;
+  bool _pdfDarkMode = false;
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
@@ -147,7 +148,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     final theme = Theme.of(context);
     final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect));
     final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass));
-    final isDarkMode = theme.brightness == Brightness.dark;
     final repo = ref.read(readingProgressRepositoryProvider);
 
     return Scaffold(
@@ -205,7 +205,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 margin: 4.0,
                 pagePaintCallbacks: [
-                  if (isDarkMode)
+                  if (_pdfDarkMode)
                     (canvas, pageRect, page) {
                       final paint = Paint()
                         ..blendMode = BlendMode.difference
@@ -304,6 +304,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           ),
                         ),
                         IconButton(
+                          onPressed: () => setState(() => _pdfDarkMode = !_pdfDarkMode),
+                          icon: Icon(_pdfDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                          tooltip: _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
+                        ),
+                        IconButton(
                           onPressed: () {
                             setState(() => _fitWidth = !_fitWidth);
                             // We trigger relayout or zoom in a post-frame callback
@@ -312,14 +317,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                   if (m != null) {
                                     final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(Offset.zero, newZoom, duration: const Duration(milliseconds: 250));
+                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
                                   }
                                 } else {
                                   final m = _pdfViewerController.calcMatrixForFit(pageNumber: _pdfViewerController.pageNumber ?? 1);
-                                  if (m != null) {
-                                    final newZoom = m.getMaxScaleOnAxis();
-                                    _pdfViewerController.setZoom(Offset.zero, newZoom, duration: const Duration(milliseconds: 250));
-                                  }
+                                  final zoom = m?.getMaxScaleOnAxis() ?? _pdfViewerController.zoomRatioToFitPage;
+                                  _pdfViewerController.setZoom(_pdfViewerController.centerPosition, zoom, duration: const Duration(milliseconds: 250));
                                 }
                             });
                           },
