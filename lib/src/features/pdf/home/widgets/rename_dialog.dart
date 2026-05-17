@@ -12,21 +12,46 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
     builder: (context) {
       final theme = Theme.of(context);
       return AlertDialog(
-        title: const Text('Rename PDF'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+        title: Row(
+          children: [
+            Icon(Icons.edit_document, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 12),
+            const Text('Rename PDF'),
+          ],
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.colorScheme.onSurface),
+            ),
             labelText: 'New Name',
+            labelStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
+            ),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.onSurface,
+              foregroundColor: theme.colorScheme.surface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
             onPressed: () {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
