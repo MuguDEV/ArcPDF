@@ -122,30 +122,34 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                               ),
                             ),
                           ),
-                    Material(
-                      color: Colors.transparent,
-                      child: IconButton(
-                        onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
-                        icon: const Icon(Icons.share_rounded),
-                      ),
-                    ),
-                    Material(
-                      color: Colors.transparent,
-                      child: IconButton(
-                        onPressed: () async {
-                          final newName = await showRenameDialog(context, widget.item.name);
-                          if (newName != null && newName.isNotEmpty && mounted) {
-                            final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
-                            if (!success && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Failed to rename file.')),
-                              );
-                            }
-                          }
-                        },
-                        icon: const Icon(Icons.edit_rounded),
-                      ),
-                    ),
+                        Row(
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: IconButton(
+                                onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
+                                icon: const Icon(Icons.share_rounded),
+                              ),
+                            ),
+                            Material(
+                              color: Colors.transparent,
+                              child: IconButton(
+                                onPressed: () async {
+                                  final newName = await showRenameDialog(context, widget.item.name);
+                                  if (newName != null && newName.isNotEmpty && mounted) {
+                                    final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
+                                    if (!success && mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Failed to rename file.')),
+                                      );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.edit_rounded),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
