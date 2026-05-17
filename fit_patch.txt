@@ -1,0 +1,19 @@
+--- lib/src/features/pdf/viewer/pdf_viewer_screen.dart
++++ lib/src/features/pdf/viewer/pdf_viewer_screen.dart
+@@ -312,12 +312,14 @@
+                                   final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
+                                   if (m != null) {
+                                     final newZoom = m.getMaxScaleOnAxis();
+-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
++                                    final center = _pdfViewerController.centerPosition;
++                                    _pdfViewerController.setZoom(center, newZoom);
+                                   }
+                                 } else {
+                                   final m = _pdfViewerController.calcMatrixForFit(pageNumber: _pdfViewerController.pageNumber ?? 1);
+                                   if (m != null) {
+                                     final newZoom = m.getMaxScaleOnAxis();
+-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom);
++                                    final center = _pdfViewerController.centerPosition;
++                                    _pdfViewerController.setZoom(center, newZoom);
+                                   }
+                                 }

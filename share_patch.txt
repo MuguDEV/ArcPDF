@@ -1,0 +1,21 @@
+--- lib/src/features/pdf/home/widgets/pdf_card.dart
++++ lib/src/features/pdf/home/widgets/pdf_card.dart
+@@ -2,6 +2,7 @@
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:intl/intl.dart';
++import 'package:share_plus/share_plus.dart';
+
+ import '../../../settings/settings_controller.dart';
+ import '../../application/pdf_library_controller.dart';
+@@ -138,6 +139,12 @@
+                       ),
+                     ),
++                    Material(
++                      color: Colors.transparent,
++                      child: IconButton(
++                        onPressed: () => Share.shareXFiles([XFile(item.path)]),
++                        icon: const Icon(Icons.share_rounded),
++                      ),
++                    ),
+                   ],
+                 ),

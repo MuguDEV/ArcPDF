@@ -25,24 +25,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   bool _searchActive = false;
-  final _scrollController = ScrollController();
-  bool _showScrollToTop = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 300 && !_showScrollToTop) {
-        setState(() => _showScrollToTop = true);
-      } else if (_scrollController.offset <= 300 && _showScrollToTop) {
-        setState(() => _showScrollToTop = false);
-      }
-    });
-  }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -73,24 +58,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final items = ctrl.filteredItems();
     final useGrid = ref.watch(settingsControllerProvider).useGrid;
-    final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
-      floatingActionButton: _showScrollToTop
-          ? FloatingActionButton(
-              onPressed: () {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.fastOutSlowIn,
-                );
-              },
-              child: const Icon(Icons.arrow_upward_rounded),
-            )
-          : null,
-      body: CustomScrollView(
-      controller: _scrollController,
+    return CustomScrollView(
       physics:
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
@@ -341,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                ...ctrl.groupedByFolder().entries.map((e) {
+                ...ref.read(pdfLibraryControllerProvider.notifier).groupedByFolder().entries.map((e) {
                   final folderName = e.key;
                   final folderItems = e.value;
                   return Column(

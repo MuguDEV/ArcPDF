@@ -1,0 +1,52 @@
+--- lib/src/features/pdf/home/home_screen.dart
++++ lib/src/features/pdf/home/home_screen.dart
+@@ -25,11 +25,14 @@
+ class _HomeScreenState extends ConsumerState<HomeScreen> {
+   final _searchController = TextEditingController();
+   bool _searchActive = false;
++  final _scrollController = ScrollController();
++  bool _showScrollToTop = false;
+
+   @override
+   void dispose() {
+     _searchController.dispose();
++    _scrollController.dispose();
+     super.dispose();
+   }
+
+@@ -37,6 +40,15 @@
+   Widget build(BuildContext context) {
+     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
+
++    _scrollController.addListener(() {
++      if (_scrollController.offset > 300 && !_showScrollToTop) {
++        setState(() => _showScrollToTop = true);
++      } else if (_scrollController.offset <= 300 && _showScrollToTop) {
++        setState(() => _showScrollToTop = false);
++      }
++    });
++
+     final loading =
+         ref.watch(pdfLibraryControllerProvider.select((s) => s.loading));
+     final permissionStatus = ref
+@@ -62,6 +74,18 @@
+         body: Center(child: CircularProgressIndicator.adaptive()));
+     }
+
+     return Scaffold(
+       backgroundColor: theme.colorScheme.surface,
++      floatingActionButton: _showScrollToTop
++          ? FloatingActionButton(
++              onPressed: () {
++                _scrollController.animateTo(
++                  0,
++                  duration: const Duration(milliseconds: 500),
++                  curve: Curves.fastOutSlowIn,
++                );
++              },
++              child: const Icon(Icons.arrow_upward_rounded),
++            )
++          : null,
+       body: CustomScrollView(
++        controller: _scrollController,
+         physics: const AlwaysScrollableScrollPhysics(

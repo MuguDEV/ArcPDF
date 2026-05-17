@@ -1,0 +1,19 @@
+--- lib/src/features/pdf/application/pdf_library_controller.dart
++++ lib/src/features/pdf/application/pdf_library_controller.dart
+@@ -230,6 +230,17 @@
+
+     return filtered;
+   }
++
++  Map<String, List<PdfFileItem>> groupedByFolder() {
++    final filtered = filteredItems();
++    final groups = <String, List<PdfFileItem>>{};
++    for (final item in filtered) {
++      final folder = item.locationLabel;
++      groups.putIfAbsent(folder, () => []).add(item);
++    }
++    return groups;
++  }
+
+   /// Returns recents enriched with openedAt, grouped: Today / Yesterday / This Week / Older
+   Map<String, List<PdfFileItem>> groupedRecents() {

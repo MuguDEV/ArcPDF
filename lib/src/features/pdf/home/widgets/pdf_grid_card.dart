@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
+import 'rename_dialog.dart';
 
 class PdfGridCard extends ConsumerStatefulWidget {
   const PdfGridCard({
@@ -84,6 +86,44 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                         padding: const EdgeInsets.all(8),
                       ),
                       onPressed: widget.onFavorite,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: IconButton(
+                      icon: const Icon(Icons.share_rounded),
+                      color: Colors.white.withValues(alpha: 0.8),
+                      iconSize: 20,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: 0.25),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                      onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: IconButton(
+                      icon: const Icon(Icons.edit_rounded),
+                      color: Colors.white.withValues(alpha: 0.8),
+                      iconSize: 20,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withValues(alpha: 0.25),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                      onPressed: () async {
+                        final newName = await showRenameDialog(context, widget.item.name);
+                        if (newName != null && newName.isNotEmpty && mounted) {
+                          final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
+                          if (!success && mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Failed to rename file.')),
+                            );
+                          }
+                        }
+                      },
                     ),
                   ),
                 ],
