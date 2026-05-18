@@ -78,15 +78,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       floatingActionButton: _showScrollToTop
-          ? FloatingActionButton(
-              onPressed: () {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.fastOutSlowIn,
-                );
-              },
-              child: const Icon(Icons.arrow_upward_rounded),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 90.0), // Elevate above the bottom navigation bar
+              child: FloatingActionButton(
+                onPressed: () {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.fastOutSlowIn,
+                  );
+                },
+                backgroundColor: theme.colorScheme.secondaryContainer,
+                foregroundColor: theme.colorScheme.onSecondaryContainer,
+                elevation: 4,
+                child: const Icon(Icons.arrow_upward_rounded),
+              ),
             )
           : null,
       body: CustomScrollView(
