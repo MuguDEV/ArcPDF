@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
@@ -122,51 +123,41 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                               ),
                             ),
                           ),
-                        Row(
-                          children: [
-                            Material(
-                              color: Colors.transparent,
-                              child: IconButton(
-                                onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
-                                icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),
-                              ),
-                            ),
-                            Material(
-                              color: Colors.transparent,
-                              child: IconButton(
-                                onPressed: () async {
-                                  final newName = await showRenameDialog(context, widget.item.name);
-                                  if (newName != null && newName.isNotEmpty && mounted) {
-                                    final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
-                                    if (!success && mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Failed to rename file.')),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(HugeIcons.strokeRoundedEdit02, size: 20),
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
 
-                  // Favorite button
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    transitionBuilder: (child, anim) =>
-                        ScaleTransition(scale: anim, child: child),
-                    child: IconButton(
-                      key: ValueKey(isFav),
-                      onPressed: widget.onFavorite,
-                      icon: Icon(
-                        isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: isFav ? Colors.grey.shade400 : null,
+                  // Actions
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: ValueKey(isFav),
+                        onPressed: widget.onFavorite,
+                        icon: Icon(
+                          isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          color: isFav ? Colors.grey.shade400 : null,
+                        ),
                       ),
-                    ),
+                      IconButton(
+                        onPressed: () => Share.shareXFiles([XFile(widget.item.path)]),
+                        icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final newName = await showRenameDialog(context, widget.item.name);
+                          if (newName != null && newName.isNotEmpty && mounted) {
+                            final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
+                            if (!success && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to rename file.')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(HugeIcons.strokeRoundedEdit02, size: 20),
+                      ),
+                    ],
                   ),
                 ],
               ),
