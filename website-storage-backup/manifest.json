@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Website Storage Backup Tool",
+  "version": "1.0.0",
+  "description": "Export and import website storage data (localStorage, sessionStorage, IndexedDB, Cache, Cookies) for the active tab.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "cookies",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Website Storage Backup Tool"
+  }
+}

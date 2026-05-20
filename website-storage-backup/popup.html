@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Storage Backup</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Website Storage Backup</h2>
+
+    <div class="status-box" id="website-info">
+      <span class="label">Current Origin:</span>
+      <span class="value" id="current-origin">Unknown</span>
+    </div>
+
+    <div class="detected-storage" id="detected-storage-container" style="display: none;">
+      <h3>Detected Storage</h3>
+      <ul id="detected-list">
+      </ul>
+    </div>
+
+    <div class="actions">
+      <button id="detect-btn" class="btn primary">Detect Current Website</button>
+      <button id="export-btn" class="btn success" disabled>Export Storage</button>
+
+      <div class="import-section">
+        <input type="file" id="import-file" accept=".json" style="display: none;">
+        <button id="import-btn" class="btn warning">Import Storage</button>
+      </div>
+
+      <button id="clear-btn" class="btn danger">Clear Status</button>
+    </div>
+
+    <div class="message" id="message-container" style="display: none;"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
