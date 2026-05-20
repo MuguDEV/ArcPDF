@@ -16,6 +16,166 @@ const base64ToBlob = async (base64) => {
   return await response.blob();
 };
 
+const arrayBufferToBase64 = (buffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+};
+
+const base64ToArrayBuffer = (base64) => {
+    const binary_string = window.atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+};
+
+// Deep serialization for complex IndexedDB types
+const serializeValue = async (value) => {
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    if (typeof value === 'bigint') {
+        return { __type: 'BigInt', value: value.toString() };
+    }
+
+    if (value instanceof Date) {
+        return { __type: 'Date', value: value.toISOString() };
+    }
+
+    if (value instanceof RegExp) {
+        return { __type: 'RegExp', source: value.source, flags: value.flags };
+    }
+
+    if (value instanceof Blob) {
+        const base64 = await blobToBase64(value);
+        if (value instanceof File) {
+            return { __type: 'File', name: value.name, type: value.type, lastModified: value.lastModified, data: base64 };
+        }
+        return { __type: 'Blob', type: value.type, data: base64 };
+    }
+
+    if (value instanceof ArrayBuffer) {
+        return { __type: 'ArrayBuffer', data: arrayBufferToBase64(value) };
+    }
+
+    if (ArrayBuffer.isView(value)) {
+        const type = value.constructor.name;
+        return { __type: 'TypedArray', type: type, data: arrayBufferToBase64(value.buffer) };
+    }
+
+    if (value instanceof Map) {
+        const entries = [];
+        for (const [k, v] of value.entries()) {
+            entries.push([await serializeValue(k), await serializeValue(v)]);
+        }
+        return { __type: 'Map', entries: entries };
+    }
+
+    if (value instanceof Set) {
+        const entries = [];
+        for (const v of value.values()) {
+            entries.push(await serializeValue(v));
+        }
+        return { __type: 'Set', entries: entries };
+    }
+
+    if (Array.isArray(value)) {
+        const arr = [];
+        for (const item of value) {
+            arr.push(await serializeValue(item));
+        }
+        return arr;
+    }
+
+    if (typeof value === 'object') {
+        const obj = {};
+        for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+                obj[key] = await serializeValue(value[key]);
+            }
+        }
+        return obj;
+    }
+
+    // primitives (string, number, boolean)
+    return value;
+};
+
+// Deep deserialization for complex IndexedDB types
+const deserializeValue = async (value) => {
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    if (typeof value === 'object' && value !== null) {
+        if (value.__type === 'BigInt') {
+            return BigInt(value.value);
+        }
+        if (value.__type === 'Date') {
+            return new Date(value.value);
+        }
+        if (value.__type === 'RegExp') {
+            return new RegExp(value.source, value.flags);
+        }
+        if (value.__type === 'Blob') {
+            const blob = await base64ToBlob(value.data);
+            return new Blob([blob], { type: value.type });
+        }
+        if (value.__type === 'File') {
+            const blob = await base64ToBlob(value.data);
+            return new File([blob], value.name, { type: value.type, lastModified: value.lastModified });
+        }
+        if (value.__type === 'ArrayBuffer') {
+            return base64ToArrayBuffer(value.data);
+        }
+        if (value.__type === 'TypedArray') {
+            const buffer = base64ToArrayBuffer(value.data);
+            const Type = window[value.type];
+            return new Type(buffer);
+        }
+        if (value.__type === 'Map') {
+            const map = new Map();
+            for (const [k, v] of value.entries) {
+                map.set(await deserializeValue(k), await deserializeValue(v));
+            }
+            return map;
+        }
+        if (value.__type === 'Set') {
+            const set = new Set();
+            for (const v of value.entries) {
+                set.add(await deserializeValue(v));
+            }
+            return set;
+        }
+
+        if (Array.isArray(value)) {
+            const arr = [];
+            for (const item of value) {
+                arr.push(await deserializeValue(item));
+            }
+            return arr;
+        }
+
+        const obj = {};
+        for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+                obj[key] = await deserializeValue(value[key]);
+            }
+        }
+        return obj;
+    }
+
+    return value;
+};
+
 const extractLocalStorage = () => {
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -57,30 +217,28 @@ const extractIndexedDB = async () => {
         data[dbInfo.name].stores[storeName] = await new Promise((resolve, reject) => {
           const transaction = db.transaction(storeName, 'readonly');
           const store = transaction.objectStore(storeName);
-          const request = store.getAll();
-          const keyRequest = store.getAllKeys();
+          // We need to fetch keys and values. To avoid race conditions, wait for both.
+          const keysPromise = new Promise((res, rej) => {
+              const req = store.getAllKeys();
+              req.onsuccess = () => res(req.result);
+              req.onerror = () => rej(req.error);
+          });
+          const valuesPromise = new Promise((res, rej) => {
+              const req = store.getAll();
+              req.onsuccess = () => res(req.result);
+              req.onerror = () => rej(req.error);
+          });
 
-          let keys = [];
-          keyRequest.onsuccess = () => { keys = keyRequest.result; };
-
-          request.onsuccess = async () => {
-            const records = [];
-            for (let i = 0; i < request.result.length; i++) {
-                let value = request.result[i];
-                let isBinary = false;
-
-                // Extremely basic binary check for Blob/File/ArrayBuffer
-                if (value instanceof Blob) {
-                    value = await blobToBase64(value);
-                    isBinary = true;
-                }
-                // Handle ArrayBuffer etc if needed, but keeping it simpler for now to avoid crashes
-
-                records.push({ key: keys[i], value: value, isBinary: isBinary });
-            }
-            resolve(records);
-          };
-          request.onerror = () => reject(request.error);
+          Promise.all([keysPromise, valuesPromise]).then(async ([keys, values]) => {
+              const records = [];
+              // Serialize asynchronously outside of the active transaction
+              for (let i = 0; i < values.length; i++) {
+                  const serializedKey = await serializeValue(keys[i]);
+                  const serializedValue = await serializeValue(values[i]);
+                  records.push({ key: serializedKey, value: serializedValue });
+              }
+              resolve(records);
+          }).catch(err => reject(err));
         });
       }
       db.close();
@@ -180,16 +338,13 @@ const restoreIndexedDB = async (data) => {
 
             for (const [storeName, records] of Object.entries(dbData.stores)) {
                 if (db.objectStoreNames.contains(storeName)) {
-                    // Pre-process all binary conversions BEFORE starting the transaction
-                    // because awaiting async operations (like fetch in base64ToBlob)
-                    // causes the IndexedDB transaction to auto-close.
+                    // Deserialize all records BEFORE starting the transaction
+                    // to prevent the transaction from auto-closing while awaiting promises.
                     const processedRecords = [];
                     for (const record of records) {
-                        let value = record.value;
-                        if (record.isBinary) {
-                            value = await base64ToBlob(record.value);
-                        }
-                        processedRecords.push({ ...record, value });
+                        const deserializedKey = await deserializeValue(record.key);
+                        const deserializedValue = await deserializeValue(record.value);
+                        processedRecords.push({ key: deserializedKey, value: deserializedValue });
                     }
 
                     await new Promise((resolve, reject) => {
@@ -200,11 +355,18 @@ const restoreIndexedDB = async (data) => {
                         store.clear();
 
                         for (const record of processedRecords) {
-                            // If key is undefined, it might be auto-increment or have a keyPath.
-                            if (record.key !== undefined && record.key !== null) {
-                                store.put(record.value, record.key);
-                            } else {
+                            // If the store has an in-line key (keyPath), supplying the key explicitly
+                            // to put() throws a DataError. We must check for keyPath.
+                            if (store.keyPath !== null) {
+                                // The key is already inside the object, just put the value
                                 store.put(record.value);
+                            } else {
+                                // Out-of-line keys
+                                if (record.key !== undefined && record.key !== null) {
+                                    store.put(record.value, record.key);
+                                } else {
+                                    store.put(record.value);
+                                }
                             }
                         }
 
@@ -234,11 +396,25 @@ const restoreCacheStorage = async (data) => {
 
             for (const reqData of requests) {
                 const blob = await base64ToBlob(reqData.bodyBase64);
-                const response = new Response(blob, {
-                    status: reqData.status,
-                    statusText: reqData.statusText,
-                    headers: reqData.headers
-                });
+                let response;
+
+                // Handle opaque responses which have status 0
+                if (reqData.status === 0) {
+                    // Opaque responses cannot be directly created via `new Response(..., { status: 0 })`.
+                    // We mock them as 200 OK since the browser limits our ability to perfectly restore
+                    // an opaque response programmatically to a cache.
+                    response = new Response(blob, {
+                        status: 200,
+                        statusText: "OK",
+                        headers: reqData.headers
+                    });
+                } else {
+                    response = new Response(blob, {
+                        status: reqData.status,
+                        statusText: reqData.statusText,
+                        headers: reqData.headers
+                    });
+                }
 
                 await cache.put(reqData.url, response);
             }
