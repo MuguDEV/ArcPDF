@@ -1,0 +1,163 @@
+:root {
+  --bg-color: #f9fafb;
+  --text-color: #111827;
+  --box-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --success-color: #10b981;
+  --success-hover: #059669;
+  --warning-color: #f59e0b;
+  --warning-hover: #d97706;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --disabled-bg: #d1d5db;
+  --disabled-text: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #111827;
+    --text-color: #f9fafb;
+    --box-bg: #1f2937;
+    --border-color: #374151;
+    --primary-color: #3b82f6;
+    --primary-hover: #60a5fa;
+    --success-color: #10b981;
+    --success-hover: #34d399;
+    --warning-color: #f59e0b;
+    --warning-hover: #fbbf24;
+    --danger-color: #ef4444;
+    --danger-hover: #f87171;
+    --disabled-bg: #4b5563;
+    --disabled-text: #9ca3af;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  width: 320px;
+}
+
+.container {
+  padding: 16px;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin-top: 0;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+h3 {
+  font-size: 1rem;
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.status-box {
+  background-color: var(--box-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  word-break: break-all;
+}
+
+.label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.value {
+  font-size: 0.875rem;
+  color: var(--primary-color);
+}
+
+.detected-storage {
+  background-color: var(--box-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.detected-storage ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: white;
+  transition: background-color 0.2s;
+}
+
+.btn:disabled {
+  background-color: var(--disabled-bg) !important;
+  color: var(--disabled-text) !important;
+  cursor: not-allowed;
+}
+
+.primary { background-color: var(--primary-color); }
+.primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+
+.success { background-color: var(--success-color); }
+.success:hover:not(:disabled) { background-color: var(--success-hover); }
+
+.warning { background-color: var(--warning-color); }
+.warning:hover:not(:disabled) { background-color: var(--warning-hover); }
+
+.danger { background-color: var(--danger-color); }
+.danger:hover:not(:disabled) { background-color: var(--danger-hover); }
+
+.import-section {
+  width: 100%;
+}
+
+.message {
+  margin-top: 16px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.message.success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+  border: 1px solid var(--success-color);
+}
+
+.message.error {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
+}
+
+.message.info {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
