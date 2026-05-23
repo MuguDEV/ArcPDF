@@ -78,14 +78,32 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                     ),
                     const SizedBox(height: 6),
 
-                    // Metadata
+                    // Metadata Date
                     Text(
-                      '$date  •  ${_fileSize(widget.item.sizeBytes)}${widget.item.pageCount != null ? '  •  ${widget.item.pageCount} pages' : ''}',
-                      style: theme.textTheme.bodySmall?.copyWith(
+                      date,
+                      style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Metadata chips row
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _Badge(label: _fileSize(widget.item.sizeBytes), theme: theme),
+                        if (widget.item.locationLabel.isNotEmpty && widget.item.locationLabel != 'Storage')
+                          _Badge(label: widget.item.locationLabel, theme: theme),
+                        if (widget.item.pageCount != null)
+                          _Badge(label: '${widget.item.pageCount} pages', theme: theme),
+                        if (widget.item.isEncrypted)
+                          _Badge(label: 'Locked', theme: theme),
+                        if (widget.item.isCorrupted)
+                          _Badge(label: 'Corrupt', theme: theme, isError: true),
+                      ],
                     ),
                   ],
                 ),
@@ -111,5 +129,32 @@ class _PdfCardState extends ConsumerState<PdfCard> {
   String _fileSize(int bytes) {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.theme, this.isError = false});
+  final String label;
+  final ThemeData theme;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    // We explicitly use standard container with minimal padding instead of M3 FilterChip
+    // to keep it tight and avoid text layout clipping bugs.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isError ? theme.colorScheme.errorContainer : theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: isError ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSurfaceVariant,
+          fontSize: 10,
+        ),
+      ),
+    );
   }
 }
