@@ -146,8 +146,13 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     try {
       final oldFile = File(item.path);
       if (!await oldFile.exists()) return false;
+
+      // Sanitize newName to prevent path traversal
+      final sanitizedName = newName.replaceAll(RegExp(r'[/\\]|\.\.'), '').trim();
+      if (sanitizedName.isEmpty) return false;
+
       final dir = oldFile.parent.path;
-      final newPath = '$dir${Platform.pathSeparator}$newName.pdf';
+      final newPath = '$dir${Platform.pathSeparator}$sanitizedName.pdf';
       final newFile = File(newPath);
       if (await newFile.exists()) return false;
 
@@ -266,13 +271,12 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       if (openedAt == null) continue;
 
       final item = e.copyWith(openedAt: openedAt);
-      final d = DateTime(openedAt.year, openedAt.month, openedAt.day);
 
-      if (!d.isBefore(today)) {
+      if (openedAt.year == today.year && openedAt.month == today.month && openedAt.day == today.day) {
         groups['Today']!.add(item);
-      } else if (!d.isBefore(yesterday)) {
+      } else if (openedAt.year == yesterday.year && openedAt.month == yesterday.month && openedAt.day == yesterday.day) {
         groups['Yesterday']!.add(item);
-      } else if (!d.isBefore(weekAgo)) {
+      } else if (openedAt.isAfter(weekAgo) || (openedAt.year == weekAgo.year && openedAt.month == weekAgo.month && openedAt.day == weekAgo.day)) {
         groups['This Week']!.add(item);
       } else {
         groups['Older']!.add(item);
