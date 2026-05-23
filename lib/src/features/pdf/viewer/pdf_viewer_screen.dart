@@ -364,9 +364,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             ),
           ),
 
-          // 3. Page Indicator (Bottom)
+          // 3. Bottom Scrubber (Slider)
           Positioned(
             bottom: MediaQuery.paddingOf(context).bottom + 16,
+            left: 16,
             right: 16,
             child: AnimatedSlide(
               duration: const Duration(milliseconds: 400),
@@ -381,12 +382,43 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   useLiquidGlass: isLiquidGlass,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    child: Text(
-                      '$_page / $_pageCount',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '$_page',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _pageCount > 1 ? _page.toDouble() : 1.0,
+                            min: 1.0,
+                            max: _pageCount > 1 ? _pageCount.toDouble() : 1.0,
+                            divisions: _pageCount > 1 ? _pageCount - 1 : 1,
+                            label: '$_page',
+                            activeColor: theme.colorScheme.onSurface,
+                            inactiveColor: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                            onChanged: _pageCount > 1
+                                ? (value) {
+                                    final newPage = value.round();
+                                    if (newPage != _page) {
+                                      _pdfViewerController.goToPage(pageNumber: newPage);
+                                      _scheduleHide();
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ),
+                        Text(
+                          '$_pageCount',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
