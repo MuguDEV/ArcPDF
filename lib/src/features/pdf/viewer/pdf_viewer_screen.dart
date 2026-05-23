@@ -157,13 +157,18 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           // 1. PDF Viewer
           if (!_isReadyToRender)
             Center(
-              child: CircularProgressIndicator.adaptive(
-                valueColor: AlwaysStoppedAnimation(theme.colorScheme.onSurfaceVariant),
+              child: Hero(
+                tag: 'pdf_thumb_${widget.item.path}',
+                child: CircularProgressIndicator.adaptive(
+                  valueColor: AlwaysStoppedAnimation(theme.colorScheme.onSurfaceVariant),
+                ),
               ),
             )
           else
-            PdfViewer.file(
-              widget.item.path,
+            Hero(
+              tag: 'pdf_thumb_${widget.item.path}',
+              child: PdfViewer.file(
+                widget.item.path,
               initialPageNumber: repo.getLastReadPage(widget.item.path),
               controller: _pdfViewerController,
               passwordProvider: () async => _showPasswordPrompt(context),
@@ -226,7 +231,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   ),
                 ],
               ),
-            ),
+            )),
 
           // 2. Top App Bar / Search Bar
           Positioned(

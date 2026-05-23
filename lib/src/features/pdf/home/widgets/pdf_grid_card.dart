@@ -70,9 +70,12 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                    child: AspectRatio(
-                      aspectRatio: 0.75,
-                      child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                    child: Hero(
+                      tag: 'pdf_thumb_${widget.item.path}',
+                      child: AspectRatio(
+                        aspectRatio: 0.75,
+                        child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                      ),
                     ),
                   ),
                   Positioned(

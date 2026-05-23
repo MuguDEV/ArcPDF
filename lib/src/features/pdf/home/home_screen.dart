@@ -340,6 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               subtitle: query.isNotEmpty
                   ? 'Try a different search term or filter.'
                   : 'No PDFs found. Add a PDF to start reading',
+              animated: true,
             ),
           )
         else if (filter == PdfFilter.folders)
