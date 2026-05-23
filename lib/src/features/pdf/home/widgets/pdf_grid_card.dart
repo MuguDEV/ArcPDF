@@ -118,7 +118,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                         final newName = await showRenameDialog(context, widget.item.name);
                         if (newName != null && newName.isNotEmpty && mounted) {
                           final success = await ref.read(pdfLibraryControllerProvider.notifier).renameFile(widget.item, newName);
-                          if (!success && mounted) {
+                          if (!success && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Failed to rename file.')),
                             );
