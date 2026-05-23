@@ -33,6 +33,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pendingReadingTime = 0;
   bool _fitWidth = true;
   bool _pdfDarkMode = false;
+  int _rotation = 0;
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
@@ -209,6 +210,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 backgroundColor: theme.colorScheme.surface,
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 margin: 4.0,
+                rotationAngle: _rotation,
                 pagePaintCallbacks: [
                   if (_pdfDarkMode)
                     (canvas, pageRect, page) {
@@ -334,6 +336,30 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                         ),
                         IconButton(
                           onPressed: () {
+                            _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom * 1.5, duration: const Duration(milliseconds: 250));
+                            _scheduleHide();
+                          },
+                          icon: const Icon(Icons.zoom_in_rounded),
+                          tooltip: 'Zoom In',
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
+                            _scheduleHide();
+                          },
+                          icon: const Icon(Icons.zoom_out_rounded),
+                          tooltip: 'Zoom Out',
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() => _rotation = (_rotation + 90) % 360);
+                            _scheduleHide();
+                          },
+                          icon: const Icon(Icons.rotate_right_rounded),
+                          tooltip: 'Rotate Page',
+                        ),
+                        IconButton(
+                          onPressed: () {
                             setState(() => _isSearching = true);
                             _searchFocus.requestFocus();
                             _hideTimer?.cancel();
@@ -384,6 +410,23 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Row(
                       children: [
+                        IconButton(
+                          onPressed: _page > 1
+                              ? () {
+                                  _pdfViewerController.goToPage(pageNumber: _page - 1);
+                                  _scheduleHide();
+                                }
+                              : null,
+                          icon: const Icon(Icons.navigate_before_rounded),
+                          tooltip: 'Previous Page',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(36, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           '$_page',
                           style: theme.textTheme.labelLarge?.copyWith(
@@ -416,6 +459,23 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: _page < _pageCount
+                              ? () {
+                                  _pdfViewerController.goToPage(pageNumber: _page + 1);
+                                  _scheduleHide();
+                                }
+                              : null,
+                          icon: const Icon(Icons.navigate_next_rounded),
+                          tooltip: 'Next Page',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(36, 36),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ],
