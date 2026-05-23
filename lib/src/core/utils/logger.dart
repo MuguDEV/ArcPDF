@@ -65,9 +65,9 @@ class AppLogger {
 
     if (kDebugMode) {
       final timeStr = DateFormat('HH:mm:ss').format(entry.timestamp);
-      print('[$timeStr] [$level] ${entry.message}');
+      debugPrint('[$timeStr] [$level] ${entry.message}');
       if (entry.stackTrace != null) {
-        print(entry.stackTrace);
+        debugPrint(entry.stackTrace);
       }
     }
 
