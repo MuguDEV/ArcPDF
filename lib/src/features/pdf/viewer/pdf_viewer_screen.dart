@@ -38,7 +38,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pendingReadingTime = 0;
   bool _fitWidth = true;
   bool _pdfDarkMode = false;
-  int _rotation = 0;
+  final int _rotation = 0;
   bool _isFullscreen = false;
   bool _isHorizontalScroll = false;
   Timer? _autoScrollTimer;
@@ -245,8 +245,26 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 enableTextSelection: true,
                 margin: 4.0,
-                rotationAngle: _rotation,
-                scrollDirection: _isHorizontalScroll ? Axis.horizontal : Axis.vertical,
+                layoutPages: _isHorizontalScroll ? (pages, params) {
+                  final height = pages.fold(
+                    0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
+                  final pageLayouts = <Rect>[];
+                  double x = params.margin;
+                  for (final page in pages) {
+                    pageLayouts.add(Rect.fromLTWH(
+                      x, (height - page.height) / 2, page.width, page.height,
+                    ));
+                    x += page.width + params.margin;
+                  }
+
+                  // Handle rotation
+                  if (_rotation != 0) {
+                    // Note: actual rotation implementation depends on updated pdfrx logic.
+                    // Usually handled by re-rendering pages or using an encompassing Transform.
+                    // This is a placeholder since rotationAngle was removed from PdfViewerParams.
+                  }
+                  return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
+                } : null,
                 pagePaintCallbacks: [
                   if (_pdfDarkMode)
                     (canvas, pageRect, page) {
@@ -378,7 +396,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                         if (_fitWidth) {
                                           final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                           if (m != null) {
-                                            final newZoom = m.getMaxScaleOnAxis();
+                                            final newZoom = m.getMaxScaleOnAxis(); // TODO: rotation scale
                                             _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
                                           }
                                         } else {
@@ -407,8 +425,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 ),
                                 IconButton(
                                   onPressed: () {
-                                    setState(() => _rotation = (_rotation + 90) % 360);
-                                    _scheduleHide();
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rotation is currently disabled in this version.')));
+                                    // setState(() => _rotation = (_rotation + 90) % 360);
+                                    // _scheduleHide();
                                   },
                                   icon: const Icon(Icons.rotate_right_rounded),
                                   tooltip: 'Rotate Page',
@@ -664,8 +683,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showThumbnails() async {
-    if (_pdfViewerController.documentRef == null) return;
-
     final theme = Theme.of(context);
     showModalBottomSheet<void>(
       context: context,
@@ -731,10 +748,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                PdfPageView(
-                                  documentRef: _pdfViewerController.documentRef!,
-                                  pageNumber: pageNum,
-                                ),
+                                if (_pdfViewerController.isReady)
+                                  PdfPageView(
+                                    document: _pdfViewerController.documentRef.resolveListenable().document!,
+                                    pageNumber: pageNum,
+                                  ),
                                 Positioned(
                                   bottom: 4,
                                   right: 4,
@@ -834,7 +852,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showDocumentOutline() async {
-    final outline = await _pdfViewerController.documentRef?.document.loadOutline();
+    final outline = await _pdfViewerController.documentRef.resolveListenable().document?.loadOutline();
     if (!mounted) return;
 
     if (outline == null || outline.isEmpty) {
@@ -885,7 +903,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                           onTap: () {
                             if (node.dest?.pageNumber != null) {
-                              _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber!);
+                              _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber);
                               Navigator.of(context).pop();
                             }
                           },
