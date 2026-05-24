@@ -96,8 +96,8 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag "v${{ env.VERSION }}"
-          # Push tag via API to avoid blocking script execution locally (when testing)
-          # git push origin "v${{ env.VERSION }}"
+
+          git push origin "v${{ env.VERSION }}"
 
   release:
     name: Create GitHub Release
