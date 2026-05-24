@@ -104,9 +104,9 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     );
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool requestPermission = false}) async {
     state = state.copyWith(loading: true);
-    final result = await _scanner.scan();
+    final result = await _scanner.scan(requestPermission: requestPermission);
     state = state.copyWith(
       loading: false,
       items: result.files,

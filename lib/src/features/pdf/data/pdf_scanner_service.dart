@@ -24,22 +24,26 @@ class ScanResult {
 class PdfScannerService {
   const PdfScannerService();
 
-  Future<StoragePermissionStatus> requestPermission() async {
+  Future<StoragePermissionStatus> requestPermission({bool request = true}) async {
     if (!Platform.isAndroid) return StoragePermissionStatus.granted;
 
     // Try MANAGE_EXTERNAL_STORAGE first (full access, works Android 6+)
     var manageStatus = await Permission.manageExternalStorage.status;
     if (manageStatus.isGranted) return StoragePermissionStatus.granted;
 
-    manageStatus = await Permission.manageExternalStorage.request();
-    if (manageStatus.isGranted) return StoragePermissionStatus.granted;
+    if (request) {
+      manageStatus = await Permission.manageExternalStorage.request();
+      if (manageStatus.isGranted) return StoragePermissionStatus.granted;
+    }
 
     // Fallback: legacy READ_EXTERNAL_STORAGE (Android ≤ 12)
     var storageStatus = await Permission.storage.status;
     if (storageStatus.isGranted) return StoragePermissionStatus.granted;
 
-    storageStatus = await Permission.storage.request();
-    if (storageStatus.isGranted) return StoragePermissionStatus.granted;
+    if (request) {
+      storageStatus = await Permission.storage.request();
+      if (storageStatus.isGranted) return StoragePermissionStatus.granted;
+    }
 
     if (manageStatus.isPermanentlyDenied || storageStatus.isPermanentlyDenied) {
       return StoragePermissionStatus.permanentlyDenied;
@@ -67,8 +71,9 @@ class PdfScannerService {
     return roots.where((p) => Directory(p).existsSync()).toList();
   }
 
-  Future<ScanResult> scan() async {
-    final permStatus = await requestPermission();
+  Future<ScanResult> scan({bool requestPermission = false}) async {
+    // We check status without requesting on first load unless forced
+    final permStatus = await this.requestPermission(request: requestPermission);
     if (permStatus != StoragePermissionStatus.granted) {
       return ScanResult(files: const [], permissionStatus: permStatus);
     }
