@@ -65,7 +65,31 @@ class PermissionScreen extends ConsumerWidget {
               ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.1),
             ] else ...[
               FilledButton.icon(
-                onPressed: ctrl.refresh,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Storage Permission Needed'),
+                      content: const Text(
+                          'To find and display your PDFs, ArcPDF requires access to the device\'s storage. '
+                          'We only use this permission to find PDF documents and do not access or collect any other personal data. '
+                          'Would you like to grant this permission now?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            ctrl.refresh();
+                          },
+                          child: const Text('Grant Access'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.folder_open_rounded),
                 label: const Text('Grant Access'),
                 style: FilledButton.styleFrom(

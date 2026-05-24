@@ -38,7 +38,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   int _pendingReadingTime = 0;
   bool _fitWidth = true;
   bool _pdfDarkMode = false;
-  int _rotation = 0;
   bool _isFullscreen = false;
   bool _isHorizontalScroll = false;
   Timer? _autoScrollTimer;
@@ -245,8 +244,19 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 enableTextSelection: true,
                 margin: 4.0,
-                rotationAngle: _rotation,
-                scrollDirection: _isHorizontalScroll ? Axis.horizontal : Axis.vertical,
+                layoutPages: _isHorizontalScroll ? (pages, params) {
+                  final height = pages.fold(
+                    0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
+                  final pageLayouts = <Rect>[];
+                  double x = params.margin;
+                  for (final page in pages) {
+                    pageLayouts.add(Rect.fromLTWH(
+                      x, (height - page.height) / 2, page.width, page.height,
+                    ));
+                    x += page.width + params.margin;
+                  }
+                  return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
+                } : null,
                 pagePaintCallbacks: [
                   if (_pdfDarkMode)
                     (canvas, pageRect, page) {
@@ -277,12 +287,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             left: 16,
             right: 16,
             child: AnimatedSlide(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.fastLinearToSlowEaseIn,
               offset: _showToolbar ? Offset.zero : const Offset(0, -1.5),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.fastLinearToSlowEaseIn,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,
@@ -407,8 +417,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 ),
                                 IconButton(
                                   onPressed: () {
-                                    setState(() => _rotation = (_rotation + 90) % 360);
-                                    _scheduleHide();
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rotation disabled')));
                                   },
                                   icon: const Icon(Icons.rotate_right_rounded),
                                   tooltip: 'Rotate Page',
@@ -498,12 +507,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             left: 16,
             right: 16,
             child: AnimatedSlide(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.fastLinearToSlowEaseIn,
               offset: _showToolbar ? Offset.zero : const Offset(0, 1.5),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.fastLinearToSlowEaseIn,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,
@@ -664,7 +673,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showThumbnails() async {
-    if (_pdfViewerController.documentRef == null) return;
 
     final theme = Theme.of(context);
     showModalBottomSheet<void>(
@@ -731,8 +739,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                PdfPageView(
-                                  documentRef: _pdfViewerController.documentRef!,
+                                if (_pdfViewerController.isReady)
+                                  PdfPageView(
+                                    document: _pdfViewerController.documentRef.resolveListenable().document!,
                                   pageNumber: pageNum,
                                 ),
                                 Positioned(
@@ -834,7 +843,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showDocumentOutline() async {
-    final outline = await _pdfViewerController.documentRef?.document.loadOutline();
+    final outline = await _pdfViewerController.documentRef.resolveListenable().document?.loadOutline();
     if (!mounted) return;
 
     if (outline == null || outline.isEmpty) {
@@ -885,7 +894,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                           onTap: () {
                             if (node.dest?.pageNumber != null) {
-                              _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber!);
+                              _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber);
                               Navigator.of(context).pop();
                             }
                           },
