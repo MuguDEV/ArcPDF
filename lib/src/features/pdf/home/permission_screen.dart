@@ -82,7 +82,7 @@ class PermissionScreen extends ConsumerWidget {
                         FilledButton(
                           onPressed: () {
                             Navigator.pop(context);
-                            ctrl.refresh();
+                            ctrl.refresh(requestPermission: true);
                           },
                           child: const Text('Grant Access'),
                         ),
