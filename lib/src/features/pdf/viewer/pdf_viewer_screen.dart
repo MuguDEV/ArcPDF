@@ -287,12 +287,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             left: 16,
             right: 16,
             child: AnimatedSlide(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.fastLinearToSlowEaseIn,
               offset: _showToolbar ? Offset.zero : const Offset(0, -1.5),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.fastLinearToSlowEaseIn,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,
@@ -432,13 +432,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 ),
                                 IconButton(
                                   onPressed: () {
-                                    _isFullscreen = !_isFullscreen;
-                                    if (_isFullscreen) {
-                                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                                    } else {
-                                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                                    }
-                                    setState(() {});
+                                    setState(() {
+                                      _isFullscreen = !_isFullscreen;
+                                      if (_isFullscreen) {
+                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                      } else {
+                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                      }
+                                    });
                                     _scheduleHide();
                                   },
                                   icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
@@ -506,12 +507,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             left: 16,
             right: 16,
             child: AnimatedSlide(
-              duration: const Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.fastLinearToSlowEaseIn,
               offset: _showToolbar ? Offset.zero : const Offset(0, 1.5),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.fastLinearToSlowEaseIn,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 opacity: _showToolbar ? 1.0 : 0.0,
                 child: _FrostedBar(
                   useBlur: isBlurEnabled,

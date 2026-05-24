@@ -25,7 +25,7 @@ class PdfThumbnail extends StatelessWidget {
     if (!file.existsSync()) return const _Fallback();
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
         color: theme.colorScheme.surfaceContainerHighest,
         child: isEncrypted
