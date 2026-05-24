@@ -360,7 +360,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           flex: 2,
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            reverse: true, // Puts icons visually grouped toward the right side
+                            reverse: false, // Normal left-to-right to fix visibility
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -741,7 +741,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                               children: [
                                 if (_pdfViewerController.isReady)
                                   PdfPageView(
-                                    document: _pdfViewerController.documentRef.resolveListenable().document!,
+                                    document: _pdfViewerController.document, // ignore: deprecated_member_use
                                   pageNumber: pageNum,
                                 ),
                                 Positioned(
@@ -843,10 +843,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showDocumentOutline() async {
-    final outline = await _pdfViewerController.documentRef.resolveListenable().document?.loadOutline();
+    final outline = await _pdfViewerController.document.loadOutline(); // ignore: deprecated_member_use
     if (!mounted) return;
 
-    if (outline == null || outline.isEmpty) {
+    if (outline.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No outline found in this document.'), behavior: SnackBarBehavior.floating),
       );

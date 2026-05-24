@@ -46,7 +46,9 @@ class IntentService {
     // For sharing or opening files when the app is closed
     ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
-      ReceiveSharingIntent.instance.reset(); // clear initial intent
+      if (value.isNotEmpty) {
+        ReceiveSharingIntent.instance.reset(); // clear initial intent
+      }
     });
   }
 
