@@ -324,217 +324,222 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   child: _FrostedBar(
                     useBlur: isBlurEnabled,
                     useLiquidGlass: isLiquidGlass,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                      if (_isSearching) ...[
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocus,
-                            textInputAction: TextInputAction.search,
-                            onChanged: (val) {
-                              _performSearch(val);
-                              _scheduleHide();
-                            },
-                            decoration: InputDecoration(
-                              hintText: 'Search...',
-                              border: InputBorder.none,
-                              prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant),
-                            ),
-                          ),
-                        ),
-                        if (_textSearcher.hasMatches) ...[
-                          Text('${_textSearcher.currentIndex == null ? 0 : _textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}'),
-                          IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_up),
-                            onPressed: () {
-                              _textSearcher.goToPrevMatch();
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            onPressed: () {
-                              _textSearcher.goToNextMatch();
-                            },
-                          ),
-                        ],
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            setState(() {
-                              _isSearching = false;
-                              _searchController.clear();
-                              _textSearcher.resetTextSearch();
-                            });
-                            _scheduleHide();
-                          },
-                        ),
-                      ] else ...[
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.item.name,
-                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: AnimatedSize(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.fastLinearToSlowEaseIn,
-                            alignment: Alignment.topRight,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxHeight: _isToolbarExpanded ? double.infinity : 48.0, // Assuming 48 is roughly the height of one row of icons
-                              ),
-                              child: ClipRect(
-                                child: Wrap(
-                                  alignment: WrapAlignment.end,
-                                  runAlignment: WrapAlignment.start,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    IconButton(
-                                  onPressed: () => setState(() => _pdfDarkMode = !_pdfDarkMode),
-                                  icon: Icon(_pdfDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-                                  tooltip: _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(widget.item);
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (_isSearching) ...[
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  focusNode: _searchFocus,
+                                  textInputAction: TextInputAction.search,
+                                  onChanged: (val) {
+                                    _performSearch(val);
                                     _scheduleHide();
                                   },
-                                  icon: Icon(
-                                    ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)))
-                                        ? Icons.star_rounded
-                                        : Icons.star_border_rounded,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search...',
+                                    border: InputBorder.none,
+                                    prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant),
                                   ),
-                                  tooltip: 'Toggle Favorite',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    setState(() => _fitWidth = !_fitWidth);
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        if (_fitWidth) {
-                                          final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
-                                          if (m != null) {
-                                            final newZoom = m.getMaxScaleOnAxis();
-                                            _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
-                                          }
-                                        } else {
-                                          _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
-                                        }
-                                    });
-                                  },
-                                  icon: Icon(_fitWidth ? Icons.fit_screen_rounded : Icons.width_full_rounded),
-                                  tooltip: _fitWidth ? 'Fit Page' : 'Fit Width',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom * 1.5, duration: const Duration(milliseconds: 250));
-                                    _scheduleHide();
-                                  },
-                                  icon: const Icon(Icons.zoom_in_rounded),
-                                  tooltip: 'Zoom In',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
-                                    _scheduleHide();
-                                  },
-                                  icon: const Icon(Icons.zoom_out_rounded),
-                                  tooltip: 'Zoom Out',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rotation disabled')));
-                                  },
-                                  icon: const Icon(Icons.rotate_right_rounded),
-                                  tooltip: 'Rotate Page',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    setState(() => _isHorizontalScroll = !_isHorizontalScroll);
-                                    _scheduleHide();
-                                  },
-                                  icon: Icon(_isHorizontalScroll ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded),
-                                  tooltip: 'Toggle Scroll Direction',
-                                ),
-                                IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _isFullscreen = !_isFullscreen;
-                                      if (_isFullscreen) {
-                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                                      } else {
-                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                                      }
-                                    });
-                                    _scheduleHide();
-                                  },
-                                      icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
-                                      tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-                                    ),
-                                  ],
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            setState(() => _isSearching = true);
-                            _searchFocus.requestFocus();
-                            _hideTimer?.cancel();
-                          },
-                          icon: const Icon(Icons.search_rounded),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          onSelected: (val) async {
-                            _scheduleHide();
-                            if (val == 'info') {
-                              await _showPdfInfo();
-                            } else if (val == 'share') {
-                              Share.shareXFiles([XFile(widget.item.path)]);
-                            } else if (val == 'print') {
-                              final file = File(widget.item.path);
-                              final bytes = await file.readAsBytes();
-                              await Printing.layoutPdf(
-                                onLayout: (format) async => bytes,
-                                name: widget.item.name,
-                              );
-                            } else if (val == 'outline') {
-                              _showDocumentOutline();
-                            } else if (val == 'thumbnails') {
-                              _showThumbnails();
-                            } else if (val == 'jump') {
-                              _showJumpToPageDialog();
-                            } else if (val == 'autoscroll') {
-                              _toggleAutoScroll();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem(value: 'autoscroll', child: Text(_isAutoScrolling ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
-                            const PopupMenuItem(value: 'jump', child: Text('Jump to Page')),
-                            const PopupMenuItem(value: 'thumbnails', child: Text('Page Thumbnails')),
-                            const PopupMenuItem(value: 'outline', child: Text('Document Outline')),
-                            const PopupMenuItem(value: 'info', child: Text('Document Info')),
-                            const PopupMenuItem(value: 'share', child: Text('Share PDF')),
-                            const PopupMenuItem(value: 'print', child: Text('Print Document')),
+                              if (_textSearcher.hasMatches) ...[
+                                Text('${_textSearcher.currentIndex == null ? 0 : _textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}'),
+                                IconButton(
+                                  icon: const Icon(Icons.keyboard_arrow_up),
+                                  onPressed: () {
+                                    _textSearcher.goToPrevMatch();
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.keyboard_arrow_down),
+                                  onPressed: () {
+                                    _textSearcher.goToNextMatch();
+                                  },
+                                ),
+                              ],
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () {
+                                  setState(() {
+                                    _isSearching = false;
+                                    _searchController.clear();
+                                    _textSearcher.resetTextSearch();
+                                  });
+                                  _scheduleHide();
+                                },
+                              ),
+                            ] else ...[
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.item.name,
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() => _pdfDarkMode = !_pdfDarkMode);
+                                  _scheduleHide();
+                                },
+                                icon: Icon(_pdfDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                                tooltip: _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(widget.item);
+                                  _scheduleHide();
+                                },
+                                icon: Icon(
+                                  ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)))
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
+                                ),
+                                tooltip: 'Toggle Favorite',
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() => _isSearching = true);
+                                  _searchFocus.requestFocus();
+                                  _hideTimer?.cancel();
+                                },
+                                icon: const Icon(Icons.search_rounded),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert_rounded),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                onSelected: (val) async {
+                                  _scheduleHide();
+                                  if (val == 'info') {
+                                    await _showPdfInfo();
+                                  } else if (val == 'share') {
+                                    Share.shareXFiles([XFile(widget.item.path)]);
+                                  } else if (val == 'print') {
+                                    final file = File(widget.item.path);
+                                    final bytes = await file.readAsBytes();
+                                    await Printing.layoutPdf(
+                                      onLayout: (format) async => bytes,
+                                      name: widget.item.name,
+                                    );
+                                  } else if (val == 'outline') {
+                                    _showDocumentOutline();
+                                  } else if (val == 'thumbnails') {
+                                    _showThumbnails();
+                                  } else if (val == 'jump') {
+                                    _showJumpToPageDialog();
+                                  } else if (val == 'autoscroll') {
+                                    _toggleAutoScroll();
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(value: 'autoscroll', child: Text(_isAutoScrolling ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
+                                  const PopupMenuItem(value: 'jump', child: Text('Jump to Page')),
+                                  const PopupMenuItem(value: 'thumbnails', child: Text('Page Thumbnails')),
+                                  const PopupMenuItem(value: 'outline', child: Text('Document Outline')),
+                                  const PopupMenuItem(value: 'info', child: Text('Document Info')),
+                                  const PopupMenuItem(value: 'share', child: Text('Share PDF')),
+                                  const PopupMenuItem(value: 'print', child: Text('Print Document')),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.fastLinearToSlowEaseIn,
+                          alignment: Alignment.topCenter,
+                          child: _isToolbarExpanded
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+                                  child: Wrap(
+                                    alignment: WrapAlignment.spaceEvenly,
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
+                                    children: [
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() => _fitWidth = !_fitWidth);
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (_fitWidth) {
+                                              final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
+                                              if (m != null) {
+                                                final newZoom = m.getMaxScaleOnAxis();
+                                                _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
+                                              }
+                                            } else {
+                                              _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
+                                            }
+                                          });
+                                          _scheduleHide();
+                                        },
+                                        icon: Icon(_fitWidth ? Icons.fit_screen_rounded : Icons.width_full_rounded),
+                                        tooltip: _fitWidth ? 'Fit Page' : 'Fit Width',
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom * 1.5, duration: const Duration(milliseconds: 250));
+                                          _scheduleHide();
+                                        },
+                                        icon: const Icon(Icons.zoom_in_rounded),
+                                        tooltip: 'Zoom In',
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
+                                          _scheduleHide();
+                                        },
+                                        icon: const Icon(Icons.zoom_out_rounded),
+                                        tooltip: 'Zoom Out',
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rotation disabled')));
+                                          _scheduleHide();
+                                        },
+                                        icon: const Icon(Icons.rotate_right_rounded),
+                                        tooltip: 'Rotate Page',
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() => _isHorizontalScroll = !_isHorizontalScroll);
+                                          _scheduleHide();
+                                        },
+                                        icon: Icon(_isHorizontalScroll ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded),
+                                        tooltip: 'Toggle Scroll Direction',
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            _isFullscreen = !_isFullscreen;
+                                            if (_isFullscreen) {
+                                              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                            } else {
+                                              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                            }
+                                          });
+                                          _scheduleHide();
+                                        },
+                                        icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
+                                        tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox(width: double.infinity, height: 0),
+                        ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
               ),
               ),
             ),
