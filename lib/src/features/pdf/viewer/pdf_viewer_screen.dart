@@ -40,7 +40,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   bool _pdfDarkMode = false;
   bool _isFullscreen = false;
   bool _isHorizontalScroll = false;
-  bool _isToolbarExpanded = false;
   Timer? _autoScrollTimer;
   bool _isAutoScrolling = false;
 
@@ -165,9 +164,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         _isSearching = false;
         _searchFocus.unfocus();
         _textSearcher.resetTextSearch();
-      }
-      if (!_showToolbar) {
-        _isToolbarExpanded = false;
       }
     });
     if (_showToolbar) _scheduleHide();
@@ -361,15 +357,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           ),
                         ),
                         Expanded(
-                          flex: _isToolbarExpanded ? 4 : 1,
-                          child: AnimatedSize(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic,
-                            child: SingleChildScrollView(
-                              physics: _isToolbarExpanded ? null : const NeverScrollableScrollPhysics(),
-                              scrollDirection: _isToolbarExpanded ? Axis.vertical : Axis.horizontal,
-                              child: Wrap(
-                                alignment: WrapAlignment.end,
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            reverse: true, // Puts icons visually grouped toward the right side. You can scroll horizontally to see the rest!
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
                                   onPressed: () => setState(() => _pdfDarkMode = !_pdfDarkMode),
@@ -455,18 +448,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                               ],
                             ),
                           ),
-                        ),
-                          ),
-                        IconButton(
-                          icon: AnimatedRotation(
-                            turns: _isToolbarExpanded ? 0.5 : 0.0,
-                            duration: const Duration(milliseconds: 250),
-                            child: const Icon(Icons.expand_more_rounded),
-                          ),
-                          onPressed: () {
-                            setState(() => _isToolbarExpanded = !_isToolbarExpanded);
-                            _hideTimer?.cancel();
-                          },
                         ),
                         IconButton(
                           onPressed: () {
