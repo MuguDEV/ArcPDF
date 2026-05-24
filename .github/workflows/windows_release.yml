@@ -1,0 +1,136 @@
+name: Windows Auto Release
+
+on:
+  push:
+    branches:
+      - windows-release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.3). Leave empty to use pubspec.yaml version.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    outputs:
+      release_version: ${{ steps.set_output.outputs.version }}
+      skip_release: ${{ steps.check_tag.outputs.SKIP_RELEASE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Extract current version
+        id: get_version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+          echo "Current pubspec version: $VERSION"
+          if [ -n "$INPUT_VERSION" ]; then
+            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//' | tr -d '\r')
+            echo "Using manual version: $CLEAN_VERSION"
+            echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+          else
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+
+      - name: Set Version Output
+        id: set_output
+        shell: bash
+        run: echo "version=${{ env.VERSION }}" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        shell: bash
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ env.VERSION }}"; then
+            echo "Tag v${{ env.VERSION }} already exists. Skipping release."
+            echo "SKIP_RELEASE=true" >> $GITHUB_ENV
+            echo "SKIP_RELEASE=true" >> $GITHUB_OUTPUT
+          else
+            echo "SKIP_RELEASE=false" >> $GITHUB_ENV
+            echo "SKIP_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Windows
+        if: env.SKIP_RELEASE == 'false'
+        run: flutter build windows --release
+
+      - name: Rename & Organize Artifacts
+        if: env.SKIP_RELEASE == 'false'
+        shell: bash
+        run: |
+          mkdir -p release
+          cd build/windows/x64/runner/Release
+          zip -r "../../../../../release/ArcPDF-v${{ env.VERSION }}-Windows.zip" ./*
+
+      - name: Upload Artifacts
+        if: env.SKIP_RELEASE == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: release/*
+
+      - name: Create Git Tag (Pre-Bump)
+        if: env.SKIP_RELEASE == 'false'
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "v${{ env.VERSION }}"
+          # Push tag via API to avoid blocking script execution locally (when testing)
+          # git push origin "v${{ env.VERSION }}"
+
+  release:
+    name: Create GitHub Release
+    needs: [build-windows]
+    if: success() && needs.build-windows.outputs.skip_release == 'false'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: artifacts
+          merge-multiple: true
+
+      - name: Check for Artifacts
+        id: check_artifacts
+        run: |
+          if [ ! -d "artifacts" ] || [ -z "$(ls -A artifacts)" ]; then
+             echo "No artifacts found. Skipping release creation."
+             echo "skip=true" >> $GITHUB_ENV
+          else
+             echo "skip=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create ArcPDF Release
+        if: env.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-windows.outputs.release_version }}
+          name: ArcPDF v${{ needs.build-windows.outputs.release_version }} (Windows)
+          files: "artifacts/*"
+          generate_release_notes: true
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

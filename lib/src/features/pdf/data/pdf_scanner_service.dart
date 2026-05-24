@@ -54,16 +54,32 @@ class PdfScannerService {
         final ext = await ExternalPath.getExternalStorageDirectories();
         if (ext != null) roots.addAll(ext.where((e) => e.isNotEmpty));
       } catch (_) {}
-    }
-    final appExt = await getExternalStorageDirectories();
-    if (appExt != null) roots.addAll(appExt.map((e) => e.path));
 
-    roots.addAll([
-      '/storage/emulated/0/Download',
-      '/storage/emulated/0/Downloads',
-      '/storage/emulated/0/Documents',
-      '/storage/emulated/0',
-    ]);
+      final appExt = await getExternalStorageDirectories();
+      if (appExt != null) roots.addAll(appExt.map((e) => e.path));
+
+      roots.addAll([
+        '/storage/emulated/0/Download',
+        '/storage/emulated/0/Downloads',
+        '/storage/emulated/0/Documents',
+        '/storage/emulated/0',
+      ]);
+    } else if (Platform.isWindows) {
+      try {
+        final docs = await getApplicationDocumentsDirectory();
+        roots.add(docs.path);
+
+        final downloads = await getDownloadsDirectory();
+        if (downloads != null) roots.add(downloads.path);
+
+        final desktop = Directory('${Platform.environment['USERPROFILE']}\\Desktop');
+        if (desktop.existsSync()) roots.add(desktop.path);
+
+      } catch (e) {
+        AppLogger.error('Error getting Windows directories: ', e);
+      }
+    }
+
     return roots.where((p) => Directory(p).existsSync()).toList();
   }
 

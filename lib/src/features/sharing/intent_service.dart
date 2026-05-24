@@ -36,6 +36,8 @@ class IntentService {
   }
 
   void init() {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+
     // For sharing or opening files while the app is already running
     _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
