@@ -432,14 +432,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 ),
                                 IconButton(
                                   onPressed: () {
-                                    setState(() {
-                                      _isFullscreen = !_isFullscreen;
-                                      if (_isFullscreen) {
-                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                                      } else {
-                                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                                      }
-                                    });
+                                    _isFullscreen = !_isFullscreen;
+                                    if (_isFullscreen) {
+                                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                    } else {
+                                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                    }
+                                    setState(() {});
                                     _scheduleHide();
                                   },
                                   icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
