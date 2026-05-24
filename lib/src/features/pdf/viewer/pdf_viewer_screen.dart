@@ -45,6 +45,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
+  bool _isToolbarExpanded = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
@@ -132,7 +133,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _showToolbar = false);
+      if (mounted) {
+        setState(() {
+          _showToolbar = false;
+          _isToolbarExpanded = false;
+        });
+      }
     });
   }
 
@@ -160,10 +166,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   void _toggleToolbar() {
     setState(() {
       _showToolbar = !_showToolbar;
-      if (!_showToolbar && _isSearching) {
-        _isSearching = false;
-        _searchFocus.unfocus();
-        _textSearcher.resetTextSearch();
+      if (!_showToolbar) {
+        _isToolbarExpanded = false;
+        if (_isSearching) {
+          _isSearching = false;
+          _searchFocus.unfocus();
+          _textSearcher.resetTextSearch();
+        }
       }
     });
     if (_showToolbar) _scheduleHide();
@@ -294,11 +303,30 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 opacity: _showToolbar ? 1.0 : 0.0,
-                child: _FrostedBar(
-                  useBlur: isBlurEnabled,
-                  useLiquidGlass: isLiquidGlass,
-                  child: Row(
-                    children: [
+                child: GestureDetector(
+                  onVerticalDragUpdate: (details) {
+                    if (details.delta.dy > 5) {
+                      if (!_isToolbarExpanded) {
+                        setState(() {
+                          _isToolbarExpanded = true;
+                        });
+                        _hideTimer?.cancel();
+                      }
+                    } else if (details.delta.dy < -5) {
+                      if (_isToolbarExpanded) {
+                        setState(() {
+                          _isToolbarExpanded = false;
+                        });
+                        _scheduleHide();
+                      }
+                    }
+                  },
+                  child: _FrostedBar(
+                    useBlur: isBlurEnabled,
+                    useLiquidGlass: isLiquidGlass,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                       if (_isSearching) ...[
                         Expanded(
                           child: TextField(
@@ -358,13 +386,21 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                         ),
                         Expanded(
                           flex: 2,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            reverse: true, // Puts icons visually grouped toward the right side. You can scroll horizontally to see the rest!
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
+                          child: AnimatedSize(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.fastLinearToSlowEaseIn,
+                            alignment: Alignment.topRight,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: _isToolbarExpanded ? double.infinity : 48.0, // Assuming 48 is roughly the height of one row of icons
+                              ),
+                              child: ClipRect(
+                                child: Wrap(
+                                  alignment: WrapAlignment.end,
+                                  runAlignment: WrapAlignment.start,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    IconButton(
                                   onPressed: () => setState(() => _pdfDarkMode = !_pdfDarkMode),
                                   icon: Icon(_pdfDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
                                   tooltip: _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
@@ -442,10 +478,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                     });
                                     _scheduleHide();
                                   },
-                                  icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
-                                  tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                                      icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
+                                      tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -497,6 +535,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     ],
                   ),
                 ),
+              ),
               ),
             ),
           ),
