@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
@@ -23,12 +25,22 @@ class FavoritesScreen extends ConsumerWidget {
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: ctrl.refresh,
+          onRefresh: () async {
+            HapticFeedback.mediumImpact();
+            await ctrl.refresh();
+          },
         ),
-        const SliverAppBar(
+        SliverAppBar(
             floating: true,
             pinned: true,
-            title: Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
+            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+            flexibleSpace: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            title: const Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
 
           if (lib.loading)
@@ -85,7 +97,9 @@ class FavoritesScreen extends ConsumerWidget {
                       );
                     },
                     onUnfavorite: () => ctrl.toggleFavorite(item),
-                  );
+                  ).animate(key: ValueKey('fav_${item.path}'))
+                   .fadeIn(duration: 400.ms, delay: (index * 40).ms)
+                   .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
                 },
               ),
             ),

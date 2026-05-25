@@ -2,6 +2,8 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -26,11 +28,21 @@ class RecentScreen extends ConsumerWidget {
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: ctrl.refresh,
+          onRefresh: () async {
+            HapticFeedback.mediumImpact();
+            await ctrl.refresh();
+          },
         ),
         SliverAppBar(
             floating: true,
             pinned: true,
+            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+            flexibleSpace: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
             title: const Text('Recent', style: TextStyle(fontWeight: FontWeight.w700)),
             actions: [
               if (!isEmpty)
