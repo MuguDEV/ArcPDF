@@ -137,13 +137,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       subtitle: const Text('Encrypted Vault File'),
                       onTap: () async {
                          final tempFile = await ref.read(vaultControllerProvider.notifier).decryptToTempFile(item);
-                         if (tempFile != null && context.mounted) {
-                           final tempItem = PdfFileItem.fromFile(tempFile);
-                           if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
-                           // Clean up temp file after viewing
-                           if (tempFile.existsSync()) {
-                             tempFile.deleteSync();
+                         try {
+                           if (tempFile != null && context.mounted) {
+                             final tempItem = PdfFileItem.fromFile(tempFile);
+                             if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
                            }
+                         } finally {
+                            if (tempFile != null && tempFile.existsSync()) {
+                              tempFile.deleteSync();
+                            }
                          }
                       },
                       trailing: IconButton(

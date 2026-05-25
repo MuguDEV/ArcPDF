@@ -1,0 +1,63 @@
+--- lib/src/features/security/pin_pad.dart
++++ lib/src/features/security/pin_pad.dart
+@@ -1,5 +1,6 @@
+ import 'dart:math';
+ import 'package:flutter/material.dart';
++import 'package:flutter_animate/flutter_animate.dart';
+
+ import 'package:pinput/pinput.dart';
+
+@@ -91,9 +92,11 @@
+           useNativeKeyboard: false, // We use custom keypad
+           onCompleted: widget.onCompleted,
+           showCursor: true,
+-        ),
++        ).animate().fadeIn(duration: 300.ms).scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
+         const SizedBox(height: 32),
+-        _buildKeypad(theme),
++        _buildKeypad(theme)
++            .animate()
++            .fadeIn(duration: 400.ms, delay: 100.ms)
++            .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+       ],
+     );
+   }
+@@ -131,21 +134,31 @@
+   Widget build(BuildContext context) {
+     final theme = Theme.of(context);
+-    return Material(
+-      color: Colors.transparent,
+-      child: InkWell(
+-        onTap: onTap,
+-        borderRadius: BorderRadius.circular(32),
+-        splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+-        highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+-        child: Center(
+-          child: text != null
+-              ? Text(
+-                  text!,
+-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
+-                )
+-              : Icon(icon, size: 28, color: theme.colorScheme.onSurface),
++    return AnimatedScale(
++      scale: 1.0, // handled by InkResponse
++      duration: const Duration(milliseconds: 100),
++      child: Material(
++        color: Colors.transparent,
++        child: InkResponse(
++          onTap: onTap,
++          borderRadius: BorderRadius.circular(32),
++          splashColor: theme.colorScheme.primary.withValues(alpha: 0.15),
++          highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
++          highlightShape: BoxShape.circle,
++          child: Center(
++            child: text != null
++                ? Text(
++                    text!,
++                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
++                  )
++                : Icon(icon, size: 28, color: theme.colorScheme.onSurface),
++          ),
+         ),
+       ),
+     );

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pinput/pinput.dart';
 
 import '../settings/haptic_service.dart';
@@ -91,9 +92,12 @@ class _PinPadState extends ConsumerState<PinPad> {
           useNativeKeyboard: false, // We use custom keypad
           onCompleted: widget.onCompleted,
           showCursor: true,
-        ),
+        ).animate().fadeIn(duration: 300.ms).scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
         const SizedBox(height: 32),
-        _buildKeypad(theme),
+        _buildKeypad(theme)
+            .animate()
+            .fadeIn(duration: 400.ms, delay: 100.ms)
+            .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
       ],
     );
   }
@@ -131,11 +135,12 @@ class _KeypadButton extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+      child: InkResponse(
         onTap: onTap,
         borderRadius: BorderRadius.circular(32),
-        splashColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+        splashColor: theme.colorScheme.primary.withValues(alpha: 0.15),
         highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+        highlightShape: BoxShape.circle,
         child: Center(
           child: text != null
               ? Text(

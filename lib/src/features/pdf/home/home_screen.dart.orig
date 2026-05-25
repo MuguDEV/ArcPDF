@@ -16,6 +16,7 @@ import 'permission_screen.dart';
 import 'widgets/pdf_card.dart';
 import 'widgets/pdf_grid_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
+import '../../vault/vault_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -135,6 +136,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           actions: [
+            IconButton(
+              icon: const Icon(HugeIcons.strokeRoundedFolderSecurity),
+              tooltip: 'Secure Vault',
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
+              },
+            ),
             PopupMenuButton<String>(
               icon: const Icon(HugeIcons.strokeRoundedMoreVerticalCircle01),
               tooltip: 'Menu',

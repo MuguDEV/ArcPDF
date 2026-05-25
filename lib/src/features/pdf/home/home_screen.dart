@@ -454,7 +454,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : _buildListItem(context, ref, item, index,
                             key: ValueKey('list_${item.path}')))
                     .animate(key: ValueKey('anim_${item.path}'))
-                    .fadeIn(duration: 400.ms, delay: (index * 40).ms)
+                    .fadeIn(duration: 400.ms)
                     .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
               },
               childCount: items.length,

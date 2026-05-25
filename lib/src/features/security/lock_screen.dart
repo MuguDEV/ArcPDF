@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -119,17 +120,17 @@ class _LockOverlayState extends ConsumerState<_LockOverlay> {
                       HugeIcons.strokeRoundedSecurityLock,
                       size: 64,
                       color: theme.colorScheme.primary,
-                    ),
+                    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 24),
                     Text(
                       'App Locked',
                       style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ),
+                    ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 8),
                     Text(
                       'Enter your ${security.lockType == LockType.pin ? 'PIN' : 'Pattern'} to continue',
                       style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
+                    ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 48),
 
                     if (security.lockType == LockType.pin)
@@ -152,7 +153,7 @@ class _LockOverlayState extends ConsumerState<_LockOverlay> {
                         },
                         icon: const Icon(HugeIcons.strokeRoundedFingerprintScan),
                         label: const Text('Use Biometrics'),
-                      ),
+                      ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                   ],
                 ),
               ),
