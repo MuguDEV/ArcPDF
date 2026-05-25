@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import '../application/pdf_library_controller.dart';
+import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
 
@@ -182,17 +183,17 @@ class _RecentGroupsList extends ConsumerWidget {
   }
 }
 
-class _RecentTile extends StatefulWidget {
+class _RecentTile extends ConsumerStatefulWidget {
   const _RecentTile({required this.item, required this.index, required this.onTap});
   final PdfFileItem item;
   final int index;
   final VoidCallback onTap;
 
   @override
-  State<_RecentTile> createState() => _RecentTileState();
+  ConsumerState<_RecentTile> createState() => _RecentTileState();
 }
 
-class _RecentTileState extends State<_RecentTile> {
+class _RecentTileState extends ConsumerState<_RecentTile> {
   bool _pressed = false;
 
   @override
@@ -207,7 +208,10 @@ class _RecentTileState extends State<_RecentTile> {
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) => setState(() => _pressed = false),
         onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
+        onTap: () {
+          ref.read(hapticServiceProvider).selectionClick();
+          widget.onTap();
+        },
         child: AnimatedScale(
           scale: _pressed ? 0.97 : 1.0,
           duration: const Duration(milliseconds: 100),

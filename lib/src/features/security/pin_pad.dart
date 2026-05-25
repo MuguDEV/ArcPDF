@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:pinput/pinput.dart';
-import 'package:vibration/vibration.dart';
 
-class PinPad extends StatefulWidget {
+import 'package:pinput/pinput.dart';
+
+import '../settings/haptic_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class PinPad extends ConsumerStatefulWidget {
   const PinPad({
     super.key,
     required this.onCompleted,
@@ -17,10 +19,10 @@ class PinPad extends StatefulWidget {
   final int length;
 
   @override
-  State<PinPad> createState() => _PinPadState();
+  ConsumerState<PinPad> createState() => _PinPadState();
 }
 
-class _PinPadState extends State<PinPad> {
+class _PinPadState extends ConsumerState<PinPad> {
   final TextEditingController _pinController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
@@ -46,10 +48,7 @@ class _PinPadState extends State<PinPad> {
   }
 
   void _triggerHaptic() async {
-    HapticFeedback.selectionClick();
-    if (await Vibration.hasVibrator() == true) {
-      Vibration.vibrate(duration: 10, amplitude: 50);
-    }
+    ref.read(hapticServiceProvider).vibrate();
   }
 
   @override

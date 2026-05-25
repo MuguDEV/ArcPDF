@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pattern_lock/pattern_lock.dart';
-import 'package:vibration/vibration.dart';
-import 'package:flutter/services.dart';
 
-class PatternPad extends StatelessWidget {
+
+import '../settings/haptic_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class PatternPad extends ConsumerWidget {
   const PatternPad({
     super.key,
     required this.onCompleted,
@@ -14,7 +16,7 @@ class PatternPad extends StatelessWidget {
   final String? errorText;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -35,10 +37,7 @@ class PatternPad extends StatelessWidget {
             selectThreshold: 25,
             fillPoints: true,
             onInputComplete: (List<int> input) async {
-              HapticFeedback.selectionClick();
-              if (await Vibration.hasVibrator() == true) {
-                Vibration.vibrate(duration: 10, amplitude: 50);
-              }
+              ref.read(hapticServiceProvider).vibrate();
               onCompleted(input.join());
             },
           ),

@@ -6,6 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import 'dart:ui';
 import '../../../settings/settings_controller.dart';
+import '../../../settings/haptic_service.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
@@ -42,8 +43,14 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      onLongPress: widget.onFavorite,
+      onTap: () {
+        ref.read(hapticServiceProvider).selectionClick();
+        widget.onTap();
+      },
+      onLongPress: () {
+        ref.read(hapticServiceProvider).lightImpact();
+        widget.onFavorite();
+      },
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1.0,
         duration: Duration(milliseconds: (120 ~/ animSpeed)),
@@ -94,7 +101,10 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                         backgroundColor: Colors.black.withValues(alpha: 0.25),
                         padding: const EdgeInsets.all(8),
                       ),
-                      onPressed: widget.onFavorite,
+                      onPressed: () {
+                        ref.read(hapticServiceProvider).selectionClick();
+                        widget.onFavorite();
+                      },
                     ),
                   ),
                   Positioned(
