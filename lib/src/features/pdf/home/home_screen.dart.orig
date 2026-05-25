@@ -6,6 +6,8 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../shared/widgets/empty_state.dart';
+import 'dart:ui';
+import 'package:flutter/services.dart';
 import '../../settings/settings_controller.dart';
 import '../application/pdf_library_controller.dart';
 import '../domain/pdf_file_item.dart';
@@ -62,6 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortField));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortDirection));
+    final selectedTag = ref.watch(pdfLibraryControllerProvider.select((s) => s.selectedTag));
 
     // Permission gate
     if (!loading && permissionStatus != StoragePermissionStatus.granted) {
@@ -78,15 +81,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       floatingActionButton: _showScrollToTop
-          ? FloatingActionButton(
-              onPressed: () {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.fastOutSlowIn,
-                );
-              },
-              child: const Icon(Icons.arrow_upward_rounded),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 90.0), // Elevate above the bottom navigation bar
+              child: FloatingActionButton(
+                onPressed: () {
+                  _scrollController.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.fastOutSlowIn,
+                  );
+                },
+                backgroundColor: theme.colorScheme.secondaryContainer,
+                foregroundColor: theme.colorScheme.onSecondaryContainer,
+                elevation: 4,
+                child: const Icon(Icons.arrow_upward_rounded),
+              ),
             )
           : null,
       body: CustomScrollView(
@@ -95,12 +104,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: ctrl.refresh,
+          onRefresh: () async {
+            HapticFeedback.mediumImpact();
+            await ctrl.refresh();
+          },
         ),
         // Unified app bar (no large duplication)
         SliverAppBar(
           floating: true,
           pinned: true,
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+          flexibleSpace: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -286,6 +305,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 const SizedBox(height: 12),
 
+                // Tags
+                if (ctrl.getAllTags().isNotEmpty) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: ctrl.getAllTags().map((tag) {
+                        final isSelected = selectedTag == tag;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(tag),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              HapticFeedback.selectionClick();
+                              ctrl.setSelectedTag(selected ? tag : null);
+                            },
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                            selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                            checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            side: BorderSide.none,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // Filter chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -300,10 +354,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           curve: Curves.easeOutBack,
                           child: FilterChip(
                             selected: selected,
-                            onSelected: (_) => ctrl.setFilter(f),
+                            onSelected: (_) {
+                              HapticFeedback.lightImpact();
+                              ctrl.setFilter(f);
+                            },
                             label: Text(_label(f)),
-                            labelPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            labelStyle: const TextStyle(height: 1.0),
                             showCheckmark: false,
                           ),
                         ),
@@ -334,6 +390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               subtitle: query.isNotEmpty
                   ? 'Try a different search term or filter.'
                   : 'No PDFs found. Add a PDF to start reading',
+              animated: true,
             ),
           )
         else if (filter == PdfFilter.folders)
@@ -383,16 +440,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisSpacing: 10,
               itemBuilder: (context, index) {
                 final item = items[index];
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: useGrid
-                      ? _buildGridItem(context, ref, item, index,
-                          key: ValueKey('grid_${item.path}'))
-                      : _buildListItem(context, ref, item, index,
-                          key: ValueKey('list_${item.path}')),
-                );
+                return (useGrid
+                        ? _buildGridItem(context, ref, item, index,
+                            key: ValueKey('grid_${item.path}'))
+                        : _buildListItem(context, ref, item, index,
+                            key: ValueKey('list_${item.path}')))
+                    .animate(key: ValueKey('anim_${item.path}'))
+                    .fadeIn(duration: 400.ms, delay: (index * 40).ms)
+                    .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
               },
               childCount: items.length,
             ),
@@ -403,6 +458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
+      ),
     );
   }
 

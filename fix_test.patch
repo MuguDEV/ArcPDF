@@ -1,0 +1,31 @@
+--- test/src/features/pdf/application/pdf_library_controller_test.dart
++++ test/src/features/pdf/application/pdf_library_controller_test.dart
+@@ -14,6 +14,7 @@
+     late MockBox<String> mockFavBox;
+     late MockBox<String> mockRecentsBox;
+     late MockBox<int> mockTimestampsBox;
++    late MockBox<List<String>> mockTagsBox;
+     late PdfLibraryController controller;
+
+     setUp(() {
+@@ -21,14 +22,18 @@
+       mockFavBox = MockBox<String>();
+       mockRecentsBox = MockBox<String>();
+       mockTimestampsBox = MockBox<int>();
++      mockTagsBox = MockBox<List<String>>();
+
+       when(() => mockFavBox.keys).thenReturn([]);
+       when(() => mockRecentsBox.keys).thenReturn([]);
++      when(() => mockTagsBox.keys).thenReturn([]);
+       when(() => mockFavBox.values).thenReturn([]);
+       when(() => mockRecentsBox.values).thenReturn([]);
++      when(() => mockTagsBox.values).thenReturn([]);
+
+       controller = PdfLibraryController(
+         mockScanner,
+         mockFavBox,
+         mockRecentsBox,
+         mockTimestampsBox,
++        mockTagsBox,
+       );
+     });

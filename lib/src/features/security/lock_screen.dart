@@ -16,6 +16,8 @@ class LockScreenWrapper extends ConsumerStatefulWidget {
 }
 
 class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with WidgetsBindingObserver {
+  bool _isAuthenticating = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,9 +44,12 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
   }
 
   void _checkBiometrics() async {
+    if (_isAuthenticating) return;
     final security = ref.read(securityControllerProvider);
     if (security.isLockEnabled && security.isLocked && security.isBiometricEnabled) {
+      _isAuthenticating = true;
       await ref.read(securityControllerProvider.notifier).authenticateBiometric();
+      _isAuthenticating = false;
     }
   }
 

@@ -1,0 +1,22 @@
+--- lib/src/features/security/lock_screen.dart
++++ lib/src/features/security/lock_screen.dart
+@@ -14,6 +14,8 @@
+ }
+
+ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with WidgetsBindingObserver {
++  bool _isAuthenticating = false;
++
+   @override
+   void initState() {
+     super.initState();
+@@ -42,9 +44,14 @@
+
+   void _checkBiometrics() async {
++    if (_isAuthenticating) return;
+     final security = ref.read(securityControllerProvider);
+     if (security.isLockEnabled && security.isLocked && security.isBiometricEnabled) {
++      _isAuthenticating = true;
+       await ref.read(securityControllerProvider.notifier).authenticateBiometric();
++      _isAuthenticating = false;
+     }
+   }

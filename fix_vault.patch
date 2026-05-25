@@ -1,0 +1,56 @@
+--- lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
++++ lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
+@@ -115,16 +115,16 @@
+             title: const Text('Move to Secure Vault'),
+             contentPadding: EdgeInsets.zero,
+             onTap: () async {
+-              Navigator.pop(context);
+               final success = await ref.read(vaultControllerProvider.notifier).moveToVault(widget.item);
+               if (success && context.mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                   const SnackBar(content: Text('File moved to Secure Vault')),
+                 );
++                Navigator.pop(context);
+               } else if (context.mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                   const SnackBar(content: Text('Failed to move to vault')),
+                 );
++                Navigator.pop(context);
+               }
+             },
+           ),
+--- lib/src/features/vault/vault_screen.dart
++++ lib/src/features/vault/vault_screen.dart
+@@ -151,10 +151,10 @@
+                       trailing: IconButton(
+                         icon: const Icon(Icons.restore),
+                         onPressed: () async {
+-                           final downloads = await getExternalStorageDirectory(); // Android
++                           final downloads = await getDownloadsDirectory(); // Uses path_provider
+                            // Fallback to Download dir
+                            if (downloads != null) {
+-                             final success = await ref.read(vaultControllerProvider.notifier).restoreFromVault(item, '/storage/emulated/0/Download');
++                             final success = await ref.read(vaultControllerProvider.notifier).restoreFromVault(item, downloads.path);
+                              if (success && context.mounted) {
+                                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
+                              }
+--- lib/src/features/vault/vault_controller.dart
++++ lib/src/features/vault/vault_controller.dart
+@@ -66,7 +66,15 @@
+       final encryptedBytes = _encrypter.encryptBytes(bytes, iv: _iv).bytes;
+
+       final vaultDir = await _getVaultDirectory();
+-      final newPath = p.join(vaultDir.path, item.name);
++
++      // Prevent collision
++      String newName = item.name;
++      int counter = 1;
++      while (await File(p.join(vaultDir.path, newName)).exists()) {
++        final nameWithoutExt = p.basenameWithoutExtension(item.name);
++        newName = '${nameWithoutExt}_$counter.pdf';
++        counter++;
++      }
++      final newPath = p.join(vaultDir.path, newName);
+
+       final newFile = File(newPath);
+       await newFile.writeAsBytes(encryptedBytes);

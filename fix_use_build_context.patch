@@ -1,0 +1,26 @@
+--- lib/src/features/vault/vault_screen.dart
++++ lib/src/features/vault/vault_screen.dart
+@@ -102,6 +102,7 @@
+   @override
+   Widget build(BuildContext context) {
+     final vaultState = ref.watch(vaultControllerProvider);
+
+     if (!vaultState.isUnlocked) {
+@@ -137,7 +138,7 @@
+                          final tempFile = await ref.read(vaultControllerProvider.notifier).decryptToTempFile(item);
+                          if (tempFile != null && context.mounted) {
+                            final tempItem = PdfFileItem.fromFile(tempFile);
+-                           await Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
++                           if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
+                            // Clean up temp file after viewing
+                            if (tempFile.existsSync()) {
+                              tempFile.deleteSync();
+@@ -153,7 +154,7 @@
+                            if (downloads != null) {
+                              final success = await ref.read(vaultControllerProvider.notifier).restoreFromVault(item, '/storage/emulated/0/Download');
+                              if (success && context.mounted) {
+-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
++                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
+                              }
+                            }
+                         },

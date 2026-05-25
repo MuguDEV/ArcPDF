@@ -11,6 +11,7 @@ import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'rename_dialog.dart';
+import 'pdf_bottom_sheet.dart';
 
 class PdfGridCard extends ConsumerStatefulWidget {
   const PdfGridCard({
@@ -36,6 +37,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
+    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
 
     final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
 
@@ -49,7 +51,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
       },
       onLongPress: () {
         ref.read(hapticServiceProvider).lightImpact();
-        widget.onFavorite();
+        showPdfBottomSheet(context, ref, widget.item);
       },
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1.0,
@@ -172,6 +174,14 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
                           _Badge(label: '${widget.item.pageCount}p', theme: theme),
                       ],
                     ),
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: tags.map((t) => _Badge(label: '#$t', theme: theme)).toList(),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Text(
                       DateFormat.yMMMd().format(widget.item.lastModified),

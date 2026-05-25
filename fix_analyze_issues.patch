@@ -1,0 +1,28 @@
+--- lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
++++ lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
+@@ -1,6 +1,5 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+-import 'package:hugeicons/hugeicons.dart';
+ import '../../application/pdf_library_controller.dart';
+ import '../../domain/pdf_file_item.dart';
+
+--- lib/src/features/pdf/home/home_screen.dart
++++ lib/src/features/pdf/home/home_screen.dart
+@@ -64,7 +64,6 @@
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortField));
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortDirection));
+-    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags));
+     final selectedTag = ref.watch(pdfLibraryControllerProvider.select((s) => s.selectedTag));
+
+     // Permission gate
+--- test/src/features/pdf/application/pdf_library_controller_test.dart
++++ test/src/features/pdf/application/pdf_library_controller_test.dart
+@@ -35,6 +35,7 @@
+       mockFavBox,
+       mockRecentsBox,
+       mockTimestampsBox,
++      mockTagsBox,
+     );
+   });

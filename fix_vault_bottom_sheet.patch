@@ -1,0 +1,36 @@
+--- lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
++++ lib/src/features/pdf/home/widgets/pdf_bottom_sheet.dart
+@@ -2,6 +2,7 @@
+ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import '../../application/pdf_library_controller.dart';
+ import '../../domain/pdf_file_item.dart';
++import '../../../vault/vault_controller.dart';
++import 'package:hugeicons/hugeicons.dart';
+
+ void showPdfBottomSheet(BuildContext context, WidgetRef ref, PdfFileItem item) {
+@@ -107,6 +108,24 @@
+               )
+             ],
+           ),
++          const SizedBox(height: 24),
++          ListTile(
++            leading: Icon(HugeIcons.strokeRoundedFolderSecurity, color: theme.colorScheme.error),
++            title: const Text('Move to Secure Vault'),
++            contentPadding: EdgeInsets.zero,
++            onTap: () async {
++              Navigator.pop(context);
++              final success = await ref.read(vaultControllerProvider.notifier).moveToVault(widget.item);
++              if (success && context.mounted) {
++                ScaffoldMessenger.of(context).showSnackBar(
++                  const SnackBar(content: Text('File moved to Secure Vault')),
++                );
++              } else if (context.mounted) {
++                ScaffoldMessenger.of(context).showSnackBar(
++                  const SnackBar(content: Text('Failed to move to vault')),
++                );
++              }
++            },
++          ),
+           const SizedBox(height: 32),
+         ],
+       ),

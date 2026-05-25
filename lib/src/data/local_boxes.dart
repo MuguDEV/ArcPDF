@@ -4,4 +4,5 @@ abstract final class LocalBoxes {
   static const settings = 'settings';
   static const thumbnailCache = 'thumbnailCache';
   static const recentsTimestamps = 'recentsTimestamps';
+  static const tags = 'tags';
 }

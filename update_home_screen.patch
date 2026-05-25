@@ -1,0 +1,51 @@
+--- lib/src/features/pdf/home/home_screen.dart
++++ lib/src/features/pdf/home/home_screen.dart
+@@ -65,6 +65,8 @@
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortField));
+     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortDirection));
++    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags));
++    final selectedTag = ref.watch(pdfLibraryControllerProvider.select((s) => s.selectedTag));
+
+     // Permission gate
+     if (!loading && permissionStatus != StoragePermissionStatus.granted) {
+@@ -300,6 +302,39 @@
+                   ),
+                 ),
+                 const SizedBox(height: 12),
++                // Tags
++                if (ctrl.getAllTags().isNotEmpty) ...[
++                  SingleChildScrollView(
++                    scrollDirection: Axis.horizontal,
++                    physics: const BouncingScrollPhysics(),
++                    child: Row(
++                      children: ctrl.getAllTags().map((tag) {
++                        final isSelected = selectedTag == tag;
++                        return Padding(
++                          padding: const EdgeInsets.only(right: 8),
++                          child: FilterChip(
++                            label: Text(tag),
++                            selected: isSelected,
++                            onSelected: (selected) {
++                              HapticFeedback.selectionClick();
++                              ctrl.setSelectedTag(selected ? tag : null);
++                            },
++                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
++                            selectedColor: Theme.of(context).colorScheme.primaryContainer,
++                            checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
++                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
++                            side: BorderSide.none,
++                            labelStyle: TextStyle(
++                              color: isSelected
++                                  ? Theme.of(context).colorScheme.onPrimaryContainer
++                                  : Theme.of(context).colorScheme.onSurface,
++                            ),
++                          ),
++                        );
++                      }).toList(),
++                    ),
++                  ),
++                  const SizedBox(height: 12),
++                ],
+                 SingleChildScrollView(
+                   scrollDirection: Axis.horizontal,

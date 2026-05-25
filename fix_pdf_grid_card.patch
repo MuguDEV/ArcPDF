@@ -1,0 +1,10 @@
+--- lib/src/features/pdf/home/widgets/pdf_grid_card.dart
++++ lib/src/features/pdf/home/widgets/pdf_grid_card.dart
+@@ -10,6 +10,7 @@
+ import '../../domain/pdf_file_item.dart';
+ import 'pdf_thumbnail.dart';
+ import 'rename_dialog.dart';
++import 'pdf_bottom_sheet.dart';
+
+ class PdfGridCard extends ConsumerStatefulWidget {
+   const PdfGridCard({
