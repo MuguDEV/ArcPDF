@@ -116,6 +116,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         splashColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
         highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        pageTransitionsTheme: const PageTransitionsTheme(builders: {TargetPlatform.android: ZoomPageTransitionsBuilder(), TargetPlatform.iOS: CupertinoPageTransitionsBuilder()}),
         appBarTheme: AppBarTheme(
           backgroundColor: colorScheme.surface,
           foregroundColor: colorScheme.onSurface,
@@ -195,6 +196,13 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       );
     }
 
+    // Create a global scroll behavior to enforce bouncing everywhere
+    final scrollBehavior = const MaterialScrollBehavior().copyWith(
+      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      scrollbars: false,
+      overscroll: false,
+    );
+
     return MaterialApp(
       title: 'ArcPDF',
       navigatorKey: ref.read(intentServiceProvider).navigatorKey,
@@ -202,6 +210,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       themeMode: settings.themeMode,
       theme: buildTheme(lightColorScheme, Brightness.light),
       darkTheme: buildTheme(darkColorScheme, Brightness.dark),
+      scrollBehavior: scrollBehavior,
       home: const AppShell(),
       builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
     );

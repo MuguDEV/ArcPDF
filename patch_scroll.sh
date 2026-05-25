@@ -1,3 +1,4 @@
+cat << 'INNER_EOF' > temp.diff
 --- lib/src/app.dart
 +++ lib/src/app.dart
 @@ -176,6 +176,14 @@
@@ -23,3 +24,5 @@
        builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
      );
    }
+INNER_EOF
+patch lib/src/app.dart < temp.diff

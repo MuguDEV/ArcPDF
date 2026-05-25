@@ -6,6 +6,8 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../shared/widgets/empty_state.dart';
+import 'dart:ui';
+import 'package:flutter/services.dart';
 import '../../settings/settings_controller.dart';
 import '../application/pdf_library_controller.dart';
 import '../domain/pdf_file_item.dart';
@@ -101,12 +103,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: ctrl.refresh,
+          onRefresh: () async {
+            HapticFeedback.mediumImpact();
+            await ctrl.refresh();
+          },
         ),
         // Unified app bar (no large duplication)
         SliverAppBar(
           floating: true,
           pinned: true,
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+          flexibleSpace: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -306,7 +318,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           curve: Curves.easeOutBack,
                           child: FilterChip(
                             selected: selected,
-                            onSelected: (_) => ctrl.setFilter(f),
+                            onSelected: (_) {
+                              HapticFeedback.lightImpact();
+                              ctrl.setFilter(f);
+                            },
                             label: Text(_label(f)),
                             labelStyle: const TextStyle(height: 1.0),
                             showCheckmark: false,
@@ -389,16 +404,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisSpacing: 10,
               itemBuilder: (context, index) {
                 final item = items[index];
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  child: useGrid
-                      ? _buildGridItem(context, ref, item, index,
-                          key: ValueKey('grid_${item.path}'))
-                      : _buildListItem(context, ref, item, index,
-                          key: ValueKey('list_${item.path}')),
-                );
+                return (useGrid
+                        ? _buildGridItem(context, ref, item, index,
+                            key: ValueKey('grid_${item.path}'))
+                        : _buildListItem(context, ref, item, index,
+                            key: ValueKey('list_${item.path}')))
+                    .animate(key: ValueKey('anim_${item.path}'))
+                    .fadeIn(duration: 400.ms, delay: (index * 40).ms)
+                    .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
               },
               childCount: items.length,
             ),

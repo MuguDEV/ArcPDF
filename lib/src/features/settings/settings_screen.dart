@@ -1,6 +1,8 @@
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -98,9 +100,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
-        const SliverAppBar(
+        SliverAppBar(
           pinned: true,
-          title: Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
+          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+          flexibleSpace: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         SliverPadding(
           padding: const EdgeInsets.all(16),
