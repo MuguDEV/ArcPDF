@@ -201,6 +201,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: const Text('Apple Liquid Glass'),
                       subtitle: const Text('Premium iOS-style highly polished glass effect'),
                     ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile.adaptive(
+                      value: settings.useHaptics,
+                      onChanged: ctrl.setUseHaptics,
+                      title: const Text('Haptic Feedback'),
+                      subtitle: const Text('Vibrate on taps and interactions'),
+                    ),
                   ],
                 ),
               ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),

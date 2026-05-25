@@ -40,6 +40,7 @@ class AppSettings {
     required this.animationSpeed,
     required this.thumbnailQuality,
     required this.fontFamily,
+    required this.useHaptics,
   });
 
   final ThemeMode themeMode;
@@ -50,6 +51,7 @@ class AppSettings {
   final double animationSpeed;
   final double thumbnailQuality;
   final AppFontFamily fontFamily;
+  final bool useHaptics;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -60,6 +62,7 @@ class AppSettings {
     double? animationSpeed,
     double? thumbnailQuality,
     AppFontFamily? fontFamily,
+    bool? useHaptics,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -70,6 +73,7 @@ class AppSettings {
       animationSpeed: animationSpeed ?? this.animationSpeed,
       thumbnailQuality: thumbnailQuality ?? this.thumbnailQuality,
       fontFamily: fontFamily ?? this.fontFamily,
+      useHaptics: useHaptics ?? this.useHaptics,
     );
   }
 }
@@ -87,6 +91,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           animationSpeed: ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble()).clamp(0.5, 2.0),
           thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
           fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
+          useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
         ));
 
   final Box _box;
@@ -129,6 +134,11 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setFontFamily(AppFontFamily family) async {
     state = state.copyWith(fontFamily: family);
     await _box.put('fontFamily', family.index);
+  }
+
+  Future<void> setUseHaptics(bool value) async {
+    state = state.copyWith(useHaptics: value);
+    await _box.put('useHaptics', value);
   }
 }
 

@@ -20,6 +20,7 @@ void main() {
       when(() => mockBox.get('animSpeed', defaultValue: any(named: 'defaultValue'))).thenReturn(1.0);
       when(() => mockBox.get('thumbQ', defaultValue: any(named: 'defaultValue'))).thenReturn(0.8);
       when(() => mockBox.get('fontFamily', defaultValue: any(named: 'defaultValue'))).thenReturn(1);
+      when(() => mockBox.get('useHaptics', defaultValue: any(named: 'defaultValue'))).thenReturn(true);
     });
 
     test('initial state reads from box', () {

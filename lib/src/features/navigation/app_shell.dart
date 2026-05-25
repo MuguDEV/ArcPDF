@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -9,6 +9,7 @@ import '../pdf/favorites/favorites_screen.dart';
 import '../pdf/home/home_screen.dart';
 import '../pdf/recent/recent_screen.dart';
 import '../settings/settings_screen.dart';
+import '../settings/haptic_service.dart';
 import '../splash/splash_screen.dart';
 import 'navigation_controller.dart';
 
@@ -106,7 +107,7 @@ class _ArcNavBar extends ConsumerWidget {
               ],
               onDestinationSelected: (i) {
                 if (i != selectedIndex) {
-                  HapticFeedback.selectionClick();
+                  ref.read(hapticServiceProvider).selectionClick();
                   ref.read(navigationControllerProvider.notifier).setIndex(i);
                 }
               },

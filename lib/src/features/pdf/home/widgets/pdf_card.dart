@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
 import '../../../settings/settings_controller.dart';
+import '../../../settings/haptic_service.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
@@ -39,8 +40,14 @@ class _PdfCardState extends ConsumerState<PdfCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      onLongPress: widget.onFavorite,
+      onTap: () {
+        ref.read(hapticServiceProvider).selectionClick();
+        widget.onTap();
+      },
+      onLongPress: () {
+        ref.read(hapticServiceProvider).lightImpact();
+        widget.onFavorite();
+      },
       splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
       highlightColor: Colors.transparent,
       child: AnimatedScale(
@@ -130,7 +137,10 @@ class _PdfCardState extends ConsumerState<PdfCard> {
               // Trailing action (like favorite or a menu)
               IconButton(
                 key: ValueKey(isFav),
-                onPressed: widget.onFavorite,
+                onPressed: () {
+                  ref.read(hapticServiceProvider).selectionClick();
+                  widget.onFavorite();
+                },
                 icon: Icon(
                   isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                   color: isFav ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),

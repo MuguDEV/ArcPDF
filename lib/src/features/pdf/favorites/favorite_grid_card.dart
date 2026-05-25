@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../application/pdf_library_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../home/widgets/pdf_thumbnail.dart';
+import '../../settings/haptic_service.dart';
 
 class FavoriteGridCard extends ConsumerStatefulWidget {
   const FavoriteGridCard({
@@ -36,8 +37,12 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
+      onTap: () {
+        ref.read(hapticServiceProvider).selectionClick();
+        widget.onTap();
+      },
       onLongPress: () async {
+        ref.read(hapticServiceProvider).lightImpact();
         widget.onUnfavorite();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
