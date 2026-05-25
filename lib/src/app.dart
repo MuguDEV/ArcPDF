@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/navigation/app_shell.dart';
+import 'features/security/lock_screen.dart';
 import 'features/settings/settings_controller.dart';
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
@@ -202,6 +203,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       theme: buildTheme(lightColorScheme, Brightness.light),
       darkTheme: buildTheme(darkColorScheme, Brightness.dark),
       home: const AppShell(),
+      builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
     );
   }
 }

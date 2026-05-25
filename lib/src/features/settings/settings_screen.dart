@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../updater/updater_service.dart';
 import 'log_viewer_screen.dart';
 import 'settings_controller.dart';
+import '../security/security_settings_section.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -194,6 +195,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+
+              // ── Security ──────────────────────────────────────
+
+              const _SectionHeader(label: 'Security').animate(delay: 150.ms).fadeIn(duration: 260.ms),
+
+              const SizedBox(height: 8),
+
+              const SecuritySettingsSection().animate(delay: 155.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+
+              const SizedBox(height: 20),
 
               const SizedBox(height: 20),
 
