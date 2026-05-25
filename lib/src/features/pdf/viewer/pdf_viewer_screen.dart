@@ -42,6 +42,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   bool _isHorizontalScroll = false;
   Timer? _autoScrollTimer;
   bool _isAutoScrolling = false;
+  int _rotationQuarterTurns = 0;
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
@@ -210,9 +211,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           else
             Hero(
               tag: 'pdf_thumb_${widget.item.path}',
-              child: PdfViewer.file(
-                widget.item.path,
-              initialPageNumber: repo.getLastReadPage(widget.item.path),
+              child: RotatedBox(
+                quarterTurns: _rotationQuarterTurns,
+                child: PdfViewer.file(
+                  widget.item.path,
+                initialPageNumber: repo.getLastReadPage(widget.item.path),
               controller: _pdfViewerController,
               passwordProvider: () async => _showPasswordPrompt(context),
               params: PdfViewerParams(
@@ -276,17 +279,18 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     },
                   _textSearcher.pageTextMatchPaintCallback
                 ],
-                viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                  GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTapUp: (details) {
-                      if (!handleLinkTap(details.localPosition)) {
-                        _toggleToolbar();
-                      }
-                    },
-                    child: SizedBox(width: size.width, height: size.height),
-                  ),
-                ],
+                  viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                    GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: (details) {
+                        if (!handleLinkTap(details.localPosition)) {
+                          _toggleToolbar();
+                        }
+                      },
+                      child: SizedBox(width: size.width, height: size.height),
+                    ),
+                  ],
+                ),
               ),
             )),
 
@@ -473,8 +477,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                             if (_fitWidth) {
                                               final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
                                               if (m != null) {
-                                                final newZoom = m.getMaxScaleOnAxis();
-                                                _pdfViewerController.setZoom(_pdfViewerController.centerPosition, newZoom, duration: const Duration(milliseconds: 250));
+                                                _pdfViewerController.goTo(m, duration: const Duration(milliseconds: 250));
                                               }
                                             } else {
                                               _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
@@ -503,7 +506,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                       ),
                                       IconButton(
                                         onPressed: () {
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rotation disabled')));
+                                          setState(() {
+                                            _rotationQuarterTurns = (_rotationQuarterTurns + 1) % 4;
+                                          });
                                           _scheduleHide();
                                         },
                                         icon: const Icon(Icons.rotate_right_rounded),
@@ -523,11 +528,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                             _isFullscreen = !_isFullscreen;
                                             if (_isFullscreen) {
                                               SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                              _showToolbar = false;
+                                              _isToolbarExpanded = false;
                                             } else {
                                               SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
                                             }
                                           });
-                                          _scheduleHide();
+                                          if (!_isFullscreen) {
+                                            _scheduleHide();
+                                          } else {
+                                            _hideTimer?.cancel();
+                                          }
                                         },
                                         icon: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
                                         tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
