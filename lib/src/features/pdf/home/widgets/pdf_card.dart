@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'dart:ui';
 import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
@@ -46,7 +47,20 @@ class _PdfCardState extends ConsumerState<PdfCard> {
         scale: _pressed ? 0.98 : 1.0,
         duration: Duration(milliseconds: (120 ~/ animSpeed)),
         curve: Curves.fastLinearToSlowEaseIn,
-        child: Padding(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  width: 0.5,
+                ),
+              ),
+              child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -123,6 +137,9 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                 ),
               ),
             ],
+          ),
+        ),
+            ),
           ),
         ),
       ),

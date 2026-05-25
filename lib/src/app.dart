@@ -202,7 +202,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       themeMode: settings.themeMode,
       theme: buildTheme(lightColorScheme, Brightness.light),
       darkTheme: buildTheme(darkColorScheme, Brightness.dark),
-      home: const LockScreenWrapper(child: AppShell()),
+      home: const AppShell(),
+      builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
     );
   }
 }
