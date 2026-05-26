@@ -7,6 +7,7 @@ import '../../../settings/haptic_service.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
+import 'pdf_bottom_sheet.dart';
 
 class PdfCard extends ConsumerStatefulWidget {
   const PdfCard({
@@ -32,6 +33,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
   @override
   Widget build(BuildContext context) {
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
+    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
     final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
@@ -46,7 +48,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
       },
       onLongPress: () {
         ref.read(hapticServiceProvider).lightImpact();
-        widget.onFavorite();
+        showPdfBottomSheet(context, ref, widget.item);
       },
       splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
       highlightColor: Colors.transparent,
@@ -129,6 +131,14 @@ class _PdfCardState extends ConsumerState<PdfCard> {
                           _Badge(label: 'Corrupt', theme: theme, isError: true),
                       ],
                     ),
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: tags.map((t) => _Badge(label: '#$t', theme: theme)).toList(),
+                      ),
+                    ],
                   ],
                 ),
               ),

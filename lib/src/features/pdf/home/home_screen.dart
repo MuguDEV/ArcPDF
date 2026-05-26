@@ -16,6 +16,7 @@ import 'permission_screen.dart';
 import 'widgets/pdf_card.dart';
 import 'widgets/pdf_grid_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
+import '../../vault/vault_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -64,6 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortField));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortDirection));
+    final selectedTag = ref.watch(pdfLibraryControllerProvider.select((s) => s.selectedTag));
 
     // Permission gate
     if (!loading && permissionStatus != StoragePermissionStatus.granted) {
@@ -134,6 +136,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           actions: [
+            IconButton(
+              icon: const Icon(HugeIcons.strokeRoundedFolderSecurity),
+              tooltip: 'Secure Vault',
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
+              },
+            ),
             PopupMenuButton<String>(
               icon: const Icon(HugeIcons.strokeRoundedMoreVerticalCircle01),
               tooltip: 'Menu',
@@ -304,6 +313,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 const SizedBox(height: 12),
 
+                // Tags
+                if (ctrl.getAllTags().isNotEmpty) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: ctrl.getAllTags().map((tag) {
+                        final isSelected = selectedTag == tag;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(tag),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              HapticFeedback.selectionClick();
+                              ctrl.setSelectedTag(selected ? tag : null);
+                            },
+                            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                            selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                            checkmarkColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            side: BorderSide.none,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
                 // Filter chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -410,7 +454,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         : _buildListItem(context, ref, item, index,
                             key: ValueKey('list_${item.path}')))
                     .animate(key: ValueKey('anim_${item.path}'))
-                    .fadeIn(duration: 400.ms, delay: (index * 40).ms)
+                    .fadeIn(duration: 400.ms)
                     .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
               },
               childCount: items.length,

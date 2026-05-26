@@ -14,6 +14,7 @@ void main() {
     late MockBox<String> mockFavBox;
     late MockBox<String> mockRecentsBox;
     late MockBox<int> mockTimestampsBox;
+    late MockBox<List<String>> mockTagsBox;
     late PdfLibraryController controller;
 
     setUp(() {
@@ -21,9 +22,11 @@ void main() {
       mockFavBox = MockBox<String>();
       mockRecentsBox = MockBox<String>();
       mockTimestampsBox = MockBox<int>();
+      mockTagsBox = MockBox<List<String>>();
 
       when(() => mockFavBox.keys).thenReturn([]);
       when(() => mockRecentsBox.keys).thenReturn([]);
+      when(() => mockTagsBox.keys).thenReturn([]);
       when(() => mockFavBox.values).thenReturn([]);
       when(() => mockRecentsBox.values).thenReturn([]);
 
@@ -32,6 +35,7 @@ void main() {
         mockFavBox,
         mockRecentsBox,
         mockTimestampsBox,
+        mockTagsBox,
       );
     });
 

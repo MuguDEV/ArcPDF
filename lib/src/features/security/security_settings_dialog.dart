@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'security_controller.dart';
 import 'pin_pad.dart';
 import 'pattern_pad.dart';
@@ -51,12 +52,12 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(HugeIcons.strokeRoundedSecurityLock, size: 48, color: theme.colorScheme.primary),
+            Icon(HugeIcons.strokeRoundedSecurityLock, size: 48, color: theme.colorScheme.primary).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 16),
             Text(
               _isConfirming ? 'Confirm ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}' : 'Set new ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}',
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
 
             if (!_isConfirming)
@@ -75,7 +76,7 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
                 style: ButtonStyle(
                   shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
                 ),
-              ),
+              ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
 
             const SizedBox(height: 32),
 
@@ -140,7 +141,7 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
             Text(
               'Verify to Disable',
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
             if (security.lockType == LockType.pin)
               PinPad(onCompleted: _handleInput, errorText: _errorText)
@@ -150,7 +151,7 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
-            ),
+            ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
           ],
         ),
       ),

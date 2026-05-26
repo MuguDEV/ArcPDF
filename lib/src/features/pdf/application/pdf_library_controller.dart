@@ -28,6 +28,8 @@ class PdfLibraryState {
     this.favorites = const {},
     this.recents = const {},
     this.permissionStatus = StoragePermissionStatus.granted,
+    this.tags = const {},
+    this.selectedTag,
   });
 
   final bool loading;
@@ -39,6 +41,8 @@ class PdfLibraryState {
   final Set<String> favorites;
   final Map<String, DateTime> recents; // path → openedAt
   final StoragePermissionStatus permissionStatus;
+  final Map<String, List<String>> tags; // path → list of tags
+  final String? selectedTag;
 
   PdfLibraryState copyWith({
     bool? loading,
@@ -50,6 +54,8 @@ class PdfLibraryState {
     Set<String>? favorites,
     Map<String, DateTime>? recents,
     StoragePermissionStatus? permissionStatus,
+    Map<String, List<String>>? tags,
+    String? selectedTag,
   }) {
     return PdfLibraryState(
       loading: loading ?? this.loading,
@@ -61,6 +67,8 @@ class PdfLibraryState {
       favorites: favorites ?? this.favorites,
       recents: recents ?? this.recents,
       permissionStatus: permissionStatus ?? this.permissionStatus,
+      tags: tags ?? this.tags,
+      selectedTag: selectedTag, // allow null
     );
   }
 }
@@ -71,6 +79,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     this._favBox,
     this._recentsBox,
     this._timestampsBox,
+    this._tagsBox,
   ) : super(const PdfLibraryState()) {
     _loadSavedState();
     // Delay initial refresh to allow the splash screen and initial UI to animate smoothly
@@ -81,6 +90,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   final Box<String> _favBox;
   final Box<String> _recentsBox;
   final Box<int> _timestampsBox;
+  final Box<List<String>> _tagsBox;
 
   void _loadSavedState() {
     // Migration: Wipe out old numeric keys in _favBox and _recentsBox
@@ -98,9 +108,17 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
           ? DateTime.fromMillisecondsSinceEpoch(ms)
           : now.subtract(const Duration(days: 30));
     }
+    final tags = <String, List<String>>{};
+    for (final key in _tagsBox.keys) {
+      if (key is String) {
+        tags[key] = _tagsBox.get(key) ?? [];
+      }
+    }
+
     state = state.copyWith(
       favorites: _favBox.values.toSet(),
       recents: recents,
+      tags: tags,
     );
   }
 
@@ -120,6 +138,42 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       state = state.copyWith(sortField: field);
   void setSortDirection(PdfSortDirection direction) =>
       state = state.copyWith(sortDirection: direction);
+  void setSelectedTag(String? tag) => state = state.copyWith(selectedTag: tag);
+
+  Future<void> addTag(PdfFileItem item, String tag) async {
+    final tags = Map<String, List<String>>.from(state.tags);
+    final fileTags = List<String>.from(tags[item.path] ?? []);
+    if (!fileTags.contains(tag)) {
+      fileTags.add(tag);
+      tags[item.path] = fileTags;
+      await _tagsBox.put(item.path, fileTags);
+      state = state.copyWith(tags: tags);
+    }
+  }
+
+  Future<void> removeTag(PdfFileItem item, String tag) async {
+    final tags = Map<String, List<String>>.from(state.tags);
+    final fileTags = List<String>.from(tags[item.path] ?? []);
+    if (fileTags.contains(tag)) {
+      fileTags.remove(tag);
+      if (fileTags.isEmpty) {
+        tags.remove(item.path);
+        await _tagsBox.delete(item.path);
+      } else {
+        tags[item.path] = fileTags;
+        await _tagsBox.put(item.path, fileTags);
+      }
+      state = state.copyWith(tags: tags);
+    }
+  }
+
+  List<String> getAllTags() {
+    final allTags = <String>{};
+    for (final fileTags in state.tags.values) {
+      allTags.addAll(fileTags);
+    }
+    return allTags.toList()..sort();
+  }
 
   Future<void> toggleFavorite(PdfFileItem item) async {
     HapticFeedback.selectionClick();
@@ -206,6 +260,12 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       }
       if (q.isNotEmpty && !e.name.toLowerCase().contains(q)) {
         return false;
+      }
+      if (state.selectedTag != null && state.selectedTag!.isNotEmpty) {
+        final itemTags = state.tags[e.path] ?? [];
+        if (!itemTags.contains(state.selectedTag)) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -300,5 +360,6 @@ final pdfLibraryControllerProvider =
     Hive.box<String>(LocalBoxes.favorites),
     Hive.box<String>(LocalBoxes.recents),
     Hive.box<int>(LocalBoxes.recentsTimestamps),
+    Hive.box<List<String>>(LocalBoxes.tags),
   ),
 );
