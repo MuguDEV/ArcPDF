@@ -1,1 +1,0 @@
-sed -i 's/id("com.android.application") version "8.11.1" apply false/id("com.android.application") version "8.11.1" apply false\n    id("org.jetbrains.kotlin.android") version "2.1.0" apply false/' android/settings.gradle.kts

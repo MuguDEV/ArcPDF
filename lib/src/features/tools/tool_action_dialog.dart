@@ -1,9 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:vibration/vibration.dart';
+import 'package:path/path.dart' as p;
+
+import '../pdf/viewer/pdf_viewer_screen.dart';
+import '../pdf/domain/pdf_file_item.dart';
 
 class ToolActionDialog extends StatefulWidget {
   const ToolActionDialog({
@@ -37,7 +42,7 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     if (isSuccess && !_hasVibrated) {
       _hasVibrated = true;
-      _vibrate();
+      HapticFeedback.lightImpact();
     }
   }
 
@@ -47,14 +52,33 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     if (isSuccess) {
       _hasVibrated = true;
-      _vibrate();
+      HapticFeedback.lightImpact();
     }
   }
 
-  Future<void> _vibrate() async {
-    if (await Vibration.hasVibrator() == true) {
-      Vibration.vibrate(duration: 150); // slight haptic feedback on load
+  void _openInApp() {
+    if (widget.outputPath == null) return;
+
+    // Check if it's a PDF before opening in viewer
+    if (p.extension(widget.outputPath!).toLowerCase() == '.pdf') {
+       final file = File(widget.outputPath!);
+       if (file.existsSync()) {
+          final tempItem = PdfFileItem(
+            path: file.path,
+            name: p.basename(file.path),
+            sizeBytes: file.lengthSync(),
+            lastModified: file.lastModifiedSync(),
+            lastAccessed: DateTime.now(),
+          );
+          Navigator.of(context).pop();
+          Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
+          return;
+       }
     }
+
+    // Fallback for directories or non-PDFs (like PDF to Images output dir)
+    Navigator.of(context).pop();
+    OpenFile.open(widget.outputPath!);
   }
 
   @override
@@ -88,10 +112,10 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.2),
+                color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(HugeIcons.strokeRoundedCheckmarkBadge01, color: Colors.green, size: 24),
+              child: Icon(HugeIcons.strokeRoundedCheckmarkBadge01, color: theme.colorScheme.onPrimaryContainer, size: 24),
             ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
           if (isError)
             Container(
@@ -131,12 +155,7 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
             child: const Text('Share'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (widget.outputPath != null) {
-                 OpenFile.open(widget.outputPath!);
-              }
-            },
+            onPressed: _openInApp,
             child: const Text('Open'),
           ),
         ],
