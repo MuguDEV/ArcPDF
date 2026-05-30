@@ -41,6 +41,7 @@ class AppSettings {
     required this.thumbnailQuality,
     required this.fontFamily,
     required this.useHaptics,
+    required this.keepScreenAwake,
   });
 
   final ThemeMode themeMode;
@@ -52,6 +53,7 @@ class AppSettings {
   final double thumbnailQuality;
   final AppFontFamily fontFamily;
   final bool useHaptics;
+  final bool keepScreenAwake;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -63,6 +65,7 @@ class AppSettings {
     double? thumbnailQuality,
     AppFontFamily? fontFamily,
     bool? useHaptics,
+    bool? keepScreenAwake,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -74,6 +77,7 @@ class AppSettings {
       thumbnailQuality: thumbnailQuality ?? this.thumbnailQuality,
       fontFamily: fontFamily ?? this.fontFamily,
       useHaptics: useHaptics ?? this.useHaptics,
+      keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
     );
   }
 }
@@ -92,6 +96,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
           fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
           useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
+          keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
         ));
 
   final Box _box;
@@ -139,6 +144,11 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setUseHaptics(bool value) async {
     state = state.copyWith(useHaptics: value);
     await _box.put('useHaptics', value);
+  }
+
+  Future<void> setKeepScreenAwake(bool value) async {
+    state = state.copyWith(keepScreenAwake: value);
+    await _box.put('keepScreenAwake', value);
   }
 }
 

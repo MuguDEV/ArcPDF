@@ -18,6 +18,7 @@ Future<void> bootstrap() async {
   await Hive.openBox<List<String>>(LocalBoxes.tags);
   await Hive.openBox<PdfAnnotation>('pdf_annotations');
   await Hive.openBox<int>('reading_progress_pages');
+  await Hive.openBox<double>('reading_progress_zoom');
   await Hive.openBox<int>('reading_progress_time');
 
   // Initialize Logger

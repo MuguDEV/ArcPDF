@@ -11,11 +11,14 @@ import 'package:intl/intl.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../../settings/settings_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 import '../application/pdf_library_controller.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class PdfViewerScreen extends ConsumerStatefulWidget {
   const PdfViewerScreen({super.key, required this.item});
@@ -65,6 +68,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) setState(() => _isReadyToRender = true);
     });
+
+    // Apply initial wake lock if needed based on settings
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
+      if (keepAwake) WakelockPlus.enable();
+    });
   }
 
   @override
@@ -86,6 +95,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
 
+    // Ensure wakelock matches global setting on exit
+    final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
+    if (keepAwake) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+
     super.dispose();
   }
 
@@ -100,6 +117,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         });
         ref.read(readingProgressRepositoryProvider).saveLastReadPage(widget.item.path, newPage);
       }
+      ref.read(readingProgressRepositoryProvider).saveLastZoom(widget.item.path, _pdfViewerController.currentZoom);
     }
   }
 
@@ -111,12 +129,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startReadingTimer();
+      final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
+      if (keepAwake) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
       _readingTimer?.cancel();
       if (_pendingReadingTime > 0) {
         ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
         _pendingReadingTime = 0;
       }
+      // System will handle wakelock on pause automatically, no need to manually disable
     }
   }
 
@@ -219,6 +240,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               controller: _pdfViewerController,
               passwordProvider: () async => _showPasswordPrompt(context),
               params: PdfViewerParams(
+                  onViewerReady: (document, controller) {
+                    final lastZoom = repo.getLastZoom(widget.item.path);
+                    if (lastZoom != null) {
+                      controller.setZoom(controller.centerPosition, lastZoom);
+                    }
+                  },
                 errorBannerBuilder: (context, error, stackTrace, documentRef) {
                   return Center(
                     child: Padding(
@@ -443,17 +470,32 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                     _showJumpToPageDialog();
                                   } else if (val == 'autoscroll') {
                                     _toggleAutoScroll();
+                                  } else if (val == 'wakelock') {
+                                    final current = ref.read(settingsControllerProvider).keepScreenAwake;
+                                    ref.read(settingsControllerProvider.notifier).setKeepScreenAwake(!current);
+                                    if (!current) {
+                                      WakelockPlus.enable();
+                                    } else {
+                                      WakelockPlus.disable();
+                                    }
+                                  } else if (val == 'share_page') {
+                                    _shareCurrentPage();
                                   }
                                 },
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(value: 'autoscroll', child: Text(_isAutoScrolling ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
-                                  const PopupMenuItem(value: 'jump', child: Text('Jump to Page')),
-                                  const PopupMenuItem(value: 'thumbnails', child: Text('Page Thumbnails')),
-                                  const PopupMenuItem(value: 'outline', child: Text('Document Outline')),
-                                  const PopupMenuItem(value: 'info', child: Text('Document Info')),
-                                  const PopupMenuItem(value: 'share', child: Text('Share PDF')),
-                                  const PopupMenuItem(value: 'print', child: Text('Print Document')),
-                                ],
+                                itemBuilder: (context) {
+                                  final keepAwake = ref.watch(settingsControllerProvider).keepScreenAwake;
+                                  return [
+                                    PopupMenuItem(value: 'autoscroll', child: Text(_isAutoScrolling ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
+                                    PopupMenuItem(value: 'wakelock', child: Text(keepAwake ? 'Allow Screen to Sleep' : 'Keep Screen Awake')),
+                                    const PopupMenuItem(value: 'jump', child: Text('Jump to Page')),
+                                    const PopupMenuItem(value: 'thumbnails', child: Text('Page Thumbnails')),
+                                    const PopupMenuItem(value: 'outline', child: Text('Document Outline')),
+                                    const PopupMenuItem(value: 'info', child: Text('Document Info')),
+                                    const PopupMenuItem(value: 'share', child: Text('Share Entire PDF')),
+                                    const PopupMenuItem(value: 'share_page', child: Text('Share Current Page Only')),
+                                    const PopupMenuItem(value: 'print', child: Text('Print Document')),
+                                  ];
+                                },
                               ),
                             ],
                           ],
@@ -654,6 +696,36 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         ],
       ),
     );
+  }
+
+  Future<void> _shareCurrentPage() async {
+    try {
+      final doc = _pdfViewerController.document; // ignore: deprecated_member_use
+      final page = await doc.getPage(_page);
+
+      final pdfImage = await page.render(
+        width: page.width,
+        height: page.height,
+        backgroundColor: Colors.white,
+      );
+
+      if (pdfImage == null || pdfImage.pixels.isEmpty) return;
+
+      final image = await pdfImage.createImageIfNotAvailable();
+      final byteData = await image.toByteData(format: ImageByteFormat.png);
+
+      if (byteData == null) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(p.join(tempDir.path, 'page_$_page.png'));
+      await tempFile.writeAsBytes(byteData.buffer.asUint8List());
+
+      await Share.shareXFiles([XFile(tempFile.path)], text: 'Page $_page from ${widget.item.name}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to extract and share page')));
+      }
+    }
   }
 
   Future<String?> _showPasswordPrompt(BuildContext context) async {
