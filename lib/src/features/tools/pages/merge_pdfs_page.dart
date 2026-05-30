@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
+import '../widgets/in_app_pdf_selector.dart';
+import '../utils/tools_directory_util.dart';
 
 class MergePdfsPage extends StatefulWidget {
   const MergePdfsPage({super.key});
@@ -18,15 +17,10 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
   List<String> _selectedFiles = [];
 
   Future<void> _pickFiles() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      allowMultiple: true,
-    );
-
-    if (result != null) {
+    final paths = await InAppPdfSelector.show(context, allowMultiple: true);
+    if (paths != null && paths.isNotEmpty) {
       setState(() {
-        _selectedFiles.addAll(result.paths.whereType<String>());
+        _selectedFiles.addAll(paths);
       });
     }
   }
@@ -43,8 +37,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
       builder: (context) => const ToolActionDialog(title: 'Merging PDFs', message: 'Please wait...', isLoading: true),
     );
 
-    final dir = await getApplicationDocumentsDirectory();
-    final outputPath = p.join(dir.path, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+    final outputPath = p.join(dir, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
     final successPath = await ToolsService.mergePdfs(_selectedFiles, outputPath);
 
@@ -54,7 +48,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false),
+        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
       ).then((_) => Navigator.of(context).pop());
     } else {
       showDialog(
