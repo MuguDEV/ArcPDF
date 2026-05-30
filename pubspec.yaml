@@ -1,7 +1,7 @@
 name: arcpdf
 description: ArcPDF - premium local-first PDF manager and viewer.
 publish_to: "none"
-version: 1.0.1667
+version: 1.0.17
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
