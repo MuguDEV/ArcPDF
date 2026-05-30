@@ -93,8 +93,15 @@ class VaultController extends StateNotifier<VaultState> {
       final file = File(item.path);
       if (!await file.exists()) return false;
 
+      // Ensure _initVault has completed
+      if (!(_encrypter.algo is enc.AES)) {
+        await _initVault();
+      }
+
       final bytes = await file.readAsBytes();
-      final encryptedBytes = _encrypter.encryptBytes(bytes, iv: _iv).bytes;
+      // Use standard encryption mechanism, avoiding .bytes getter which might fail on some sizes
+      final encrypted = _encrypter.encryptBytes(bytes, iv: _iv);
+      final encryptedBytes = encrypted.bytes;
 
       final vaultDir = await _getVaultDirectory();
 
@@ -108,9 +115,13 @@ class VaultController extends StateNotifier<VaultState> {
       final newPath = p.join(vaultDir.path, newName);
 
       final newFile = File(newPath);
-      await newFile.writeAsBytes(encryptedBytes);
+      await newFile.writeAsBytes(encryptedBytes, flush: true);
 
-      await file.delete();
+      if (await newFile.exists() && (await newFile.length()) > 0) {
+        await file.delete();
+      } else {
+        return false;
+      }
 
       _ref.read(pdfLibraryControllerProvider.notifier).refresh();
       loadVaultFiles();
@@ -125,12 +136,16 @@ class VaultController extends StateNotifier<VaultState> {
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return null;
 
+      if (!(_encrypter.algo is enc.AES)) {
+        await _initVault();
+      }
+
       final encryptedBytes = await vaultFile.readAsBytes();
       final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);
 
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(p.join(tempDir.path, 'temp_decrypted_${vaultItem.name}'));
-      await tempFile.writeAsBytes(decryptedBytes);
+      await tempFile.writeAsBytes(decryptedBytes, flush: true);
       return tempFile;
     } catch (e) {
       return null;
@@ -142,14 +157,22 @@ class VaultController extends StateNotifier<VaultState> {
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return false;
 
+      if (!(_encrypter.algo is enc.AES)) {
+        await _initVault();
+      }
+
       final encryptedBytes = await vaultFile.readAsBytes();
       final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);
 
       final newPath = p.join(restoreDirPath, vaultItem.name);
       final newFile = File(newPath);
-      await newFile.writeAsBytes(decryptedBytes);
+      await newFile.writeAsBytes(decryptedBytes, flush: true);
 
-      await vaultFile.delete();
+      if (await newFile.exists() && (await newFile.length()) > 0) {
+        await vaultFile.delete();
+      } else {
+        return false;
+      }
 
       _ref.read(pdfLibraryControllerProvider.notifier).refresh();
       loadVaultFiles();

@@ -14,24 +14,28 @@ class SecurityState {
     required this.lockType,
     required this.isBiometricEnabled,
     required this.isLocked,
+    required this.requireLockOnResume,
   });
 
   final bool isLockEnabled;
   final LockType lockType;
   final bool isBiometricEnabled;
   final bool isLocked;
+  final bool requireLockOnResume;
 
   SecurityState copyWith({
     bool? isLockEnabled,
     LockType? lockType,
     bool? isBiometricEnabled,
     bool? isLocked,
+    bool? requireLockOnResume,
   }) {
     return SecurityState(
       isLockEnabled: isLockEnabled ?? this.isLockEnabled,
       lockType: lockType ?? this.lockType,
       isBiometricEnabled: isBiometricEnabled ?? this.isBiometricEnabled,
       isLocked: isLocked ?? this.isLocked,
+      requireLockOnResume: requireLockOnResume ?? this.requireLockOnResume,
     );
   }
 }
@@ -43,6 +47,7 @@ class SecurityController extends StateNotifier<SecurityState> {
           lockType: LockType.values[_settingsBox.get('lockType', defaultValue: 0) as int],
           isBiometricEnabled: _settingsBox.get('isBiometricEnabled', defaultValue: false) as bool,
           isLocked: _settingsBox.get('isLockEnabled', defaultValue: false) as bool,
+          requireLockOnResume: _settingsBox.get('requireLockOnResume', defaultValue: true) as bool,
         ));
 
   final Box _settingsBox;
@@ -70,6 +75,11 @@ class SecurityController extends StateNotifier<SecurityState> {
   Future<void> setBiometricEnabled(bool enabled) async {
     state = state.copyWith(isBiometricEnabled: enabled);
     await _settingsBox.put('isBiometricEnabled', enabled);
+  }
+
+  Future<void> setRequireLockOnResume(bool enabled) async {
+    state = state.copyWith(requireLockOnResume: enabled);
+    await _settingsBox.put('requireLockOnResume', enabled);
   }
 
   Future<bool> verifyPinOrPattern(String input) async {
