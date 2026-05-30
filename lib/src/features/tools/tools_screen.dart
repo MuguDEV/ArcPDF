@@ -1,11 +1,8 @@
 import 'dart:ui';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../settings/settings_controller.dart';
@@ -17,6 +14,8 @@ import 'pages/merge_pdfs_page.dart';
 import 'pages/split_pdf_page.dart';
 import 'pages/images_to_pdf_page.dart';
 import 'pages/pdf_to_images_page.dart';
+import 'widgets/in_app_pdf_selector.dart';
+import 'utils/tools_directory_util.dart';
 
 class ToolsScreen extends ConsumerWidget {
   const ToolsScreen({super.key});
@@ -119,28 +118,25 @@ class ToolsScreen extends ConsumerWidget {
 
   Future<void> _handleCompress(BuildContext context, WidgetRef ref) async {
     ref.read(hapticServiceProvider).lightImpact();
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
+    final paths = await InAppPdfSelector.show(context, allowMultiple: false);
 
-    if (result != null && result.paths.isNotEmpty) {
-      final inputPath = result.paths.first!;
+    if (paths != null && paths.isNotEmpty) {
+      final inputPath = paths.first;
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const ToolActionDialog(title: 'Compressing PDF', message: 'Applying best compression settings...', isLoading: true),
       );
 
-      final dir = await getApplicationDocumentsDirectory();
-      final outputPath = p.join(dir.path, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      final outputPath = p.join(dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
       final successPath = await ToolsService.compressPdf(inputPath, outputPath);
       Navigator.of(context).pop(); // hide loading
       if (successPath != null) {
         showDialog(
           context: context,
-          builder: (context) => ToolActionDialog(title: 'Success', message: 'PDF compressed successfully!\nSaved to: $successPath', isLoading: false),
+          builder: (context) => ToolActionDialog(title: 'Success', message: 'PDF compressed successfully!\nSaved to: $successPath', isLoading: false, outputPath: successPath),
         );
       } else {
         showDialog(

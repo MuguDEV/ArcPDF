@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
+import '../utils/tools_directory_util.dart';
 
 class ImagesToPdfPage extends StatefulWidget {
   const ImagesToPdfPage({super.key});
@@ -39,8 +39,8 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
       builder: (context) => const ToolActionDialog(title: 'Converting', message: 'Please wait...', isLoading: true),
     );
 
-    final dir = await getApplicationDocumentsDirectory();
-    final outputPath = p.join(dir.path, 'ImagesToPDF_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+    final outputPath = p.join(dir, 'ImagesToPDF_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
     final successPath = await ToolsService.imagesToPdf(_selectedFiles, outputPath);
 
@@ -50,7 +50,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false),
+        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
       ).then((_) => Navigator.of(context).pop());
     } else {
       showDialog(

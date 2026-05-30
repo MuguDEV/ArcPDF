@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../tool_action_dialog.dart';
+import '../widgets/in_app_pdf_selector.dart';
+import '../utils/tools_directory_util.dart';
 
 class PdfToImagesPage extends StatefulWidget {
   const PdfToImagesPage({super.key});
@@ -19,12 +19,9 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
   String? _selectedFile;
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-    if (result != null && result.paths.isNotEmpty) {
-      setState(() => _selectedFile = result.paths.first);
+    final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+    if (paths != null && paths.isNotEmpty) {
+      setState(() => _selectedFile = paths.first);
     }
   }
 
@@ -39,9 +36,9 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
 
     try {
       final document = await PdfDocument.openFile(_selectedFile!);
-      final dir = await getApplicationDocumentsDirectory();
-      final outputDir = Directory(p.join(dir.path, 'Extracted_${DateTime.now().millisecondsSinceEpoch}'));
-      await outputDir.create();
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      final outputDir = Directory(p.join(dir, 'Extracted_${DateTime.now().millisecondsSinceEpoch}'));
+      await outputDir.create(recursive: true);
 
       for (int i = 1; i <= document.pages.length; i++) {
         final page = document.pages[i - 1];
@@ -61,7 +58,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
 
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n${outputDir.path}', isLoading: false),
+        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n${outputDir.path}', isLoading: false, outputPath: outputDir.path),
       ).then((_) => Navigator.of(context).pop());
     } catch (e) {
       if (!mounted) return;

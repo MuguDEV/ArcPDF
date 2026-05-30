@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
+import '../widgets/in_app_pdf_selector.dart';
+import '../utils/tools_directory_util.dart';
 
 class SplitPdfPage extends StatefulWidget {
   const SplitPdfPage({super.key});
@@ -19,12 +19,9 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
   int _endPage = 1;
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-    if (result != null && result.paths.isNotEmpty) {
-      setState(() => _selectedFile = result.paths.first);
+    final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+    if (paths != null && paths.isNotEmpty) {
+      setState(() => _selectedFile = paths.first);
     }
   }
 
@@ -37,8 +34,8 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
       builder: (context) => const ToolActionDialog(title: 'Splitting PDF', message: 'Please wait...', isLoading: true),
     );
 
-    final dir = await getApplicationDocumentsDirectory();
-    final successPath = await ToolsService.splitPdf(_selectedFile!, dir.path, _startPage, _endPage);
+    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+    final successPath = await ToolsService.splitPdf(_selectedFile!, dir, _startPage, _endPage);
 
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -46,7 +43,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false),
+        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
       ).then((_) => Navigator.of(context).pop());
     } else {
       showDialog(
