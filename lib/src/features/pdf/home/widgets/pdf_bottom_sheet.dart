@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
@@ -67,6 +69,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               ...tags.map((tag) => InputChip(
                     label: Text(tag),
                     onDeleted: () {
+                      HapticFeedback.selectionClick();
                       ctrl.removeTag(widget.item, tag);
                     },
                   )),
@@ -91,6 +94,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   ),
                   onSubmitted: (val) {
                     if (val.trim().isNotEmpty) {
+                      HapticFeedback.selectionClick();
                       ctrl.addTag(widget.item, val.trim());
                       _tagController.clear();
                     }
@@ -101,6 +105,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               IconButton.filled(
                 onPressed: () {
                   if (_tagController.text.trim().isNotEmpty) {
+                    HapticFeedback.selectionClick();
                     ctrl.addTag(widget.item, _tagController.text.trim());
                     _tagController.clear();
                   }
@@ -111,21 +116,68 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
           ),
           const SizedBox(height: 24),
           ListTile(
-            leading: Icon(HugeIcons.strokeRoundedFolderSecurity, color: theme.colorScheme.error),
+            leading: Icon(HugeIcons.strokeRoundedFolderSecurity, color: theme.colorScheme.primary),
             title: const Text('Move to Secure Vault'),
             contentPadding: EdgeInsets.zero,
             onTap: () async {
+              HapticFeedback.mediumImpact();
               final success = await ref.read(vaultControllerProvider.notifier).moveToVault(widget.item);
               if (success && context.mounted) {
+                HapticFeedback.selectionClick();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('File moved to Secure Vault')),
                 );
                 Navigator.pop(context);
               } else if (context.mounted) {
+                HapticFeedback.heavyImpact();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Failed to move to vault')),
                 );
                 Navigator.pop(context);
+              }
+            },
+          ),
+          ListTile(
+            leading: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error),
+            title: Text('Delete File', style: TextStyle(color: theme.colorScheme.error)),
+            contentPadding: EdgeInsets.zero,
+            onTap: () async {
+              HapticFeedback.mediumImpact();
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Delete File'),
+                  content: Text('Are you sure you want to delete "${widget.item.name}"? This action cannot be undone.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: theme.colorScheme.error, foregroundColor: theme.colorScheme.onError),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final file = File(widget.item.path);
+                  if (await file.exists()) {
+                    await file.delete();
+                    ref.read(pdfLibraryControllerProvider.notifier).refresh();
+                    HapticFeedback.selectionClick();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File deleted')));
+                      Navigator.pop(context);
+                    }
+                  }
+                } catch (e) {
+                  HapticFeedback.heavyImpact();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete file')));
+                    Navigator.pop(context);
+                  }
+                }
               }
             },
           ),

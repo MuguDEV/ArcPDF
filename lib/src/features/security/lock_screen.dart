@@ -5,8 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import 'security_controller.dart';
-import 'pin_pad.dart';
-import 'pattern_pad.dart';
+import 'shared_lock_overlay.dart';
 
 class LockScreenWrapper extends ConsumerStatefulWidget {
   const LockScreenWrapper({super.key, required this.child});
@@ -37,8 +36,11 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final security = ref.read(securityControllerProvider);
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      ref.read(securityControllerProvider.notifier).lockApp();
+      if (security.requireLockOnResume) {
+        ref.read(securityControllerProvider.notifier).lockApp();
+      }
     } else if (state == AppLifecycleState.resumed) {
       _checkBiometrics();
     }
@@ -67,100 +69,15 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
   }
 }
 
-class _LockOverlay extends ConsumerStatefulWidget {
+class _LockOverlay extends ConsumerWidget {
   const _LockOverlay();
 
   @override
-  ConsumerState<_LockOverlay> createState() => _LockOverlayState();
-}
-
-class _LockOverlayState extends ConsumerState<_LockOverlay> {
-  String? _errorText;
-
-  Future<void> _handleInput(String input) async {
-    final success = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(input);
-    if (!success) {
-      setState(() {
-        _errorText = 'Incorrect ${ref.read(securityControllerProvider).lockType == LockType.pin ? 'PIN' : 'Pattern'}';
-      });
-    } else {
-      setState(() {
-        _errorText = null;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final security = ref.watch(securityControllerProvider);
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Frosted glass background
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-              child: Container(
-                color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.85),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      HugeIcons.strokeRoundedSecurityLock,
-                      size: 64,
-                      color: theme.colorScheme.primary,
-                    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-                    const SizedBox(height: 24),
-                    Text(
-                      'App Locked',
-                      style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enter your ${security.lockType == LockType.pin ? 'PIN' : 'Pattern'} to continue',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-                    const SizedBox(height: 48),
-
-                    if (security.lockType == LockType.pin)
-                      PinPad(
-                        onCompleted: _handleInput,
-                        errorText: _errorText,
-                      )
-                    else
-                      PatternPad(
-                        onCompleted: _handleInput,
-                        errorText: _errorText,
-                      ),
-
-                    const SizedBox(height: 32),
-
-                    if (security.isBiometricEnabled)
-                      TextButton.icon(
-                        onPressed: () {
-                          ref.read(securityControllerProvider.notifier).authenticateBiometric();
-                        },
-                        icon: const Icon(HugeIcons.strokeRoundedFingerprintScan),
-                        label: const Text('Use Biometrics'),
-                      ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SharedLockOverlay(
+      title: 'App Locked',
+      onVerify: (input) => ref.read(securityControllerProvider.notifier).verifyPinOrPattern(input),
+      onBiometricAuth: () => ref.read(securityControllerProvider.notifier).authenticateBiometric(),
     );
   }
 }

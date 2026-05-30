@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'vault_controller.dart';
 import '../pdf/viewer/pdf_viewer_screen.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../security/security_controller.dart';
+import '../security/shared_lock_overlay.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
@@ -53,50 +55,29 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
   }
 
   Future<bool> _showManualAuth(LockType lockType) async {
-    return await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(top: 48, bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: Column(
-             mainAxisSize: MainAxisSize.min,
-             children: [
-               Text('Unlock Vault', style: Theme.of(context).textTheme.titleLarge),
-               const SizedBox(height: 16),
-               if (lockType == LockType.pin)
-                 // Reusing existing PinPad or similar
-                 Padding(
-                   padding: const EdgeInsets.all(16.0),
-                   child: TextField(
-                     obscureText: true,
-                     keyboardType: TextInputType.number,
-                     decoration: const InputDecoration(labelText: 'PIN'),
-                     onSubmitted: (val) async {
-                        final valid = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(val);
-                        if (context.mounted) Navigator.pop(context, valid);
-                     },
-                   ),
-                 )
-               else
-                 Padding(
-                   padding: const EdgeInsets.all(16.0),
-                   child: TextField(
-                     obscureText: true,
-                     decoration: const InputDecoration(labelText: 'Pattern (Text Fallback)'),
-                     onSubmitted: (val) async {
-                        final valid = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(val);
-                        if (context.mounted) Navigator.pop(context, valid);
-                     },
-                   ),
-                 ),
-                 const SizedBox(height: 32),
-             ],
-          ),
-        );
-      }
+    return await Navigator.push<bool>(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (context, _, __) {
+          return SharedLockOverlay(
+            title: 'Unlock Vault',
+            onVerify: (val) async {
+              final valid = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(val);
+              if (valid && context.mounted) {
+                Navigator.pop(context, true);
+              }
+              return valid;
+            },
+            onBiometricAuth: () async {
+              final success = await ref.read(securityControllerProvider.notifier).authenticateBiometric();
+              if (success && context.mounted) {
+                Navigator.pop(context, true);
+              }
+            },
+          );
+        },
+      ),
     ) ?? false;
   }
 
@@ -151,12 +132,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       trailing: IconButton(
                         icon: const Icon(Icons.restore),
                         onPressed: () async {
+                           HapticFeedback.mediumImpact();
                            final downloads = await getDownloadsDirectory(); // path_provider
                            // Fallback to Download dir
                            if (downloads != null) {
                              final success = await ref.read(vaultControllerProvider.notifier).restoreFromVault(item, downloads.path);
                              if (success && context.mounted) {
+                                HapticFeedback.selectionClick();
                                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
+                             } else if (!success && context.mounted) {
+                                HapticFeedback.heavyImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to restore file')));
                              }
                            }
                         },
