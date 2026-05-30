@@ -98,18 +98,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final ctrl = ref.read(settingsControllerProvider.notifier);
     final theme = Theme.of(context);
 
+    final isDark = theme.brightness == Brightness.dark;
+    final isBlur = settings.useBlurEffect;
+    final isLiquid = settings.useLiquidGlass;
+    final double sigma = isLiquid ? 48.0 : 16.0;
+    final Color bgColor = isLiquid
+        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         SliverAppBar(
           pinned: true,
-          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
-          flexibleSpace: ClipRRect(
+          backgroundColor: bgColor,
+          flexibleSpace: isBlur ? ClipRRect(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
               child: Container(color: Colors.transparent),
             ),
-          ),
+          ) : null,
           title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         SliverPadding(

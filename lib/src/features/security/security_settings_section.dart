@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'security_controller.dart';
 import 'security_settings_dialog.dart';
 
@@ -48,7 +47,6 @@ class SecuritySettingsSection extends ConsumerWidget {
             },
             title: const Text('App Lock'),
             subtitle: const Text('Require PIN or Pattern to open app'),
-            secondary: const Icon(HugeIcons.strokeRoundedSecurityLock),
           ),
           if (security.isLockEnabled) ...[
             const Divider(height: 1, indent: 16, endIndent: 16),
@@ -57,7 +55,6 @@ class SecuritySettingsSection extends ConsumerWidget {
               onChanged: ctrl.setBiometricEnabled,
               title: const Text('Use Biometrics'),
               subtitle: const Text('Unlock with Fingerprint or FaceID'),
-              secondary: const Icon(HugeIcons.strokeRoundedFingerprintScan),
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
             SwitchListTile.adaptive(
@@ -65,7 +62,6 @@ class SecuritySettingsSection extends ConsumerWidget {
               onChanged: ctrl.setRequireLockOnResume,
               title: const Text('Lock on Resume'),
               subtitle: const Text('Require lock when returning to the app'),
-              secondary: const Icon(HugeIcons.strokeRoundedArrowTurnBackward),
             ),
           ],
         ],

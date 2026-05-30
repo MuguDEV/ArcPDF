@@ -75,9 +75,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
+    final settings = ref.watch(settingsControllerProvider);
     final items = ctrl.filteredItems();
-    final useGrid = ref.watch(settingsControllerProvider).useGrid;
+    final useGrid = settings.useGrid;
     final theme = Theme.of(context);
+
+    final isBlur = settings.useBlurEffect;
+    final isLiquid = settings.useLiquidGlass;
+    final double sigma = isLiquid ? 48.0 : 16.0;
+    final isDark = theme.brightness == Brightness.dark;
+    final Color bgColor = isLiquid
+        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -114,13 +123,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SliverAppBar(
           floating: true,
           pinned: true,
-          backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
-          flexibleSpace: ClipRRect(
+          backgroundColor: bgColor,
+          flexibleSpace: isBlur ? ClipRRect(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
               child: Container(color: Colors.transparent),
             ),
-          ),
+          ) : null,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

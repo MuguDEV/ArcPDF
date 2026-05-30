@@ -1,3 +1,4 @@
+import '../settings/settings_controller.dart';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -61,19 +62,22 @@ class _ArcNavBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final settings = ref.watch(settingsControllerProvider);
+    final isBlur = settings.useBlurEffect;
+    final isLiquid = settings.useLiquidGlass;
+    final double sigma = isLiquid ? 48.0 : 24.0;
+
     // Charcoal surface — never pure black
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
 
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(40, 0, 40, 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
+    final Color bgColor = isLiquid
+        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        : navBg.withValues(alpha: isDark ? 0.75 : 0.85);
+
+    Widget navContainer = Container(
             height: 64,
             decoration: BoxDecoration(
-              color: navBg.withValues(alpha: isDark ? 0.75 : 0.85),
+              color: isBlur ? bgColor : navBg,
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
                 color: isDark
@@ -112,8 +116,16 @@ class _ArcNavBar extends ConsumerWidget {
                 }
               },
             ),
-          ),
-        ),
+          );
+
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(40, 0, 40, 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: isBlur ? BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+          child: navContainer,
+        ) : navContainer,
       ),
     );
   }
