@@ -5,6 +5,7 @@ final readingProgressRepositoryProvider = Provider<ReadingProgressRepository>((r
 
 class ReadingProgressRepository {
   Box<int> get _pageBox => Hive.box<int>('reading_progress_pages');
+  Box<double> get _zoomBox => Hive.box<double>('reading_progress_zoom');
   Box<int> get _timeBox => Hive.box<int>('reading_progress_time');
 
   int getLastReadPage(String pdfPath) {
@@ -13,6 +14,14 @@ class ReadingProgressRepository {
 
   Future<void> saveLastReadPage(String pdfPath, int page) async {
     await _pageBox.put(pdfPath, page);
+  }
+
+  double? getLastZoom(String pdfPath) {
+    return _zoomBox.get(pdfPath);
+  }
+
+  Future<void> saveLastZoom(String pdfPath, double zoom) async {
+    await _zoomBox.put(pdfPath, zoom);
   }
 
   int getTotalReadTime(String pdfPath) {

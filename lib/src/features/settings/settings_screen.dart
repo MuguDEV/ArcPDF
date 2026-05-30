@@ -11,6 +11,7 @@ import '../updater/updater_service.dart';
 import 'log_viewer_screen.dart';
 import 'settings_controller.dart';
 import '../security/security_settings_section.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -207,6 +208,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onChanged: ctrl.setUseHaptics,
                       title: const Text('Haptic Feedback'),
                       subtitle: const Text('Vibrate on taps and interactions'),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile.adaptive(
+                      value: settings.keepScreenAwake,
+                      onChanged: (val) {
+                        ctrl.setKeepScreenAwake(val);
+                        WakelockPlus.toggle(enable: val);
+                      },
+                      title: const Text('Keep Screen Awake'),
+                      subtitle: const Text('Prevent screen from turning off'),
                     ),
                   ],
                 ),
