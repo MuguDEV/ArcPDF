@@ -132,9 +132,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: SegmentedButton<ThemeMode>(
                         segments: const [
-                          ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_rounded)),
-                          ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_rounded)),
-                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_rounded)),
+                          ButtonSegment(value: ThemeMode.system, label: Text('System', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.brightness_auto_rounded)),
+                          ButtonSegment(value: ThemeMode.light, label: Text('Light', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.light_mode_rounded)),
+                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.dark_mode_rounded)),
                         ],
                         selected: {settings.themeMode},
                         onSelectionChanged: (s) => ctrl.setThemeMode(s.first),
@@ -160,6 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               final selected = settings.fontFamily == f;
                               return FilterChip(
                                 label: Text(f.displayName),
+                                labelStyle: const TextStyle(height: 1.0),
                                 selected: selected,
                                 showCheckmark: false,
                                 onSelected: (_) => ctrl.setFontFamily(f),
@@ -224,14 +225,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 
               // ── Security ──────────────────────────────────────
-
               const _SectionHeader(label: 'Security').animate(delay: 150.ms).fadeIn(duration: 260.ms),
-
               const SizedBox(height: 8),
 
               const SecuritySettingsSection().animate(delay: 155.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-
-              const SizedBox(height: 20),
 
               const SizedBox(height: 20),
 

@@ -701,17 +701,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Future<void> _shareCurrentPage() async {
     try {
       final doc = _pdfViewerController.document; // ignore: deprecated_member_use
-      final page = await doc.getPage(_page);
+      final page = doc.pages[_page - 1];
 
       final pdfImage = await page.render(
-        width: page.width,
-        height: page.height,
+        width: page.width.toInt(),
+        height: page.height.toInt(),
         backgroundColor: Colors.white,
       );
 
       if (pdfImage == null || pdfImage.pixels.isEmpty) return;
 
-      final image = await pdfImage.createImageIfNotAvailable();
+      final image = await pdfImage.createImage();
       final byteData = await image.toByteData(format: ImageByteFormat.png);
 
       if (byteData == null) return;
