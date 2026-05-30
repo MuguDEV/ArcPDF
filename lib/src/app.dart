@@ -117,8 +117,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         pageTransitionsTheme: PageTransitionsTheme(builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: ZoomPageTransitionsBuilder()
         }),
         appBarTheme: AppBarTheme(
           backgroundColor: colorScheme.surface,
