@@ -18,7 +18,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
   List<String> _selectedFiles = [];
 
   Future<void> _pickFiles() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: true,
     );

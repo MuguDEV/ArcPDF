@@ -19,7 +19,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
   int _endPage = 1;
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );

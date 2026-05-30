@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -18,7 +19,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
   String? _selectedFile;
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
@@ -44,13 +45,12 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
 
       for (int i = 1; i <= document.pages.length; i++) {
         final page = document.pages[i - 1];
-        final image = await page.render(width: page.width, height: page.height);
+        final image = await page.render(width: page.width.toInt(), height: page.height.toInt());
         if (image != null) {
-          final bytes = image.pixels;
+          final imgLib = img.Image.fromBytes(width: image.width, height: image.height, bytes: image.pixels.buffer, numChannels: 4);
+          final pngBytes = img.encodePng(imgLib);
           final file = File(p.join(outputDir.path, 'page_$i.png'));
-          // In a real app we'd convert raw RGBA to PNG format properly using image package,
-          // but for brevity we're simulating extraction success
-          await file.writeAsBytes(bytes);
+          await file.writeAsBytes(pngBytes);
           image.dispose();
         }
       }

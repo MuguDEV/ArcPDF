@@ -119,7 +119,7 @@ class ToolsScreen extends ConsumerWidget {
 
   Future<void> _handleCompress(BuildContext context, WidgetRef ref) async {
     ref.read(hapticServiceProvider).lightImpact();
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );

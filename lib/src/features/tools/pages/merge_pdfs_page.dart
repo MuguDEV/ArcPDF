@@ -18,7 +18,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
   List<String> _selectedFiles = [];
 
   Future<void> _pickFiles() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
       allowMultiple: true,
