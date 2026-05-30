@@ -1,0 +1,129 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import '../tools_service.dart';
+import '../tool_action_dialog.dart';
+
+class MergePdfsPage extends StatefulWidget {
+  const MergePdfsPage({super.key});
+
+  @override
+  State<MergePdfsPage> createState() => _MergePdfsPageState();
+}
+
+class _MergePdfsPageState extends State<MergePdfsPage> {
+  List<String> _selectedFiles = [];
+
+  Future<void> _pickFiles() async {
+    FilePickerResult? result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      allowMultiple: true,
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedFiles.addAll(result.paths.whereType<String>());
+      });
+    }
+  }
+
+  Future<void> _mergeFiles() async {
+    if (_selectedFiles.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select at least 2 PDFs to merge.')));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ToolActionDialog(title: 'Merging PDFs', message: 'Please wait...', isLoading: true),
+    );
+
+    final dir = await getApplicationDocumentsDirectory();
+    final outputPath = p.join(dir.path, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+    final successPath = await ToolsService.mergePdfs(_selectedFiles, outputPath);
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    if (successPath != null) {
+      showDialog(
+        context: context,
+        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false),
+      ).then((_) => Navigator.of(context).pop());
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to merge.', isLoading: false),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Merge PDFs')),
+      body: Column(
+        children: [
+          Expanded(
+            child: ReorderableListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _selectedFiles.length,
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex -= 1;
+                  final item = _selectedFiles.removeAt(oldIndex);
+                  _selectedFiles.insert(newIndex, item);
+                });
+              },
+              itemBuilder: (context, index) {
+                final path = _selectedFiles[index];
+                return ListTile(
+                  key: ValueKey(path),
+                  leading: const Icon(Icons.picture_as_pdf),
+                  title: Text(p.basename(path), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                      ),
+                      const Icon(Icons.drag_handle),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _pickFiles,
+                    child: const Text('Add Files'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _selectedFiles.length >= 2 ? _mergeFiles : null,
+                    child: const Text('Merge'),
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}

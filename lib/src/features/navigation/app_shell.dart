@@ -11,6 +11,7 @@ import '../pdf/home/home_screen.dart';
 import '../pdf/recent/recent_screen.dart';
 import '../settings/settings_screen.dart';
 import '../settings/haptic_service.dart';
+import '../tools/tools_screen.dart';
 import '../splash/splash_screen.dart';
 import 'navigation_controller.dart';
 
@@ -31,7 +32,8 @@ class AppShell extends ConsumerWidget {
           _buildOffstage(0, nav.index, const HomeScreen()),
           _buildOffstage(1, nav.index, const FavoritesScreen()),
           _buildOffstage(2, nav.index, const RecentScreen()),
-          _buildOffstage(3, nav.index, const SettingsScreen()),
+          _buildOffstage(3, nav.index, const ToolsScreen()),
+          _buildOffstage(4, nav.index, const SettingsScreen()),
         ],
       ),
       extendBody: true,
@@ -107,7 +109,8 @@ class _ArcNavBar extends ConsumerWidget {
                 _buildDest(HugeIcons.strokeRoundedHome01, 'Home', 0, isDark, theme),
                 _buildDest(HugeIcons.strokeRoundedFavourite, 'Favorites', 1, isDark, theme),
                 _buildDest(HugeIcons.strokeRoundedClock01, 'Recent', 2, isDark, theme),
-                _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 3, isDark, theme),
+                _buildDest(HugeIcons.strokeRoundedDashboardSquare01, 'Tools', 3, isDark, theme),
+                _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 4, isDark, theme),
               ],
               onDestinationSelected: (i) {
                 if (i != selectedIndex) {
