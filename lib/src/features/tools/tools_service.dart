@@ -121,7 +121,7 @@ class ToolsService {
           final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
           final int imgW = pdfImage.width;
           final int imgH = pdfImage.height;
-          final bool isBgra = pdfImage.format == PixelFormat.bgra8888;
+          final bool isBgra = pdfImage.format.name.toLowerCase().contains('bgra');
 
           // Now it is safe to dispose the native image
           pdfImage.dispose();
