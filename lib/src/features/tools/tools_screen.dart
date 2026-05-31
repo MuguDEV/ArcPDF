@@ -122,16 +122,70 @@ class ToolsScreen extends ConsumerWidget {
 
     if (paths != null && paths.isNotEmpty) {
       final inputPath = paths.first;
+
+      // Let user pick compression level
+      int quality = 40; // Default
+      bool userPicked = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          int tempQuality = quality;
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text('Compression Level'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Select the image quality for compression (lower is smaller file size but worse quality).'),
+                    const SizedBox(height: 16),
+                    Text('Quality: $tempQuality%'),
+                    Slider(
+                      value: tempQuality.toDouble(),
+                      min: 10,
+                      max: 90,
+                      divisions: 8,
+                      onChanged: (val) {
+                        setState(() {
+                          tempQuality = val.toInt();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      quality = tempQuality;
+                      Navigator.of(context).pop(true);
+                    },
+                    child: const Text('Compress'),
+                  ),
+                ],
+              );
+            }
+          );
+        }
+      ) ?? false;
+
+      if (!userPicked) return;
+
+      if (!context.mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const ToolActionDialog(title: 'Compressing PDF', message: 'Applying best compression settings...', isLoading: true),
+        builder: (context) => const ToolActionDialog(title: 'Compressing PDF', message: 'Applying compression settings...', isLoading: true),
       );
 
       final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
       final outputPath = p.join(dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
-      final successPath = await ToolsService.compressPdf(inputPath, outputPath);
+      final successPath = await ToolsService.compressPdf(inputPath, outputPath, quality: quality);
+
+      if (!context.mounted) return;
       Navigator.of(context).pop(); // hide loading
       if (successPath != null) {
         showDialog(
