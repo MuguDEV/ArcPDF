@@ -17,12 +17,11 @@ class ToolsService {
           for (int i = 0; i < loadedDocument.pages.count; i++) {
             // Get original page size and rotation
             final Size size = loadedDocument.pages[i].size;
-            final PdfPageOrientation orientation =
-                loadedDocument.pages[i].rotation;
+            final PdfPageRotateAngle rotation = loadedDocument.pages[i].rotation;
 
             // Apply original properties to new page
             document.pageSettings.size = size;
-            document.pageSettings.orientation = orientation;
+            document.pageSettings.rotate = rotation;
             document.pageSettings.margins.all = 0;
 
             final page = document.pages.add();
@@ -55,19 +54,19 @@ class ToolsService {
         int start = startPage - 1;
         int end = endPage - 1;
         if (start < 0) start = 0;
-        if (end >= loadedDocument.pages.count)
+        if (end >= loadedDocument.pages.count) {
           end = loadedDocument.pages.count - 1;
+        }
         if (start > end) return null;
 
         for (int i = start; i <= end; i++) {
           // Get original page size and rotation
           final Size size = loadedDocument.pages[i].size;
-          final PdfPageOrientation orientation =
-              loadedDocument.pages[i].rotation;
+          final PdfPageRotateAngle rotation = loadedDocument.pages[i].rotation;
 
           // Apply original properties to new page
           newDocument.pageSettings.size = size;
-          newDocument.pageSettings.orientation = orientation;
+          newDocument.pageSettings.rotate = rotation;
           newDocument.pageSettings.margins.all = 0;
 
           final page = newDocument.pages.add();

@@ -63,13 +63,7 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     if (p.extension(widget.outputPath!).toLowerCase() == '.pdf') {
        final file = File(widget.outputPath!);
        if (file.existsSync()) {
-          final tempItem = PdfFileItem(
-            path: file.path,
-            name: p.basename(file.path),
-            sizeBytes: file.lengthSync(),
-            lastModified: file.lastModifiedSync(),
-            lastAccessed: DateTime.now(),
-          );
+          final tempItem = PdfFileItem.fromFile(file);
           Navigator.of(context).pop();
           Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
           return;
