@@ -58,24 +58,17 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
         duration: Duration(milliseconds: (120 ~/ animSpeed)),
         curve: Curves.fastLinearToSlowEaseIn,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(32),
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  width: 0.5,
+                  width: 1.0,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.shadow.withValues(alpha: 0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

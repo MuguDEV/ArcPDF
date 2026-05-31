@@ -13,6 +13,7 @@ import '../application/pdf_library_controller.dart';
 import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
+import '../../../shared/widgets/glass_app_bar.dart';
 
 class RecentScreen extends ConsumerWidget {
   const RecentScreen({super.key});
@@ -45,16 +46,7 @@ class RecentScreen extends ConsumerWidget {
             await ctrl.refresh();
           },
         ),
-        SliverAppBar(
-            floating: true,
-            pinned: true,
-            backgroundColor: bgColor,
-            flexibleSpace: isBlur ? ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: Container(color: Colors.transparent),
-              ),
-            ) : null,
+        GlassSliverAppBar(
             title: const Text('Recent', style: TextStyle(fontWeight: FontWeight.w700)),
             actions: [
               if (!isEmpty)

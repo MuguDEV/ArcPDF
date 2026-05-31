@@ -57,16 +57,16 @@ class _PdfCardState extends ConsumerState<PdfCard> {
         duration: Duration(milliseconds: (120 ~/ animSpeed)),
         curve: Curves.fastLinearToSlowEaseIn,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  width: 0.5,
+                  width: 1.0,
                 ),
               ),
               child: Padding(

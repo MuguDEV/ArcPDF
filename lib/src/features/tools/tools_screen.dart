@@ -16,40 +16,22 @@ import 'pages/images_to_pdf_page.dart';
 import 'pages/pdf_to_images_page.dart';
 import 'widgets/in_app_pdf_selector.dart';
 import 'utils/tools_directory_util.dart';
+import '../../shared/widgets/glass_app_bar.dart';
 
 class ToolsScreen extends ConsumerWidget {
   const ToolsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsControllerProvider);
     final theme = Theme.of(context);
-
-    final isDark = theme.brightness == Brightness.dark;
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
-    final double sigma = isLiquid ? 48.0 : 16.0;
-    final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
-        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: bgColor,
-            flexibleSpace: isBlur
-                ? ClipRRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                      child: Container(color: Colors.transparent),
-                    ),
-                  )
-                : null,
-            title: const Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
+          const GlassSliverAppBar(
+            title: Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),

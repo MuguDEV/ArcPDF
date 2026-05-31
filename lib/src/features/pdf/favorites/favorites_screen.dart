@@ -13,6 +13,7 @@ import '../home/widgets/pdf_card_shimmer.dart';
 
 import '../viewer/pdf_viewer_screen.dart';
 import 'favorite_grid_card.dart';
+import '../../../shared/widgets/glass_app_bar.dart';
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
@@ -42,17 +43,8 @@ class FavoritesScreen extends ConsumerWidget {
             await ctrl.refresh();
           },
         ),
-        SliverAppBar(
-            floating: true,
-            pinned: true,
-            backgroundColor: bgColor,
-            flexibleSpace: isBlur ? ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: Container(color: Colors.transparent),
-              ),
-            ) : null,
-            title: const Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
+        const GlassSliverAppBar(
+            title: Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
 
           if (lib.loading)
