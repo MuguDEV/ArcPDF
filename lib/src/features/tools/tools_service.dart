@@ -14,19 +14,17 @@ class ToolsService {
           if (!file.existsSync()) continue;
           final PdfDocument loadedDocument =
               PdfDocument(inputBytes: file.readAsBytesSync());
+
           for (int i = 0; i < loadedDocument.pages.count; i++) {
-            // Get original page size and rotation
-            final Size size = loadedDocument.pages[i].size;
-            final PdfPageRotateAngle rotation = loadedDocument.pages[i].rotation;
-
-            // Apply original properties to new page
-            document.pageSettings.size = size;
-            document.pageSettings.rotate = rotation;
+            final PdfPage loadedPage = loadedDocument.pages[i];
+            // Match the exact size of the loaded page to prevent cropping
+            document.pageSettings.size = loadedPage.size;
             document.pageSettings.margins.all = 0;
+            document.pageSettings.rotate = loadedPage.rotation;
 
-            final page = document.pages.add();
-            final template = loadedDocument.pages[i].createTemplate();
-            page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+            final PdfPage newPage = document.pages.add();
+            // Draw the loaded page content onto the new page
+            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
           }
           loadedDocument.dispose();
         }
@@ -60,18 +58,16 @@ class ToolsService {
         if (start > end) return null;
 
         for (int i = start; i <= end; i++) {
-          // Get original page size and rotation
-          final Size size = loadedDocument.pages[i].size;
-          final PdfPageRotateAngle rotation = loadedDocument.pages[i].rotation;
+          final PdfPage loadedPage = loadedDocument.pages[i];
 
-          // Apply original properties to new page
-          newDocument.pageSettings.size = size;
-          newDocument.pageSettings.rotate = rotation;
+          // Match the exact size of the loaded page to prevent cropping
+          newDocument.pageSettings.size = loadedPage.size;
           newDocument.pageSettings.margins.all = 0;
+          newDocument.pageSettings.rotate = loadedPage.rotation;
 
-          final page = newDocument.pages.add();
-          final template = loadedDocument.pages[i].createTemplate();
-          page.graphics.drawPdfTemplate(template, const Offset(0, 0));
+          final PdfPage newPage = newDocument.pages.add();
+          // Draw the loaded page content onto the new page
+          newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
         }
 
         final bytes = newDocument.saveSync();
@@ -90,6 +86,9 @@ class ToolsService {
 
   static Future<String?> compressPdf(
       String inputPath, String outputPath, {int quality = 40}) async {
+    // For extreme compression, we can rasterize the entire document into compressed JPEGs
+    // using pdfrx natively, but since we are in an isolate, pdfrx doesn't work.
+    // Instead we will rely on Syncfusion compression Level Best.
     return await Isolate.run(() async {
       try {
         final file = File(inputPath);
