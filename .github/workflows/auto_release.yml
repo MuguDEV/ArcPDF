@@ -14,6 +14,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   versioning-and-build:
@@ -109,25 +111,6 @@ jobs:
           git tag "v${{ env.VERSION }}"
           git push origin "v${{ env.VERSION }}"
 
-      - name: Bump Version in pubspec.yaml
-        if: env.SKIP_RELEASE == 'false' && github.event_name == 'push'
-        run: |
-          dart pub global activate cider
-          export PATH="$PATH":"$HOME/.pub-cache/bin"
-          cider bump build
-          NEW_VERSION=$(cider version | tr -d '\r')
-          echo "New bumped version: $NEW_VERSION"
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-
-      - name: Commit and Push Bumped Version
-        if: env.SKIP_RELEASE == 'false' && github.event_name == 'push'
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add pubspec.yaml
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
-          git push origin main
-
   release:
     name: Create GitHub Release
     needs: [versioning-and-build]
@@ -161,5 +144,28 @@ jobs:
           files: "artifacts/*"
           generate_release_notes: true
           overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-docs:
+    name: Deploy Docs to GitHub Pages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
