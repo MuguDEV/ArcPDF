@@ -17,6 +17,7 @@ import 'widgets/pdf_card.dart';
 import 'widgets/pdf_grid_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
 import '../../vault/vault_screen.dart';
+import '../../../shared/widgets/glass_app_bar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -120,16 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         ),
         // Unified app bar (no large duplication)
-        SliverAppBar(
-          floating: true,
-          pinned: true,
-          backgroundColor: bgColor,
-          flexibleSpace: isBlur ? ClipRRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-              child: Container(color: Colors.transparent),
-            ),
-          ) : null,
+        GlassSliverAppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

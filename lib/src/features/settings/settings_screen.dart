@@ -12,6 +12,7 @@ import 'log_viewer_screen.dart';
 import 'settings_controller.dart';
 import '../security/security_settings_section.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../shared/widgets/glass_app_bar.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -109,16 +110,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: bgColor,
-          flexibleSpace: isBlur ? ClipRRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-              child: Container(color: Colors.transparent),
-            ),
-          ) : null,
-          title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
+        const GlassSliverAppBar(
+          title: Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         SliverPadding(
           padding: const EdgeInsets.all(16),
