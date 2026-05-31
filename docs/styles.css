@@ -1,0 +1,378 @@
+:root {
+    /* Light Mode Variables (Strict Monochrome) */
+    --md-sys-color-background: #FAFAFA;
+    --md-sys-color-on-background: #1C1B1F;
+    --md-sys-color-surface: #FFFFFF;
+    --md-sys-color-surface-container: #F3F3F3;
+    --md-sys-color-on-surface: #1C1B1F;
+    --md-sys-color-on-surface-variant: #49454F;
+    --md-sys-color-outline: #79747E;
+    --md-sys-color-primary: #1C1B1F;
+    --md-sys-color-on-primary: #FFFFFF;
+    --md-sys-color-primary-container: #E2E2E2;
+    --md-sys-color-on-primary-container: #1C1B1F;
+
+    /* Liquid Glass configuration */
+    --glass-bg: rgba(255, 255, 255, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-blur: blur(24px);
+
+    --radius-pill: 9999px;
+    --radius-card: 28px;
+
+    --transition-speed: 0.3s;
+    --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+[data-theme="dark"] {
+    /* Dark Mode Variables (Strict Monochrome) */
+    --md-sys-color-background: #141414;
+    --md-sys-color-on-background: #E6E1E5;
+    --md-sys-color-surface: #1C1B1F;
+    --md-sys-color-surface-container: #282828;
+    --md-sys-color-on-surface: #E6E1E5;
+    --md-sys-color-on-surface-variant: #CAC4D0;
+    --md-sys-color-outline: #938F99;
+    --md-sys-color-primary: #E6E1E5;
+    --md-sys-color-on-primary: #1C1B1F;
+    --md-sys-color-primary-container: #484848;
+    --md-sys-color-on-primary-container: #E2E2E2;
+
+    /* Liquid Glass configuration */
+    --glass-bg: rgba(28, 27, 31, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-background);
+    line-height: 1.5;
+    transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+    overflow-x: hidden;
+}
+
+/* Typography */
+h1, h2, h3 {
+    color: var(--md-sys-color-on-background);
+    font-weight: 700;
+}
+
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Layout */
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 100px 20px 40px; /* Top padding accounts for fixed navbar */
+}
+
+/* Liquid Glass Utilities */
+.liquid-glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+.pill-container {
+    border-radius: var(--radius-card);
+}
+
+/* Navbar */
+.navbar {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 800px;
+    border-radius: var(--radius-pill);
+    z-index: 100;
+    padding: 12px 24px;
+}
+
+.nav-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+.logo-icon {
+    font-size: 1.5rem;
+}
+
+.icon-button {
+    background: transparent;
+    border: none;
+    color: var(--md-sys-color-on-background);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+    background-color: var(--md-sys-color-surface-container);
+}
+
+/* Hero Section */
+.hero {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 60px;
+    text-align: center;
+}
+
+.hero-content {
+    padding: 60px 40px;
+    max-width: 800px;
+    width: 100%;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 24px;
+}
+
+.version-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    background-color: var(--md-sys-color-surface-container);
+    color: var(--md-sys-color-on-surface);
+    border-radius: var(--radius-pill);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 40px;
+}
+
+/* Download Section */
+.download-section {
+    min-height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 32px;
+    border-radius: var(--radius-pill);
+    font-size: 1rem;
+    font-weight: 500;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s var(--spring-easing), box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+.btn-primary {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+}
+
+.btn-secondary {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
+.btn-secondary:hover {
+    background-color: var(--md-sys-color-outline);
+    color: var(--md-sys-color-surface);
+}
+
+.non-android-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.sad-icon {
+    font-size: 48px;
+    animation: sadBounce 2s infinite ease-in-out;
+}
+
+/* Features Section */
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    margin-bottom: 60px;
+}
+
+.feature-card {
+    padding: 32px 24px;
+    text-align: center;
+    transition: transform 0.3s var(--spring-easing);
+}
+
+.feature-card:hover {
+    transform: translateY(-8px);
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    color: var(--md-sys-color-primary);
+}
+
+.feature-title {
+    font-size: 1.25rem;
+    margin-bottom: 12px;
+}
+
+.feature-desc {
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Changelog Section */
+.changelog-section {
+    max-width: 800px;
+    margin: 0 auto 60px;
+}
+
+.section-title {
+    font-size: 2rem;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.changelog-content {
+    padding: 40px;
+    text-align: left;
+}
+
+.changelog-content ul {
+    list-style-position: inside;
+    margin-top: 16px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.changelog-content li {
+    margin-bottom: 8px;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.github-link {
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+    font-weight: 500;
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.github-link:hover {
+    text-decoration: underline;
+}
+
+/* Animations */
+@keyframes sadBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.slide-up {
+    animation: slideUp 0.8s var(--spring-easing) forwards;
+    opacity: 0;
+    transform: translateY(40px);
+}
+
+.fade-in {
+    animation: fadeIn 1s ease forwards;
+    opacity: 0;
+}
+
+@keyframes slideUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--md-sys-color-surface-container);
+    border-top: 3px solid var(--md-sys-color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Stagger animations */
+.hero.slide-up { animation-delay: 0.1s; }
+.features.fade-in { animation-delay: 0.3s; }
+.changelog-section.slide-up { animation-delay: 0.5s; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    .hero-content {
+        padding: 40px 20px;
+    }
+    .changelog-content {
+        padding: 24px;
+    }
+}
