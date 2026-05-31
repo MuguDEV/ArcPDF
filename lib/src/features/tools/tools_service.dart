@@ -197,17 +197,19 @@ class ToolsService {
           final bytes = file.readAsBytesSync();
           final syncfusion.PdfBitmap image = syncfusion.PdfBitmap(bytes);
 
-          // Create page matching image size or standard size
-          document.pageSettings.size =
-              Size(image.width.toDouble(), image.height.toDouble());
+          // Exact image dimensions
+          final double imgWidth = image.width.toDouble();
+          final double imgHeight = image.height.toDouble();
+
+          // Create page matching exact image size
+          document.pageSettings.size = Size(imgWidth, imgHeight);
           document.pageSettings.margins.all = 0;
           final page = document.pages.add();
 
-          // Draw image to fit the page
+          // Draw image explicitly to the exact image bounds to prevent any cropping
           page.graphics.drawImage(
               image,
-              Rect.fromLTWH(0, 0, page.getClientSize().width,
-                  page.getClientSize().height));
+              Rect.fromLTWH(0, 0, imgWidth, imgHeight));
         }
 
         final bytes = document.saveSync();
