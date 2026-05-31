@@ -235,8 +235,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
               const SizedBox(height: 20),
 
-              // ── Reader ───────────────────────────────────────
-              const _SectionHeader(label: 'Reader').animate(delay: 160.ms).fadeIn(duration: 260.ms),
+              // ── Performance & Tuning ──────────────────────────
+              const _SectionHeader(label: 'Performance & Tuning').animate(delay: 160.ms).fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -280,6 +280,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           min: 0.01,
                           max: 1.0,
                           onChanged: ctrl.setThumbnailQuality,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      title: const Text('Compression threads'),
+                      subtitle: Text('${settings.compressionThreads} parallel processes'),
+                      trailing: SizedBox(
+                        width: 160,
+                        child: Slider.adaptive(
+                          value: settings.compressionThreads.toDouble(),
+                          min: 1.0,
+                          max: 5.0,
+                          divisions: 4,
+                          onChanged: (v) => ctrl.setCompressionThreads(v.toInt()),
                         ),
                       ),
                     ),

@@ -88,7 +88,7 @@ class ToolsService {
   }
 
   static Future<String?> compressPdf(
-      String inputPath, String outputPath, {int quality = 40}) async {
+      String inputPath, String outputPath, {int quality = 40, int maxThreads = 2}) async {
     try {
       final file = File(inputPath);
       if (!file.existsSync()) return null;
@@ -96,53 +96,69 @@ class ToolsService {
       final pdfDocument = await PdfDocument.openFile(inputPath);
 
       // We will store the resulting JPEG bytes and the original page physical dimensions.
-      List<Map<String, dynamic>> processedPages = [];
+      // Pre-allocate to maintain perfect page order safely.
+      List<Map<String, dynamic>?> processedPages = List.filled(pdfDocument.pages.length, null);
 
-      for (int i = 0; i < pdfDocument.pages.length; i++) {
-        final page = pdfDocument.pages[i];
+      for (int i = 0; i < pdfDocument.pages.length; i += maxThreads) {
+        final batchEnd = (i + maxThreads < pdfDocument.pages.length) ? i + maxThreads : pdfDocument.pages.length;
 
-        // Render at a moderate resolution to save space but keep legibility.
-        double scale = 1.0;
-        if (page.width > 1200) {
-          scale = 1200 / page.width;
-        } else if (page.height > 1600) {
-          scale = 1600 / page.height;
+        // We render all pages in the current batch sequentially to avoid native PDFium concurrency limits
+        final List<Future<void>> batchFutures = [];
+
+        for (int j = i; j < batchEnd; j++) {
+          final page = pdfDocument.pages[j];
+
+          // Render at a moderate resolution to save space but keep legibility.
+          double scale = 1.0;
+          if (page.width > 1200) {
+            scale = 1200 / page.width;
+          } else if (page.height > 1600) {
+            scale = 1600 / page.height;
+          }
+
+          final pdfImage = await page.render(
+            fullWidth: page.width * scale,
+            fullHeight: page.height * scale,
+          );
+
+          if (pdfImage != null) {
+            // Copy pixels from native FFI memory to a dart list before sending to isolate
+            final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
+            final int imgW = pdfImage.width;
+            final int imgH = pdfImage.height;
+            final bool isBgra = pdfImage.format == PixelFormat.bgra8888;
+            final double origW = page.width;
+            final double origH = page.height;
+
+            // Now it is safe to dispose the native image to free up RAM before spinning up the isolate
+            pdfImage.dispose();
+
+            // Enqueue the heavy JPEG encoding work to an isolate
+            final isolateFuture = Isolate.run(() {
+              final imgObject = img.Image.fromBytes(
+                width: imgW,
+                height: imgH,
+                bytes: pixelsCopy.buffer,
+                numChannels: 4,
+                order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
+              );
+              return img.encodeJpg(imgObject, quality: quality);
+            }).then((jpegBytes) {
+              // Assign directly to pre-allocated index to guarantee perfect ordering
+              processedPages[j] = {
+                'jpegBytes': jpegBytes,
+                'originalWidth': origW,
+                'originalHeight': origH,
+              };
+            });
+
+            batchFutures.add(isolateFuture);
+          }
         }
 
-        final pdfImage = await page.render(
-          fullWidth: page.width * scale,
-          fullHeight: page.height * scale,
-        );
-
-        if (pdfImage != null) {
-          // Send pixels to an isolate to encode immediately.
-          // This prevents holding hundreds of MBs of raw RGBA in memory for the whole document.
-          // Note: we must copy the pixels from native FFI memory to a dart list before sending to isolate
-          final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
-          final int imgW = pdfImage.width;
-          final int imgH = pdfImage.height;
-          final bool isBgra = pdfImage.format.name.toLowerCase().contains('bgra');
-
-          // Now it is safe to dispose the native image
-          pdfImage.dispose();
-
-          final jpegBytes = await Isolate.run(() {
-            final imgObject = img.Image.fromBytes(
-              width: imgW,
-              height: imgH,
-              bytes: pixelsCopy.buffer,
-              numChannels: 4,
-              order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
-            );
-            return img.encodeJpg(imgObject, quality: quality);
-          });
-
-          processedPages.add({
-            'jpegBytes': jpegBytes,
-            'originalWidth': page.width,
-            'originalHeight': page.height,
-          });
-        }
+        // Wait for all isolates in this batch to finish before moving to the next batch
+        // to strictly cap memory usage at `maxThreads` simultaneous pages.
+        await Future.wait(batchFutures);
       }
 
       pdfDocument.dispose();
@@ -154,6 +170,8 @@ class ToolsService {
           newPdf.compressionLevel = syncfusion.PdfCompressionLevel.best;
 
           for (final processedPage in processedPages) {
+            if (processedPage == null) continue;
+
             final jpegBytes = processedPage['jpegBytes'] as Uint8List;
             final double originalW = processedPage['originalWidth'];
             final double originalH = processedPage['originalHeight'];

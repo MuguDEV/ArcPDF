@@ -42,6 +42,7 @@ class AppSettings {
     required this.fontFamily,
     required this.useHaptics,
     required this.keepScreenAwake,
+    required this.compressionThreads,
   });
 
   final ThemeMode themeMode;
@@ -54,6 +55,7 @@ class AppSettings {
   final AppFontFamily fontFamily;
   final bool useHaptics;
   final bool keepScreenAwake;
+  final int compressionThreads;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -66,6 +68,7 @@ class AppSettings {
     AppFontFamily? fontFamily,
     bool? useHaptics,
     bool? keepScreenAwake,
+    int? compressionThreads,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -78,6 +81,7 @@ class AppSettings {
       fontFamily: fontFamily ?? this.fontFamily,
       useHaptics: useHaptics ?? this.useHaptics,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
+      compressionThreads: compressionThreads ?? this.compressionThreads,
     );
   }
 }
@@ -97,6 +101,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
           useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
           keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
+          compressionThreads: ((_box.get('compressionThreads', defaultValue: 2) as num).toInt()).clamp(1, 5),
         ));
 
   final Box _box;
@@ -149,6 +154,12 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setKeepScreenAwake(bool value) async {
     state = state.copyWith(keepScreenAwake: value);
     await _box.put('keepScreenAwake', value);
+  }
+
+  Future<void> setCompressionThreads(int value) async {
+    final clamped = value.clamp(1, 5);
+    state = state.copyWith(compressionThreads: clamped);
+    await _box.put('compressionThreads', clamped);
   }
 }
 
