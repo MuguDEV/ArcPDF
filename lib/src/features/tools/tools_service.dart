@@ -1,28 +1,31 @@
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
+import 'dart:typed_data';
+import 'package:pdfrx/pdfrx.dart';
+import 'package:image/image.dart' as img;
 
 class ToolsService {
   static Future<String?> mergePdfs(
       List<String> inputPaths, String outputPath) async {
     return await Isolate.run(() async {
       try {
-        final PdfDocument document = PdfDocument();
+        final syncfusion.PdfDocument document = syncfusion.PdfDocument();
         for (var path in inputPaths) {
           final file = File(path);
           if (!file.existsSync()) continue;
-          final PdfDocument loadedDocument =
-              PdfDocument(inputBytes: file.readAsBytesSync());
+          final syncfusion.PdfDocument loadedDocument =
+              syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
 
           for (int i = 0; i < loadedDocument.pages.count; i++) {
-            final PdfPage loadedPage = loadedDocument.pages[i];
+            final syncfusion.PdfPage loadedPage = loadedDocument.pages[i];
             // Match the exact size of the loaded page to prevent cropping
             document.pageSettings.size = loadedPage.size;
             document.pageSettings.margins.all = 0;
             document.pageSettings.rotate = loadedPage.rotation;
 
-            final PdfPage newPage = document.pages.add();
+            final syncfusion.PdfPage newPage = document.pages.add();
             // Draw the loaded page content onto the new page
             newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
           }
@@ -44,9 +47,9 @@ class ToolsService {
       try {
         final file = File(inputPath);
         if (!file.existsSync()) return null;
-        final PdfDocument loadedDocument =
-            PdfDocument(inputBytes: file.readAsBytesSync());
-        final PdfDocument newDocument = PdfDocument();
+        final syncfusion.PdfDocument loadedDocument =
+            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+        final syncfusion.PdfDocument newDocument = syncfusion.PdfDocument();
 
         // Ensure valid range
         int start = startPage - 1;
@@ -58,14 +61,14 @@ class ToolsService {
         if (start > end) return null;
 
         for (int i = start; i <= end; i++) {
-          final PdfPage loadedPage = loadedDocument.pages[i];
+          final syncfusion.PdfPage loadedPage = loadedDocument.pages[i];
 
           // Match the exact size of the loaded page to prevent cropping
           newDocument.pageSettings.size = loadedPage.size;
           newDocument.pageSettings.margins.all = 0;
           newDocument.pageSettings.rotate = loadedPage.rotation;
 
-          final PdfPage newPage = newDocument.pages.add();
+          final syncfusion.PdfPage newPage = newDocument.pages.add();
           // Draw the loaded page content onto the new page
           newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
         }
@@ -86,47 +89,112 @@ class ToolsService {
 
   static Future<String?> compressPdf(
       String inputPath, String outputPath, {int quality = 40}) async {
-    // For extreme compression, we can rasterize the entire document into compressed JPEGs
-    // using pdfrx natively, but since we are in an isolate, pdfrx doesn't work.
-    // Instead we will rely on Syncfusion compression Level Best.
-    return await Isolate.run(() async {
-      try {
-        final file = File(inputPath);
-        if (!file.existsSync()) return null;
+    try {
+      final file = File(inputPath);
+      if (!file.existsSync()) return null;
 
-        // Read existing PDF
-        final PdfDocument document =
-            PdfDocument(inputBytes: file.readAsBytesSync());
+      final pdfDocument = await PdfDocument.openFile(inputPath);
 
-        document.compressionLevel = PdfCompressionLevel.best;
-        // Removing metadata can save some space
-        document.documentInformation.title = '';
-        document.documentInformation.author = '';
-        document.documentInformation.subject = '';
-        document.documentInformation.keywords = '';
-        document.documentInformation.creator = '';
+      // We will store the resulting JPEG bytes and the original page physical dimensions.
+      List<Map<String, dynamic>> processedPages = [];
 
-        final bytes = document.saveSync();
-        File(outputPath).writeAsBytesSync(bytes);
-        document.dispose();
-        return outputPath;
-      } catch (e) {
-        return null;
+      for (int i = 0; i < pdfDocument.pages.length; i++) {
+        final page = pdfDocument.pages[i];
+
+        // Render at a moderate resolution to save space but keep legibility.
+        double scale = 1.0;
+        if (page.width > 1200) {
+          scale = 1200 / page.width;
+        } else if (page.height > 1600) {
+          scale = 1600 / page.height;
+        }
+
+        final pdfImage = await page.render(
+          fullWidth: page.width * scale,
+          fullHeight: page.height * scale,
+        );
+
+        if (pdfImage != null) {
+          // Send pixels to an isolate to encode immediately.
+          // This prevents holding hundreds of MBs of raw RGBA in memory for the whole document.
+          // Note: we must copy the pixels from native FFI memory to a dart list before sending to isolate
+          final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
+          final int imgW = pdfImage.width;
+          final int imgH = pdfImage.height;
+
+          // Now it is safe to dispose the native image
+          pdfImage.dispose();
+
+          final jpegBytes = await Isolate.run(() {
+            final imgObject = img.Image.fromBytes(
+              width: imgW,
+              height: imgH,
+              bytes: pixelsCopy.buffer,
+              numChannels: 4,
+              order: img.ChannelOrder.rgba, // assuming RGBA
+            );
+            return img.encodeJpg(imgObject, quality: quality);
+          });
+
+          processedPages.add({
+            'jpegBytes': jpegBytes,
+            'originalWidth': page.width,
+            'originalHeight': page.height,
+          });
+        }
       }
-    });
+
+      pdfDocument.dispose();
+
+      // 2. Assemble the new PDF in a background isolate
+      final result = await Isolate.run(() async {
+        try {
+          final newPdf = syncfusion.PdfDocument();
+          newPdf.compressionLevel = syncfusion.PdfCompressionLevel.best;
+
+          for (final processedPage in processedPages) {
+            final jpegBytes = processedPage['jpegBytes'] as Uint8List;
+            final double originalW = processedPage['originalWidth'];
+            final double originalH = processedPage['originalHeight'];
+
+            final syncfusionImage = syncfusion.PdfBitmap(jpegBytes);
+
+            // Use the original physical dimensions, not the rasterized pixel dimensions
+            newPdf.pageSettings.size = Size(originalW, originalH);
+            newPdf.pageSettings.margins.all = 0;
+            final newPage = newPdf.pages.add();
+
+            newPage.graphics.drawImage(
+                syncfusionImage,
+                Rect.fromLTWH(0, 0, originalW, originalH));
+          }
+
+          final bytes = newPdf.saveSync();
+          File(outputPath).writeAsBytesSync(bytes);
+          newPdf.dispose();
+          return outputPath;
+        } catch (e) {
+          return null;
+        }
+      });
+
+      return result;
+    } catch (e) {
+      return null;
+    }
   }
 
   static Future<String?> imagesToPdf(
       List<String> imagePaths, String outputPath) async {
     return await Isolate.run(() async {
       try {
-        final PdfDocument document = PdfDocument();
+        final syncfusion.PdfDocument document = syncfusion.PdfDocument();
         for (var path in imagePaths) {
           final file = File(path);
           if (!file.existsSync()) continue;
 
           final bytes = file.readAsBytesSync();
-          final PdfBitmap image = PdfBitmap(bytes);
+          final syncfusion.PdfBitmap image = syncfusion.PdfBitmap(bytes);
 
           // Create page matching image size or standard size
           document.pageSettings.size =
