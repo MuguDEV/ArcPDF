@@ -165,7 +165,8 @@ class ToolsScreen extends ConsumerWidget {
       final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
       final outputPath = p.join(dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
-      final successPath = await ToolsService.compressPdf(inputPath, outputPath, quality: quality);
+      final threads = ref.read(settingsControllerProvider).compressionThreads;
+      final successPath = await ToolsService.compressPdf(inputPath, outputPath, quality: quality, maxThreads: threads);
 
       if (!context.mounted) return;
       Navigator.of(context).pop(); // hide loading

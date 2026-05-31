@@ -21,6 +21,8 @@ void main() {
       when(() => mockBox.get('thumbQ', defaultValue: any(named: 'defaultValue'))).thenReturn(0.8);
       when(() => mockBox.get('fontFamily', defaultValue: any(named: 'defaultValue'))).thenReturn(1);
       when(() => mockBox.get('useHaptics', defaultValue: any(named: 'defaultValue'))).thenReturn(true);
+      when(() => mockBox.get('keepScreenAwake', defaultValue: any(named: 'defaultValue'))).thenReturn(false);
+      when(() => mockBox.get('compressionThreads', defaultValue: any(named: 'defaultValue'))).thenReturn(2);
     });
 
     test('initial state reads from box', () {
