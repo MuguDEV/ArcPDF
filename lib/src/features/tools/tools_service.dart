@@ -121,6 +121,7 @@ class ToolsService {
           final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
           final int imgW = pdfImage.width;
           final int imgH = pdfImage.height;
+          final bool isBgra = pdfImage.format.name.toLowerCase().contains('bgra');
 
           // Now it is safe to dispose the native image
           pdfImage.dispose();
@@ -131,7 +132,7 @@ class ToolsService {
               height: imgH,
               bytes: pixelsCopy.buffer,
               numChannels: 4,
-              order: img.ChannelOrder.rgba, // assuming RGBA
+              order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
             );
             return img.encodeJpg(imgObject, quality: quality);
           });
