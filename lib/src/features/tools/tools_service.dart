@@ -89,7 +89,7 @@ class ToolsService {
   }
 
   static Future<String?> compressPdf(
-      String inputPath, String outputPath) async {
+      String inputPath, String outputPath, {int quality = 40}) async {
     return await Isolate.run(() async {
       try {
         final file = File(inputPath);
