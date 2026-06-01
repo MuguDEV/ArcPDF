@@ -78,7 +78,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/arcpdf.jks
+          printf "%s" "$KEYSTORE_BASE64" | base64 -d > android/app/arcpdf.jks
 
       - name: Build Split APKs
         if: env.SKIP_RELEASE == 'false'

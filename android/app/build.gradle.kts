@@ -26,12 +26,12 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            if (keystorePassword != null) {
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")?.trim()
+            if (!keystorePassword.isNullOrEmpty()) {
                 storeFile = file("arcpdf.jks")
                 storePassword = keystorePassword
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")?.trim()
+                keyPassword = System.getenv("KEY_PASSWORD")?.trim()
             }
         }
     }
@@ -39,7 +39,7 @@ android {
     buildTypes {
         release {
             // Use the release signing config if KEYSTORE_PASSWORD is provided, otherwise fall back to debug.
-            signingConfig = if (System.getenv("KEYSTORE_PASSWORD") != null) {
+            signingConfig = if (!System.getenv("KEYSTORE_PASSWORD").isNullOrEmpty()) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
