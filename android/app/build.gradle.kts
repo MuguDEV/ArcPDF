@@ -26,12 +26,12 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")?.trim()
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")
             if (!keystorePassword.isNullOrEmpty()) {
                 storeFile = file("arcpdf.jks")
                 storePassword = keystorePassword
-                keyAlias = System.getenv("KEY_ALIAS")?.trim()
-                keyPassword = System.getenv("KEY_PASSWORD")?.trim()
+                keyAlias = System.getenv("KEY_ALIAS")?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")
+                keyPassword = System.getenv("KEY_PASSWORD")?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")
             }
         }
     }
