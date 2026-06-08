@@ -90,8 +90,16 @@ class FavoritesScreen extends ConsumerWidget {
                     },
                     onUnfavorite: () => ctrl.toggleFavorite(item),
                   ).animate(key: ValueKey('fav_${item.path}'))
-                   .fadeIn(duration: 400.ms, delay: (index * 40).ms)
-                   .slideY(begin: 0.1, duration: 400.ms, curve: Curves.easeOutCubic);
+                   .fadeIn(
+                     duration: 400.ms,
+                     delay: (index > 20 ? 0 : index * 30).ms,
+                   )
+                   .slideY(
+                     begin: 0.1,
+                     duration: 400.ms,
+                     delay: (index > 20 ? 0 : index * 30).ms,
+                     curve: Curves.easeInOutCubicEmphasized,
+                   );
                 },
               ),
             ),

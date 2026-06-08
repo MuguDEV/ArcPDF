@@ -174,6 +174,17 @@ class _RecentGroupsList extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
                   );
                 },
+              )
+              .animate()
+              .fadeIn(
+                delay: (idx > 20 ? 0 : idx * 30).ms,
+                duration: 400.ms,
+              )
+              .slideY(
+                begin: 0.1,
+                delay: (idx > 20 ? 0 : idx * 30).ms,
+                duration: 400.ms,
+                curve: Curves.easeInOutCubicEmphasized,
               );
             },
           ),

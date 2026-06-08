@@ -40,7 +40,7 @@ class ArcEmptyState extends StatelessWidget {
     if (animated) {
       iconWidget = iconWidget
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 0.96, end: 1.0, duration: 2000.ms, curve: Curves.easeInOut);
+          .scaleXY(begin: 0.96, end: 1.0, duration: 2000.ms, curve: Curves.easeInOutCubicEmphasized);
     }
 
     return Center(
@@ -50,16 +50,19 @@ class ArcEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             iconWidget.animate().scale(
-                  begin: const Offset(0.8, 0.8),
-                  duration: 600.ms,
-                  curve: Curves.easeOutBack,
+                  begin: const Offset(0.0, 0.0),
+                  duration: 800.ms,
+                  curve: Curves.elasticOut,
                 ),
             const SizedBox(height: 22),
             Text(
               title,
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: 100.ms, duration: 350.ms).slideY(begin: 0.1),
+            )
+            .animate()
+            .fadeIn(delay: 100.ms, duration: 400.ms)
+            .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
             const SizedBox(height: 8),
             Text(
               subtitle,
@@ -68,7 +71,10 @@ class ArcEmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.5,
               ),
-            ).animate().fadeIn(delay: 180.ms, duration: 350.ms),
+            )
+            .animate()
+            .fadeIn(delay: 150.ms, duration: 400.ms)
+            .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
             if (action != null && actionLabel != null) ...[
               const SizedBox(height: 24),
               FilledButton.tonal(
@@ -78,7 +84,10 @@ class ArcEmptyState extends StatelessWidget {
                   minimumSize: const Size(160, 48),
                 ),
                 child: Text(actionLabel!),
-              ).animate().fadeIn(delay: 280.ms).slideY(begin: 0.1),
+              )
+              .animate()
+              .fadeIn(delay: 200.ms, duration: 400.ms)
+              .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
             ],
           ],
         ),

@@ -8,6 +8,7 @@ import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'pdf_bottom_sheet.dart';
+import '../../../../shared/widgets/arc_bouncy_card.dart';
 
 class PdfCard extends ConsumerStatefulWidget {
   const PdfCard({
@@ -28,20 +29,14 @@ class PdfCard extends ConsumerStatefulWidget {
 }
 
 class _PdfCardState extends ConsumerState<PdfCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
     final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
-    final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
 
-    return InkWell(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
+    return ArcBouncyCard(
       onTap: () {
         ref.read(hapticServiceProvider).selectionClick();
         widget.onTap();
@@ -50,13 +45,7 @@ class _PdfCardState extends ConsumerState<PdfCard> {
         ref.read(hapticServiceProvider).lightImpact();
         showPdfBottomSheet(context, ref, widget.item);
       },
-      splashColor: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-      highlightColor: Colors.transparent,
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1.0,
-        duration: Duration(milliseconds: (120 ~/ animSpeed)),
-        curve: Curves.fastLinearToSlowEaseIn,
-        child: ClipRRect(
+      child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -162,7 +151,6 @@ class _PdfCardState extends ConsumerState<PdfCard> {
             ),
           ),
         ),
-      ),
     );
   }
 

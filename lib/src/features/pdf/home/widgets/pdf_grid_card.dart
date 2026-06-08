@@ -12,6 +12,7 @@ import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'rename_dialog.dart';
 import 'pdf_bottom_sheet.dart';
+import '../../../../shared/widgets/arc_bouncy_card.dart';
 
 class PdfGridCard extends ConsumerStatefulWidget {
   const PdfGridCard({
@@ -31,20 +32,13 @@ class PdfGridCard extends ConsumerStatefulWidget {
 }
 
 class _PdfGridCardState extends ConsumerState<PdfGridCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
     final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
 
-    final animSpeed = ref.watch(pdfLibraryControllerProvider.select((_) => ref.watch(settingsControllerProvider).animationSpeed));
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
+    return ArcBouncyCard(
       onTap: () {
         ref.read(hapticServiceProvider).selectionClick();
         widget.onTap();
@@ -53,11 +47,7 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
         ref.read(hapticServiceProvider).lightImpact();
         showPdfBottomSheet(context, ref, widget.item);
       },
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: Duration(milliseconds: (120 ~/ animSpeed)),
-        curve: Curves.fastLinearToSlowEaseIn,
-        child: ClipRRect(
+      child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -190,7 +180,6 @@ class _PdfGridCardState extends ConsumerState<PdfGridCard> {
             ),
           ),
         ),
-      ),
     );
   }
 
