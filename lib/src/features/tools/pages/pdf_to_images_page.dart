@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
@@ -31,41 +33,81 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(title: 'Extracting Images', message: 'Please wait...', isLoading: true),
+      builder: (context) => const ToolActionDialog(
+          title: 'Extracting Images',
+          message: 'Please wait...',
+          isLoading: true),
     );
 
     try {
       final document = await PdfDocument.openFile(_selectedFile!);
       final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      final outputDir = Directory(p.join(dir, 'Extracted_${DateTime.now().millisecondsSinceEpoch}'));
+      final outputDir = Directory(
+          p.join(dir, 'Extracted_${DateTime.now().millisecondsSinceEpoch}'));
       await outputDir.create(recursive: true);
+
+      final List<Future<void>> writeTasks = [];
 
       for (int i = 1; i <= document.pages.length; i++) {
         final page = document.pages[i - 1];
-        final image = await page.render(width: page.width.toInt(), height: page.height.toInt());
+        final image = await page.render(
+            width: page.width.toInt(), height: page.height.toInt());
         if (image != null) {
-          final imgLib = img.Image.fromBytes(width: image.width, height: image.height, bytes: image.pixels.buffer, numChannels: 4);
-          final pngBytes = img.encodePng(imgLib);
-          final file = File(p.join(outputDir.path, 'page_$i.png'));
-          await file.writeAsBytes(pngBytes);
+          // Offload heavy image encoding and saving to an Isolate
+          final isBgra = image.format.name.toLowerCase().contains('bgra');
+          final width = image.width;
+          final height = image.height;
+
+          // Copy pixel data to avoid FFI constraints and Use-After-Free crashes across Isolates
+          final pixelsCopy = image.pixels.buffer.asUint8List().toList(growable: false);
+
+          final futureTask = Isolate.run(() async {
+            final imgLib = img.Image.fromBytes(
+              width: width,
+              height: height,
+              bytes: Uint8List.fromList(pixelsCopy).buffer,
+              numChannels: 4,
+              order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
+            );
+            // Use JPEG instead of PNG for much faster encoding and smaller file size
+            final jpgBytes = img.encodeJpg(imgLib, quality: 90);
+            final file = File(p.join(outputDir.path, 'page_$i.jpg'));
+            await file.writeAsBytes(jpgBytes);
+          });
+
+          writeTasks.add(futureTask);
           image.dispose();
         }
       }
+
+      // Wait for all background isolate writing tasks to complete
+      await Future.wait(writeTasks);
+
       document.dispose();
 
       if (!mounted) return;
       Navigator.of(context).pop();
 
+      if (!mounted) return;
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n${outputDir.path}', isLoading: false, outputPath: outputDir.path),
-      ).then((_) => Navigator.of(context).pop());
+        builder: (context) => ToolActionDialog(
+            title: 'Success',
+            message: 'Saved to:\n${outputDir.path}',
+            isLoading: false,
+            outputPath: outputDir.path),
+      ).then((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop();
       showDialog(
         context: context,
-        builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to extract images.', isLoading: false),
+        builder: (context) => const ToolActionDialog(
+            title: 'Error',
+            message: 'Failed to extract images.',
+            isLoading: false),
       );
     }
   }
@@ -80,11 +122,12 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_selectedFile != null)
-               Text('Selected: ${p.basename(_selectedFile!)}')
+              Text('Selected: ${p.basename(_selectedFile!)}')
             else
-               const Text('No file selected.'),
+              const Text('No file selected.'),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _pickFile, child: const Text('Select PDF')),
+            ElevatedButton(
+                onPressed: _pickFile, child: const Text('Select PDF')),
             const Spacer(),
             FilledButton(
               onPressed: _selectedFile != null ? _extractImages : null,
