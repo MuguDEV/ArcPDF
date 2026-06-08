@@ -969,6 +969,31 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     );
   }
 
+  Widget _buildOutlineNode(PdfOutlineNode node, int level) {
+    if (node.children.isEmpty) {
+      return ListTile(
+        title: Text(node.title),
+        contentPadding: EdgeInsets.only(left: 24.0 + (level * 16.0), right: 24.0),
+        onTap: () {
+          if (node.dest?.pageNumber != null) {
+            _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber);
+            Navigator.of(context).pop();
+          }
+        },
+      );
+    } else {
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(node.title),
+          childrenPadding: EdgeInsets.zero,
+          tilePadding: EdgeInsets.only(left: 24.0 + (level * 16.0), right: 24.0),
+          children: node.children.map((child) => _buildOutlineNode(child, level + 1)).toList(),
+        ),
+      );
+    }
+  }
+
   Future<void> _showDocumentOutline() async {
     final outline = await _pdfViewerController.document.loadOutline(); // ignore: deprecated_member_use
     if (!mounted) return;
@@ -1015,17 +1040,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                       controller: scrollController,
                       itemCount: outline.length,
                       itemBuilder: (context, index) {
-                        final node = outline[index];
-                        return ListTile(
-                          title: Text(node.title),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                          onTap: () {
-                            if (node.dest?.pageNumber != null) {
-                              _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber);
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        );
+                        return _buildOutlineNode(outline[index], 0);
                       },
                     ),
                   ),

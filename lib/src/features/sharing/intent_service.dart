@@ -37,14 +37,18 @@ class IntentService {
 
   void init() {
     // For sharing or opening files while the app is already running
-    _intentDataStreamSubscription = ReceiveSharingIntent.instance.getMediaStream().listen((List<SharedMediaFile> value) {
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance
+        .getMediaStream()
+        .listen((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
     }, onError: (err) {
       debugPrint("getMediaStream error: $err");
     });
 
     // For sharing or opening files when the app is closed
-    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+    ReceiveSharingIntent.instance
+        .getInitialMedia()
+        .then((List<SharedMediaFile> value) {
       _handleSharedFiles(value);
       if (value.isNotEmpty) {
         ReceiveSharingIntent.instance.reset(); // clear initial intent
@@ -61,10 +65,18 @@ class IntentService {
     // Wait for the splash screen to finish
     await splashCompleter.future;
 
-    // Small delay to ensure the Navigator is fully mounted after splash updates
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Retry loop to ensure the Navigator is fully mounted after splash updates
+    BuildContext? context;
+    int retries = 0;
+    while (retries < 20) {
+      context = navigatorKey.currentContext;
+      if (context != null && context.mounted && Navigator.of(context).mounted) {
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      retries++;
+    }
 
-    final context = navigatorKey.currentContext;
     if (context != null && context.mounted) {
       // Find the first valid PDF to avoid multiple synchronous pushes
       for (final file in files) {

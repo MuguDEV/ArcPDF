@@ -93,11 +93,6 @@ class VaultController extends StateNotifier<VaultState> {
       final file = File(item.path);
       if (!await file.exists()) return false;
 
-      // Ensure _initVault has completed
-      if (!(_encrypter.algo is enc.AES)) {
-        await _initVault();
-      }
-
       final bytes = await file.readAsBytes();
       // Use standard encryption mechanism, avoiding .bytes getter which might fail on some sizes
       final encrypted = _encrypter.encryptBytes(bytes, iv: _iv);
@@ -136,10 +131,6 @@ class VaultController extends StateNotifier<VaultState> {
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return null;
 
-      if (!(_encrypter.algo is enc.AES)) {
-        await _initVault();
-      }
-
       final encryptedBytes = await vaultFile.readAsBytes();
       final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);
 
@@ -156,10 +147,6 @@ class VaultController extends StateNotifier<VaultState> {
     try {
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return false;
-
-      if (!(_encrypter.algo is enc.AES)) {
-        await _initVault();
-      }
 
       final encryptedBytes = await vaultFile.readAsBytes();
       final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);

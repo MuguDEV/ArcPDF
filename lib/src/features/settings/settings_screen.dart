@@ -1,7 +1,6 @@
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -98,14 +97,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings = ref.watch(settingsControllerProvider);
     final ctrl = ref.read(settingsControllerProvider.notifier);
     final theme = Theme.of(context);
-
-    final isDark = theme.brightness == Brightness.dark;
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
-    final double sigma = isLiquid ? 48.0 : 16.0;
-    final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
-        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
