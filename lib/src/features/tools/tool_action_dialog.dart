@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../pdf/viewer/pdf_viewer_screen.dart';
 import '../pdf/domain/pdf_file_item.dart';
+import '../../shared/widgets/arc_progress_indicator.dart';
 
 class ToolActionDialog extends StatefulWidget {
   const ToolActionDialog({
@@ -93,13 +94,10 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                 color: theme.colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: SizedBox(
+              child: const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
+                child: ArcProgressIndicator(),
               ),
             ),
           if (isSuccess)

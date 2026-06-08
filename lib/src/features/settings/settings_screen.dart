@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../shared/widgets/arc_progress_indicator.dart';
 
 import '../updater/updater_service.dart';
 import 'log_viewer_screen.dart';
@@ -42,7 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => const Center(child: ArcProgressIndicator()),
     );
 
     final release = await UpdaterService.checkForUpdates();

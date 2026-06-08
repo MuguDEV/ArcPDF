@@ -8,6 +8,7 @@ import '../pdf/viewer/pdf_viewer_screen.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../security/security_controller.dart';
 import '../security/shared_lock_overlay.dart';
+import '../../shared/widgets/arc_progress_indicator.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
@@ -88,7 +89,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (!vaultState.isUnlocked) {
       return Scaffold(
         appBar: AppBar(title: const Text('Secure Vault')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: ArcProgressIndicator()),
       );
     }
 
@@ -104,7 +105,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         ),
       ),
       body: vaultState.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: ArcProgressIndicator())
           : vaultState.vaultFiles.isEmpty
               ? const Center(child: Text('Vault is empty'))
               : ListView.builder(
