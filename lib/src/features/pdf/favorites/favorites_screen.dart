@@ -1,8 +1,6 @@
-import '../../settings/settings_controller.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -23,16 +21,6 @@ class FavoritesScreen extends ConsumerWidget {
     final lib = ref.watch(pdfLibraryControllerProvider);
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
     final items = ctrl.filteredItems(favoritesOnly: true);
-
-    final settings = ref.watch(settingsControllerProvider);
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
-    final double sigma = isLiquid ? 48.0 : 16.0;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
-        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
