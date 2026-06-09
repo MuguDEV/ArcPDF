@@ -49,7 +49,11 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
       showDialog(
         context: context,
         builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
-      ).then((_) => Navigator.of(context).pop());
+      ).then((_) {
+        // The dialog already handles navigation, no need to pop the page here unless they just dismissed it.
+        // Actually, popping the page here makes it impossible to open the result because it closes the caller too early.
+        // If they want to merge again, they can stay on the page.
+      });
     } else {
       showDialog(
         context: context,

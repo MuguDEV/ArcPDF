@@ -44,7 +44,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
       showDialog(
         context: context,
         builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
-      ).then((_) => Navigator.of(context).pop());
+      );
     } else {
       showDialog(
         context: context,

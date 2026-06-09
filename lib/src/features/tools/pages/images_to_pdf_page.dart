@@ -51,7 +51,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
       showDialog(
         context: context,
         builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
-      ).then((_) => Navigator.of(context).pop());
+      );
     } else {
       showDialog(
         context: context,
