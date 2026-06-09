@@ -286,13 +286,40 @@ main {
 }
 
 .changelog-content ul {
-    list-style-position: inside;
+    list-style-position: outside;
     margin-top: 16px;
+    margin-bottom: 24px;
+    padding-left: 24px;
     color: var(--md-sys-color-on-surface-variant);
 }
 
 .changelog-content li {
     margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.changelog-content h1,
+.changelog-content h2,
+.changelog-content h3 {
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.changelog-content p {
+    margin-bottom: 16px;
+    line-height: 1.6;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.changelog-content a {
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.changelog-content a:hover {
+    text-decoration: underline;
 }
 
 /* Footer */

@@ -54,13 +54,35 @@ async function fetchLatestRelease() {
         versionBadge.textContent = `Latest Version: ${version}`;
 
         // Update Changelog
-        // Basic Markdown parsing for lists and bold text
+        // Improved Markdown parsing
         let formattedBody = body
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Links
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+            // URLs that aren't markdown links
+            .replace(/(^|[^"'])(https?:\/\/[^\s]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
+            // Bold
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/^- (.*)$/gm, '<li>$1</li>');
+            // List items (* or -)
+            .replace(/^[\*-]\s+(.*)$/gim, '<li>$1</li>');
 
         // Wrap consecutive <li> elements in <ul>
-        formattedBody = formattedBody.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+        formattedBody = formattedBody.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul>$&</ul>');
+
+        // Clean up empty lines and wrap paragraphs
+        formattedBody = formattedBody
+            .split('\n')
+            .filter(line => line.trim() !== '')
+            .map(line => {
+                if (line.startsWith('<h') || line.startsWith('<ul') || line.startsWith('<li') || line.startsWith('</ul')) {
+                    return line;
+                }
+                return `<p>${line}</p>`;
+            })
+            .join('\n');
 
         changelogContent.innerHTML = formattedBody;
 
@@ -87,7 +109,7 @@ function renderDownloadSection(container, downloadUrl) {
 
     if (isAndroid) {
         container.innerHTML = `
-            <a href="${downloadUrl}" class="btn btn-primary">
+            <a href="${downloadUrl}" download="ArcPDF.apk" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
                 <span class="material-symbols-outlined">download</span>
                 Download APK
             </a>
