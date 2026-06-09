@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/arc_bouncy_card.dart';
 
 class ToolCard extends StatelessWidget {
   const ToolCard({
@@ -18,11 +19,10 @@ class ToolCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
+    return ArcBouncyCard(
+      onTap: onTap,
+      child: Material(
+        color: Colors.transparent,
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(

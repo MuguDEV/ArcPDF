@@ -6,6 +6,7 @@ import '../application/pdf_library_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../home/widgets/pdf_thumbnail.dart';
 import '../../settings/haptic_service.dart';
+import '../../../shared/widgets/arc_bouncy_card.dart';
 
 class FavoriteGridCard extends ConsumerStatefulWidget {
   const FavoriteGridCard({
@@ -25,18 +26,13 @@ class FavoriteGridCard extends ConsumerStatefulWidget {
 }
 
 class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lib = ref.watch(pdfLibraryControllerProvider);
     final isFav = lib.favorites.contains(widget.item.path);
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
+    return ArcBouncyCard(
       onTap: () {
         ref.read(hapticServiceProvider).selectionClick();
         widget.onTap();
@@ -55,11 +51,7 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
           );
         }
       },
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: Container(
+      child: Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(28),
@@ -107,7 +99,6 @@ class _FavoriteGridCardState extends ConsumerState<FavoriteGridCard> {
             ],
           ),
         ),
-      ),
     );
   }
 }

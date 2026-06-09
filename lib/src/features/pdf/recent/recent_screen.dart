@@ -14,6 +14,7 @@ import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
+import '../../../shared/widgets/arc_progress_indicator.dart';
 
 class RecentScreen extends ConsumerWidget {
   const RecentScreen({super.key});
@@ -79,7 +80,7 @@ class RecentScreen extends ConsumerWidget {
           if (loading)
             const SliverFillRemaining(
               hasScrollBody: false,
-              child: Center(child: CircularProgressIndicator.adaptive()),
+              child: Center(child: ArcProgressIndicator()),
             )
           else if (isEmpty)
             const SliverFillRemaining(
@@ -173,6 +174,17 @@ class _RecentGroupsList extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
                   );
                 },
+              )
+              .animate()
+              .fadeIn(
+                delay: (idx > 20 ? 0 : idx * 30).ms,
+                duration: 400.ms,
+              )
+              .slideY(
+                begin: 0.1,
+                delay: (idx > 20 ? 0 : idx * 30).ms,
+                duration: 400.ms,
+                curve: Curves.easeInOutCubicEmphasized,
               );
             },
           ),

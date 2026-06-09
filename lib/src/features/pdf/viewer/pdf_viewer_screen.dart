@@ -15,10 +15,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../settings/settings_controller.dart';
+import '../../../shared/widgets/arc_progress_indicator.dart';
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 import '../application/pdf_library_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'arc_outline_node.dart';
 
 class PdfViewerScreen extends ConsumerStatefulWidget {
   const PdfViewerScreen({super.key, required this.item});
@@ -224,9 +227,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             Center(
               child: Hero(
                 tag: 'pdf_thumb_${widget.item.path}',
-                child: CircularProgressIndicator.adaptive(
-                  valueColor: AlwaysStoppedAnimation(theme.colorScheme.onSurfaceVariant),
-                ),
+                child: const ArcProgressIndicator(),
               ),
             )
           else
@@ -969,31 +970,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     );
   }
 
-  Widget _buildOutlineNode(PdfOutlineNode node, int level) {
-    if (node.children.isEmpty) {
-      return ListTile(
-        title: Text(node.title),
-        contentPadding: EdgeInsets.only(left: 24.0 + (level * 16.0), right: 24.0),
-        onTap: () {
-          if (node.dest?.pageNumber != null) {
-            _pdfViewerController.goToPage(pageNumber: node.dest!.pageNumber);
-            Navigator.of(context).pop();
-          }
-        },
-      );
-    } else {
-      return Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          title: Text(node.title),
-          childrenPadding: EdgeInsets.zero,
-          tilePadding: EdgeInsets.only(left: 24.0 + (level * 16.0), right: 24.0),
-          children: node.children.map((child) => _buildOutlineNode(child, level + 1)).toList(),
-        ),
-      );
-    }
-  }
-
   Future<void> _showDocumentOutline() async {
     final outline = await _pdfViewerController.document.loadOutline(); // ignore: deprecated_member_use
     if (!mounted) return;
@@ -1016,35 +992,56 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           minChildSize: 0.4,
           maxChildSize: 0.9,
           builder: (context, scrollController) {
-            return DecoratedBox(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  Container(
-                    width: 48,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
+            return Material(
+              color: Colors.transparent,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Document Outline', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scrollController,
-                      itemCount: outline.length,
-                      itemBuilder: (context, index) {
-                        return _buildOutlineNode(outline[index], 0);
-                      },
+                    const SizedBox(height: 16),
+                    Text('Document Outline', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: outline.length,
+                        itemBuilder: (context, index) {
+                          return ArcOutlineNode(
+                            node: outline[index],
+                            level: 0,
+                            onTap: (page) {
+                              _pdfViewerController.goToPage(pageNumber: page);
+                              Navigator.of(context).pop();
+                            },
+                          )
+                          .animate()
+                          .fadeIn(
+                            delay: (index > 20 ? 0 : index * 30).ms,
+                            duration: 300.ms,
+                            curve: Curves.easeOut,
+                          )
+                          .slideY(
+                            begin: 0.1,
+                            duration: 300.ms,
+                            curve: Curves.easeOutBack,
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
