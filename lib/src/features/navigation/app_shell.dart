@@ -26,7 +26,6 @@ class AppShell extends ConsumerWidget {
     if (!doneSplash) return const SplashScreen();
 
     return Scaffold(
-      // IndexedStack preserves all tab states + scroll positions
       body: Stack(
         children: [
           _buildOffstage(0, nav.index, const HomeScreen()),
@@ -69,7 +68,6 @@ class _ArcNavBar extends ConsumerWidget {
     final isLiquid = settings.useLiquidGlass;
     final double sigma = isLiquid ? 48.0 : 24.0;
 
-    // Charcoal surface — never pure black
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
 
     final Color bgColor = isLiquid
@@ -77,49 +75,55 @@ class _ArcNavBar extends ConsumerWidget {
         : navBg.withValues(alpha: isDark ? 0.75 : 0.85);
 
     Widget navContainer = Container(
-            height: 64,
-            decoration: BoxDecoration(
-              color: isBlur ? bgColor : navBg,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.04),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
-                  blurRadius: 32,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: NavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedIndex: selectedIndex,
-              indicatorShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              indicatorColor: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : theme.colorScheme.primary.withValues(alpha: 0.08),
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-              destinations: [
-                _buildDest(HugeIcons.strokeRoundedHome01, 'Home', 0, isDark, theme),
-                _buildDest(HugeIcons.strokeRoundedFavourite, 'Favorites', 1, isDark, theme),
-                _buildDest(HugeIcons.strokeRoundedClock01, 'Recent', 2, isDark, theme),
-                _buildDest(HugeIcons.strokeRoundedDashboardSquare01, 'Tools', 3, isDark, theme),
-                _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 4, isDark, theme),
-              ],
-              onDestinationSelected: (i) {
-                if (i != selectedIndex) {
-                  ref.read(hapticServiceProvider).selectionClick();
-                  ref.read(navigationControllerProvider.notifier).setIndex(i);
-                }
-              },
-            ),
-          );
+      height: 64,
+      decoration: BoxDecoration(
+        color: isBlur ? bgColor : navBg,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.04),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+            blurRadius: 32,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          // Overriding indicator to be smaller
+          indicatorShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: NavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedIndex: selectedIndex,
+          height: 60,
+          indicatorColor: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : theme.colorScheme.primary.withValues(alpha: 0.08),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+          destinations: [
+            _buildDest(HugeIcons.strokeRoundedHome01, 'Home', 0, isDark, theme),
+            _buildDest(HugeIcons.strokeRoundedFavourite, 'Favorites', 1, isDark, theme),
+            _buildDest(HugeIcons.strokeRoundedClock01, 'Recent', 2, isDark, theme),
+            _buildDest(HugeIcons.strokeRoundedDashboardSquare01, 'Tools', 3, isDark, theme),
+            _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 4, isDark, theme),
+          ],
+          onDestinationSelected: (i) {
+            if (i != selectedIndex) {
+              ref.read(hapticServiceProvider).selectionClick();
+              ref.read(navigationControllerProvider.notifier).setIndex(i);
+            }
+          },
+        ),
+      ),
+    );
 
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(40, 0, 40, 24),

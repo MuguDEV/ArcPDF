@@ -10,6 +10,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import '../../settings/settings_controller.dart';
 import '../application/pdf_library_controller.dart';
+import '../../vault/vault_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
 import 'permission_screen.dart';
@@ -469,6 +470,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       item: item,
       index: index,
       onFavorite: () => ctrl.toggleFavorite(item),
+      onVault: () async {
+        final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
+        if (success && context.mounted) {
+          ref.read(pdfLibraryControllerProvider.notifier).refresh();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Moved to Vault'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
       onTap: () async {
         if (item.sizeBytes == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
