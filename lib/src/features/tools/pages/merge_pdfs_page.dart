@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
+import 'dart:ui';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
@@ -54,9 +55,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
         context: context,
         builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
       ).then((_) {
-        // The dialog already handles navigation, no need to pop the page here unless they just dismissed it.
-        // Actually, popping the page here makes it impossible to open the result because it closes the caller too early.
-        // If they want to merge again, they can stay on the page.
+        // Handled internally by dialog actions
       });
     } else {
       showDialog(
@@ -74,105 +73,168 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
       body: Column(
         children: [
           Expanded(
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _selectedFiles.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex -= 1;
-                  final item = _selectedFiles.removeAt(oldIndex);
-                  _selectedFiles.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final path = _selectedFiles[index];
-                final file = File(path);
-                final sizeBytes = file.existsSync() ? file.lengthSync() : 0;
-                final sizeStr = sizeBytes < 1024 * 1024
-                    ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
-                    : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+            child: _selectedFiles.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(HugeIcons.strokeRoundedFile02, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No PDFs selected yet.\nTap "Add Files" to begin.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    itemCount: _selectedFiles.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final item = _selectedFiles.removeAt(oldIndex);
+                        _selectedFiles.insert(newIndex, item);
+                      });
+                    },
+                    proxyDecorator: (child, index, animation) {
+                      return AnimatedBuilder(
+                        animation: animation,
+                        builder: (BuildContext context, Widget? child) {
+                          final double animValue = Curves.easeInOut.transform(animation.value);
+                          final double elevation = lerpDouble(0, 8, animValue)!;
+                          return Material(
+                            elevation: elevation,
+                            color: Colors.transparent,
+                            shadowColor: Colors.black26,
+                            borderRadius: BorderRadius.circular(24),
+                            child: child,
+                          );
+                        },
+                        child: child,
+                      );
+                    },
+                    itemBuilder: (context, index) {
+                      final path = _selectedFiles[index];
+                      final file = File(path);
+                      final sizeBytes = file.existsSync() ? file.lengthSync() : 0;
+                      final sizeStr = sizeBytes < 1024 * 1024
+                          ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
+                          : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
-                return Padding(
-                  key: ValueKey(path),
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              width: 44,
-                              height: 58,
-                              child: PdfThumbnail(path: path, isEncrypted: false, isCorrupted: false),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  p.basename(path).replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      return Padding(
+                        key: ValueKey(path),
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                  width: 1.0,
                                 ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    sizeStr,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      fontSize: 10,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: SizedBox(
+                                        width: 56,
+                                        height: 72,
+                                        child: PdfThumbnail(path: path, isEncrypted: false, isCorrupted: false),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.basename(path).replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.surfaceContainerHighest,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(HugeIcons.strokeRoundedHardDrive, size: 12, color: theme.colorScheme.onSurfaceVariant),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  sizeStr,
+                                                  style: theme.textTheme.labelSmall?.copyWith(
+                                                    color: theme.colorScheme.onSurfaceVariant,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 22),
+                                          onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 20),
-                            onPressed: () => setState(() => _selectedFiles.removeAt(index)),
-                          ),
-                          Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant),
-                        ],
-                      ),
+                        ),
+                      ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05);
+                    },
+                  ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pickFiles,
+                      child: const Text('Add Files'),
                     ),
                   ),
-                ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05);
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _pickFiles,
-                    child: const Text('Add Files'),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _selectedFiles.length >= 2 ? _mergeFiles : null,
+                      child: const Text('Merge'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _selectedFiles.length >= 2 ? _mergeFiles : null,
-                    child: const Text('Merge'),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           )
         ],
