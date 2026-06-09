@@ -42,7 +42,7 @@ class ToolsService {
   }
 
   static Future<String?> splitPdf(String inputPath, String outputDirPath,
-      int startPage, int endPage) async {
+      List<int> pagesToExtract) async {
     return await Isolate.run(() async {
       try {
         final file = File(inputPath);
@@ -51,26 +51,26 @@ class ToolsService {
             syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
         final syncfusion.PdfDocument newDocument = syncfusion.PdfDocument();
 
-        // Ensure valid range
-        int start = startPage - 1;
-        int end = endPage - 1;
-        if (start < 0) start = 0;
-        if (end >= loadedDocument.pages.count) {
-          end = loadedDocument.pages.count - 1;
+        for (int pageNum in pagesToExtract) {
+          int index = pageNum - 1;
+          if (index >= 0 && index < loadedDocument.pages.count) {
+            final syncfusion.PdfPage loadedPage = loadedDocument.pages[index];
+
+            // Match the exact size of the loaded page to prevent cropping
+            newDocument.pageSettings.size = loadedPage.size;
+            newDocument.pageSettings.margins.all = 0;
+            newDocument.pageSettings.rotate = loadedPage.rotation;
+
+            final syncfusion.PdfPage newPage = newDocument.pages.add();
+            // Draw the loaded page content onto the new page
+            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+          }
         }
-        if (start > end) return null;
 
-        for (int i = start; i <= end; i++) {
-          final syncfusion.PdfPage loadedPage = loadedDocument.pages[i];
-
-          // Match the exact size of the loaded page to prevent cropping
-          newDocument.pageSettings.size = loadedPage.size;
-          newDocument.pageSettings.margins.all = 0;
-          newDocument.pageSettings.rotate = loadedPage.rotation;
-
-          final syncfusion.PdfPage newPage = newDocument.pages.add();
-          // Draw the loaded page content onto the new page
-          newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+        if (newDocument.pages.count == 0) {
+           loadedDocument.dispose();
+           newDocument.dispose();
+           return null;
         }
 
         final bytes = newDocument.saveSync();

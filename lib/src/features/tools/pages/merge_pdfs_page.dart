@@ -91,6 +91,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     ),
                   )
                 : ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
                     onReorder: (oldIndex, newIndex) {
@@ -202,7 +203,13 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                           visualDensity: VisualDensity.compact,
                                         ),
                                         const SizedBox(height: 4),
-                                        Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                                        ReorderableDragStartListener(
+                                          index: index,
+                                          child: MouseRegion(
+                                            cursor: SystemMouseCursors.grab,
+                                            child: Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ],

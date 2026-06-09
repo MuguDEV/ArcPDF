@@ -109,14 +109,47 @@ function renderDownloadSection(container, downloadUrl) {
 
     if (isAndroid) {
         container.innerHTML = `
-            <a href="${downloadUrl}" download="ArcPDF.apk" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <button id="blob-download-btn" class="btn btn-primary">
                 <span class="material-symbols-outlined">download</span>
                 Download APK
-            </a>
+            </button>
             <a href="https://github.com/MuguDEV/ArcPDF/releases/latest" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
                 All Releases
             </a>
         `;
+
+        const downloadBtn = document.getElementById('blob-download-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', async () => {
+                downloadBtn.disabled = true;
+                const originalContent = downloadBtn.innerHTML;
+                downloadBtn.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Downloading...';
+
+                try {
+                    const response = await fetch(downloadUrl);
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const blob = await response.blob();
+                    const objectUrl = window.URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = objectUrl;
+                    a.download = 'ArcPDF.apk';
+                    document.body.appendChild(a);
+                    a.click();
+
+                    window.URL.revokeObjectURL(objectUrl);
+                    document.body.removeChild(a);
+                } catch (error) {
+                    console.error('Download failed, falling back to direct link:', error);
+                    window.open(downloadUrl, '_blank');
+                } finally {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalContent;
+                }
+            });
+        }
+
     } else {
         container.innerHTML = `
             <div class="non-android-msg">
