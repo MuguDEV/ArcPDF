@@ -10,7 +10,7 @@ import '../application/pdf_library_controller.dart';
 import '../home/widgets/pdf_card_shimmer.dart';
 
 import '../viewer/pdf_viewer_screen.dart';
-import 'favorite_grid_card.dart';
+import '../home/widgets/pdf_custom_card.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
 
 class FavoritesScreen extends ConsumerWidget {
@@ -38,11 +38,8 @@ class FavoritesScreen extends ConsumerWidget {
           if (lib.loading)
             SliverPadding(
               padding: const EdgeInsets.all(16),
-              sliver: SliverMasonryGrid.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childCount: 6,
+              sliver: SliverList.builder(
+                itemCount: 6,
                 itemBuilder: (_, __) => const PdfCardShimmer(),
               ),
             )
@@ -71,35 +68,35 @@ class FavoritesScreen extends ConsumerWidget {
             ),
             SliverPadding(
               padding: const EdgeInsets.all(16),
-              sliver: SliverMasonryGrid.count(
-                crossAxisCount: MediaQuery.sizeOf(context).width > 700 ? 3 : 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childCount: items.length,
+              sliver: SliverList.builder(
+                itemCount: items.length,
                 itemBuilder: (context, index) {
                   final item = items[index];
-                  return FavoriteGridCard(
-                    item: item,
-                    index: index,
-                    onTap: () async {
-                      await ctrl.markRecent(item);
-                      if (!context.mounted) return;
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
-                      );
-                    },
-                    onUnfavorite: () => ctrl.toggleFavorite(item),
-                  ).animate(key: ValueKey('fav_${item.path}'))
-                   .fadeIn(
-                     duration: 400.ms,
-                     delay: (index > 20 ? 0 : index * 30).ms,
-                   )
-                   .slideY(
-                     begin: 0.1,
-                     duration: 400.ms,
-                     delay: (index > 20 ? 0 : index * 30).ms,
-                     curve: Curves.easeInOutCubicEmphasized,
-                   );
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10.0),
+                    child: PdfCustomCard(
+                      item: item,
+                      index: index,
+                      onTap: () async {
+                        await ctrl.markRecent(item);
+                        if (!context.mounted) return;
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
+                        );
+                      },
+                      onFavorite: () => ctrl.toggleFavorite(item),
+                    ).animate(key: ValueKey('fav_${item.path}'))
+                     .fadeIn(
+                       duration: 400.ms,
+                       delay: (index > 20 ? 0 : index * 30).ms,
+                     )
+                     .slideY(
+                       begin: 0.1,
+                       duration: 400.ms,
+                       delay: (index > 20 ? 0 : index * 30).ms,
+                       curve: Curves.easeInOutCubicEmphasized,
+                     ),
+                  );
                 },
               ),
             ),

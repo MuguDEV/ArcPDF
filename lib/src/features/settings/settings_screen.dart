@@ -177,13 +177,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   children: [
                     SwitchListTile.adaptive(
-                      value: settings.useGrid,
-                      onChanged: ctrl.setGrid,
-                      title: const Text('Grid layout'),
-                      subtitle: const Text('Show PDFs in a masonry grid instead of a list'),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    SwitchListTile.adaptive(
                       value: settings.useBlurEffect,
                       onChanged: ctrl.setUseBlurEffect,
                       title: const Text('Frosted Glass (Blur)'),

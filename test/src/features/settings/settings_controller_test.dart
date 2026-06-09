@@ -29,7 +29,6 @@ void main() {
       final controller = SettingsController(mockBox);
 
       expect(controller.state.themeMode, ThemeMode.system);
-      expect(controller.state.useGrid, false);
       expect(controller.state.useBlurEffect, true);
       expect(controller.state.useLiquidGlass, false);
       expect(controller.state.animationIntensity, 1.0);
@@ -48,14 +47,5 @@ void main() {
       verify(() => mockBox.put('themeMode', ThemeMode.dark.index)).called(1);
     });
 
-    test('setGrid updates state and box', () async {
-      when(() => mockBox.put('grid', any())).thenAnswer((_) async {});
-
-      final controller = SettingsController(mockBox);
-      await controller.setGrid(true);
-
-      expect(controller.state.useGrid, true);
-      verify(() => mockBox.put('grid', true)).called(1);
-    });
   });
 }
