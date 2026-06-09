@@ -96,9 +96,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
             message: 'Saved to:\n${outputDir.path}',
             isLoading: false,
             outputPath: outputDir.path),
-      ).then((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
+      );
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop();

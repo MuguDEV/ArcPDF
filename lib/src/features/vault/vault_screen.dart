@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'vault_controller.dart';
 import '../pdf/viewer/pdf_viewer_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../security/security_controller.dart';
 import '../security/shared_lock_overlay.dart';
@@ -18,6 +19,8 @@ class VaultScreen extends ConsumerStatefulWidget {
 }
 
 class _VaultScreenState extends ConsumerState<VaultScreen> {
+  bool _noLock = false;
+
   @override
   void initState() {
     super.initState();
@@ -25,10 +28,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final security = ref.read(securityControllerProvider);
       if (!security.isLockEnabled) {
-         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enable App Lock in Settings first.')),
-         );
-         Navigator.pop(context);
+         setState(() {
+           _noLock = true;
+         });
       } else {
          _authenticate();
       }
@@ -84,7 +86,53 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final vaultState = ref.watch(vaultControllerProvider);
+
+    if (_noLock) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Secure Vault')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  HugeIcons.strokeRoundedLockPassword,
+                  size: 80,
+                  color: theme.colorScheme.error,
+                ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
+                const SizedBox(height: 24),
+                Text(
+                  'App Lock Required',
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                ).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideY(begin: 0.2),
+                const SizedBox(height: 12),
+                Text(
+                  'To use the Secure Vault, you need to enable App Lock in Settings first. This ensures your files are protected.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.2),
+                const SizedBox(height: 32),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Provide a nice feedback interaction and close the page
+                    HapticFeedback.selectionClick();
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Go Back'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  ),
+                ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideY(begin: 0.2),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     if (!vaultState.isUnlocked) {
       return Scaffold(

@@ -65,10 +65,13 @@ class IntentService {
     // Wait for the splash screen to finish
     await splashCompleter.future;
 
+    // Wait a brief moment to ensure the widget tree rebuilds after splash exits
+    await Future.delayed(const Duration(milliseconds: 250));
+
     // Retry loop to ensure the Navigator is fully mounted after splash updates
     BuildContext? context;
     int retries = 0;
-    while (retries < 20) {
+    while (retries < 30) {
       context = navigatorKey.currentContext;
       if (context != null && context.mounted && Navigator.of(context).mounted) {
         break;
@@ -83,11 +86,13 @@ class IntentService {
         if (file.path.toLowerCase().endsWith('.pdf')) {
           final pdfItem = PdfFileItem.fromFile(File(file.path));
 
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(item: pdfItem),
-            ),
-          );
+          if (context.mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => PdfViewerScreen(item: pdfItem),
+              ),
+            );
+          }
           break; // Stop after first PDF to prevent jank and multiple page routes
         }
       }
