@@ -50,6 +50,7 @@ dependencies:
   image_picker: ^1.2.2
   image: ^4.8.0
   open_file: ^3.5.11
+  flutter_slidable: ^4.0.3
 
 dev_dependencies:
   flutter_test:

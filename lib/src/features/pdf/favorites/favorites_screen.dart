@@ -7,6 +7,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import '../application/pdf_library_controller.dart';
+import '../../vault/vault_controller.dart';
 import '../home/widgets/pdf_card_shimmer.dart';
 
 import '../viewer/pdf_viewer_screen.dart';
@@ -77,6 +78,21 @@ class FavoritesScreen extends ConsumerWidget {
                     child: PdfCustomCard(
                       item: item,
                       index: index,
+                      onFavorite: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(item),
+                      onVault: () async {
+                        final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
+                        if (success && context.mounted) {
+                          ref.read(pdfLibraryControllerProvider.notifier).refresh();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Moved to Vault'),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                       onTap: () async {
                         await ctrl.markRecent(item);
                         if (!context.mounted) return;
@@ -84,7 +100,6 @@ class FavoritesScreen extends ConsumerWidget {
                           MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
                         );
                       },
-                      onFavorite: () => ctrl.toggleFavorite(item),
                     ).animate(key: ValueKey('fav_${item.path}'))
                      .fadeIn(
                        duration: 400.ms,
