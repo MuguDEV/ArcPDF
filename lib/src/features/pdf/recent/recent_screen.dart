@@ -13,6 +13,7 @@ import '../application/pdf_library_controller.dart';
 import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
+import '../home/widgets/pdf_custom_card.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
 import '../../../shared/widgets/arc_progress_indicator.dart';
 
@@ -164,27 +165,31 @@ class _RecentGroupsList extends ConsumerWidget {
             itemBuilder: (context, i) {
               final idx = itemIndex + i;
               final item = items[i];
-              return _RecentTile(
-                item: item,
-                index: idx,
-                onTap: () async {
-                  await ctrl.markRecent(item);
-                  if (!context.mounted) return;
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
-                  );
-                },
-              )
-              .animate()
-              .fadeIn(
-                delay: (idx > 20 ? 0 : idx * 30).ms,
-                duration: 400.ms,
-              )
-              .slideY(
-                begin: 0.1,
-                delay: (idx > 20 ? 0 : idx * 30).ms,
-                duration: 400.ms,
-                curve: Curves.easeInOutCubicEmphasized,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: PdfCustomCard(
+                  item: item,
+                  index: idx,
+                  onTap: () async {
+                    await ctrl.markRecent(item);
+                    if (!context.mounted) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
+                    );
+                  },
+                  onFavorite: () => ctrl.toggleFavorite(item),
+                )
+                .animate()
+                .fadeIn(
+                  delay: (idx > 20 ? 0 : idx * 30).ms,
+                  duration: 400.ms,
+                )
+                .slideY(
+                  begin: 0.1,
+                  delay: (idx > 20 ? 0 : idx * 30).ms,
+                  duration: 400.ms,
+                  curve: Curves.easeInOutCubicEmphasized,
+                ),
               );
             },
           ),
@@ -195,104 +200,5 @@ class _RecentGroupsList extends ConsumerWidget {
     }
 
     return SliverMainAxisGroup(slivers: slivers);
-  }
-}
-
-class _RecentTile extends ConsumerStatefulWidget {
-  const _RecentTile({required this.item, required this.index, required this.onTap});
-  final PdfFileItem item;
-  final int index;
-  final VoidCallback onTap;
-
-  @override
-  ConsumerState<_RecentTile> createState() => _RecentTileState();
-}
-
-class _RecentTileState extends ConsumerState<_RecentTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final openedAt = widget.item.openedAt;
-    final timeStr = openedAt != null ? DateFormat.jm().format(openedAt) : '';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: () {
-          ref.read(hapticServiceProvider).selectionClick();
-          widget.onTap();
-        },
-        child: AnimatedScale(
-          scale: _pressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Icon(
-                    HugeIcons.strokeRoundedPdf02,
-                    size: 22,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _fileSize(widget.item.sizeBytes),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  timeStr,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    )
-        .animate(delay: (widget.index * 30).ms)
-        .fadeIn(duration: 280.ms)
-        .slideX(begin: 0.04, curve: Curves.easeOutCubic);
-  }
-
-  String _fileSize(int bytes) {
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

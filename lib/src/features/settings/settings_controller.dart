@@ -33,7 +33,6 @@ extension AppFontFamilyX on AppFontFamily {
 class AppSettings {
   const AppSettings({
     required this.themeMode,
-    required this.useGrid,
     required this.useBlurEffect,
     required this.useLiquidGlass,
     required this.animationIntensity,
@@ -46,7 +45,6 @@ class AppSettings {
   });
 
   final ThemeMode themeMode;
-  final bool useGrid;
   final bool useBlurEffect;
   final bool useLiquidGlass;
   final double animationIntensity;
@@ -59,7 +57,6 @@ class AppSettings {
 
   AppSettings copyWith({
     ThemeMode? themeMode,
-    bool? useGrid,
     bool? useBlurEffect,
     bool? useLiquidGlass,
     double? animationIntensity,
@@ -72,7 +69,6 @@ class AppSettings {
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
-      useGrid: useGrid ?? this.useGrid,
       useBlurEffect: useBlurEffect ?? this.useBlurEffect,
       useLiquidGlass: useLiquidGlass ?? this.useLiquidGlass,
       animationIntensity: animationIntensity ?? this.animationIntensity,
@@ -92,7 +88,6 @@ class SettingsController extends StateNotifier<AppSettings> {
   SettingsController(this._box)
       : super(AppSettings(
           themeMode: ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
-          useGrid: _box.get('grid', defaultValue: false) as bool,
           useBlurEffect: _box.get('useBlurEffect', defaultValue: true) as bool,
           useLiquidGlass: _box.get('useLiquidGlass', defaultValue: false) as bool,
           animationIntensity: ((_box.get('anim', defaultValue: 1.0) as num).toDouble()).clamp(0.01, 1.0),
@@ -109,11 +104,6 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setThemeMode(ThemeMode mode) async {
     state = state.copyWith(themeMode: mode);
     await _box.put('themeMode', mode.index);
-  }
-
-  Future<void> setGrid(bool value) async {
-    state = state.copyWith(useGrid: value);
-    await _box.put('grid', value);
   }
 
   Future<void> setUseBlurEffect(bool value) async {

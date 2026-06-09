@@ -13,8 +13,7 @@ import '../application/pdf_library_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
 import 'permission_screen.dart';
-import 'widgets/pdf_card.dart';
-import 'widgets/pdf_grid_card.dart';
+import 'widgets/pdf_custom_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
 import '../../vault/vault_screen.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
@@ -78,7 +77,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final settings = ref.watch(settingsControllerProvider);
     final items = ctrl.filteredItems();
-    final useGrid = settings.useGrid;
     final theme = Theme.of(context);
 
     final isBlur = settings.useBlurEffect;
@@ -158,11 +156,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   case 'refresh':
                     ctrl.refresh();
                     break;
-                  case 'toggle_view':
-                    ref
-                        .read(settingsControllerProvider.notifier)
-                        .setGrid(!useGrid);
-                    break;
                   case 'sort_name':
                     ctrl.setSortField(PdfSortField.name);
                     break;
@@ -190,18 +183,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Icon(HugeIcons.strokeRoundedRefresh),
                         SizedBox(width: 12),
                         Text('Refresh'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggle_view',
-                    child: Row(
-                      children: [
-                        Icon(useGrid
-                            ? HugeIcons.strokeRoundedListView
-                            : HugeIcons.strokeRoundedGridView),
-                        const SizedBox(width: 12),
-                        Text(useGrid ? 'List View' : 'Grid View'),
                       ],
                     ),
                   ),
@@ -425,10 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         final item = entry.value;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10.0),
-                          child: useGrid
-                              ? _buildGridItem(context, ref, item, index,
-                                  key: ValueKey('grid_${item.path}'))
-                              : _buildListItem(context, ref, item, index,
+                          child: _buildListItem(context, ref, item, index,
                                   key: ValueKey('list_${item.path}')),
                         );
                       }),
@@ -442,18 +420,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverMasonryGrid.count(
-              crossAxisCount: useGrid
-                  ? (MediaQuery.sizeOf(context).width > 700 ? 3 : 2)
-                  : 1,
+              crossAxisCount: 1,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
               itemBuilder: (context, index) {
                 final item = items[index];
-                return (useGrid
-                        ? _buildGridItem(context, ref, item, index,
-                            key: ValueKey('grid_${item.path}'))
-                        : _buildListItem(context, ref, item, index,
-                            key: ValueKey('list_${item.path}')))
+                return _buildListItem(context, ref, item, index,
+                            key: ValueKey('list_${item.path}'))
                     .animate(key: ValueKey('anim_${item.path}'))
                     .fadeIn(
                       delay: (index > 20 ? 0 : index * 30).ms,
@@ -491,32 +464,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       BuildContext context, WidgetRef ref, PdfFileItem item, int index,
       {Key? key}) {
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
-    return PdfCard(
-      key: key,
-      item: item,
-      index: index,
-      onFavorite: () => ctrl.toggleFavorite(item),
-      onTap: () async {
-        if (item.sizeBytes == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Cannot open empty or corrupted file')),
-          );
-          return;
-        }
-        await ctrl.markRecent(item);
-        if (!context.mounted) return;
-        await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)));
-      },
-    );
-  }
-
-  Widget _buildGridItem(
-      BuildContext context, WidgetRef ref, PdfFileItem item, int index,
-      {Key? key}) {
-    final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
-    return PdfGridCard(
+    return PdfCustomCard(
       key: key,
       item: item,
       index: index,

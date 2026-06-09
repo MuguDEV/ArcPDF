@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:hugeicons/hugeicons.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
@@ -62,6 +64,8 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Images to PDF')),
       body: Column(
@@ -79,21 +83,68 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
               },
               itemBuilder: (context, index) {
                 final path = _selectedFiles[index];
-                return ListTile(
+                final file = File(path);
+                final sizeBytes = file.existsSync() ? file.lengthSync() : 0;
+                final sizeStr = sizeBytes < 1024 * 1024
+                    ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
+                    : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
+                return Padding(
                   key: ValueKey(path),
-                  leading: Image.file(File(path), width: 40, height: 40, fit: BoxFit.cover),
-                  title: Text(p.basename(path), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(file, width: 44, height: 58, fit: BoxFit.cover),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  p.basename(path),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    sizeStr,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 20),
+                            onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                          ),
+                          Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant),
+                        ],
                       ),
-                      const Icon(Icons.drag_handle),
-                    ],
+                    ),
                   ),
-                );
+                ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05);
               },
             ),
           ),
