@@ -66,10 +66,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     child: SizedBox(
                       width: 80,
                       height: 104,
-                      child: Hero(
-                        tag: 'pdf_thumb_${widget.item.path}',
-                        child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
-                      ),
+                      child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                     ),
                   ),
                   const SizedBox(width: 16),

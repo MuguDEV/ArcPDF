@@ -224,16 +224,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
         children: [
           // 1. PDF Viewer
           if (!_isReadyToRender)
-            Center(
-              child: Hero(
-                tag: 'pdf_thumb_${widget.item.path}',
-                child: const ArcProgressIndicator(),
-              ),
+            const Center(
+              child: ArcProgressIndicator(),
             )
           else
-            Hero(
-              tag: 'pdf_thumb_${widget.item.path}',
-              child: RotatedBox(
+            RotatedBox(
                 quarterTurns: _rotationQuarterTurns,
                 child: PdfViewer.file(
                   widget.item.path,
@@ -320,7 +315,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   ],
                 ),
               ),
-            )),
+            ),
 
           // 2. Top App Bar / Search Bar
           Positioned(
