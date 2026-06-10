@@ -56,25 +56,26 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Larger, more prominent thumbnail
+                  // Thumbnail
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: SizedBox(
-                      width: 80,
-                      height: 104,
+                      width: 60,
+                      height: 80,
                       child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
 
                   // Info Section
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,10 +83,11 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                             Expanded(
                               child: Text(
                                 widget.item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
+                                  fontSize: 15,
                                   height: 1.2,
                                 ),
                               ),
@@ -100,7 +102,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                               child: Icon(
                                 isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                                 color: isFav ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                size: 24,
+                                size: 22,
                               ),
                             ),
                           ],
@@ -110,21 +112,21 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                         // Location label
                         Row(
                           children: [
-                            Icon(HugeIcons.strokeRoundedFolder01, size: 14, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                            Icon(HugeIcons.strokeRoundedFolder01, size: 12, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 widget.item.locationLabel,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelMedium?.copyWith(
+                                style: theme.textTheme.labelSmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
 
                         // Badges perfectly aligned + date
                         Row(
@@ -182,9 +184,12 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Slidable(
         key: ValueKey(widget.item.path),
+        closeOnScroll: true,
         startActionPane: ActionPane(
           motion: const BehindMotion(),
           extentRatio: 0.25,
+          openThreshold: 0.1,
+          closeThreshold: 0.1,
           children: [
             CustomSlidableAction(
               onPressed: (_) {
@@ -212,6 +217,8 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
         endActionPane: widget.onVault != null ? ActionPane(
           motion: const BehindMotion(),
           extentRatio: 0.25,
+          openThreshold: 0.1,
+          closeThreshold: 0.1,
           children: [
             CustomSlidableAction(
               onPressed: (_) {

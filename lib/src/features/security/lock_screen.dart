@@ -37,7 +37,8 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final security = ref.read(securityControllerProvider);
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    // Ignore inactive state because it's triggered by system dialogs, file pickers, etc.
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       if (security.requireLockOnResume) {
         ref.read(securityControllerProvider.notifier).lockApp();
       }
