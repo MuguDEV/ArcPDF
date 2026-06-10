@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'dart:ui';
 
@@ -192,10 +193,20 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                     Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        IconButton(
-                                          icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 22),
-                                          onPressed: () => setState(() => _selectedFiles.removeAt(index)),
-                                          visualDensity: VisualDensity.compact,
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(HugeIcons.strokeRoundedView, color: theme.colorScheme.primary, size: 22),
+                                              onPressed: () => OpenFile.open(path),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            IconButton(
+                                              icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 22),
+                                              onPressed: () => setState(() => _selectedFiles.removeAt(index)),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                          ],
                                         ),
                                         const SizedBox(height: 4),
                                         ReorderableDragStartListener(

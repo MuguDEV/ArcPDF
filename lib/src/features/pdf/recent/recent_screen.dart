@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../application/pdf_library_controller.dart';
 import '../../vault/vault_controller.dart';
+import '../../security/security_controller.dart';
 import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
@@ -173,6 +174,18 @@ class _RecentGroupsList extends ConsumerWidget {
                   index: idx,
                   onFavorite: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(item),
                   onVault: () async {
+                    final security = ref.read(securityControllerProvider);
+                    if (!security.isLockEnabled) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('App lock is not enabled. Enable it in Settings first.'),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                      return;
+                    }
                     final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
                     if (success && context.mounted) {
                       ref.read(pdfLibraryControllerProvider.notifier).refresh();
