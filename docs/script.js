@@ -120,33 +120,32 @@ function renderDownloadSection(container, downloadUrl) {
 
         const downloadBtn = document.getElementById('blob-download-btn');
         if (downloadBtn) {
-            downloadBtn.addEventListener('click', async () => {
-                downloadBtn.disabled = true;
+            downloadBtn.addEventListener('click', () => {
                 const originalContent = downloadBtn.innerHTML;
-                downloadBtn.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Downloading...';
+                downloadBtn.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Starting Download...';
 
-                try {
-                    const response = await fetch(downloadUrl);
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    const blob = await response.blob();
-                    const objectUrl = window.URL.createObjectURL(blob);
+                // Create a hidden iframe to trigger the download without leaving the page
+                // This bypasses CORS issues that fetch() would encounter with GitHub Releases.
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = downloadUrl;
+                document.body.appendChild(iframe);
 
+                // Fallback to a direct link click in case the iframe gets blocked by strict browser policies
+                setTimeout(() => {
                     const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = "ArcPDF.apk";
                     a.style.display = 'none';
-                    a.href = objectUrl;
-                    a.download = 'ArcPDF.apk';
                     document.body.appendChild(a);
                     a.click();
-
-                    window.URL.revokeObjectURL(objectUrl);
                     document.body.removeChild(a);
-                } catch (error) {
-                    console.error('Download failed, falling back to direct link:', error);
-                    window.open(downloadUrl, '_blank');
-                } finally {
-                    downloadBtn.disabled = false;
-                    downloadBtn.innerHTML = originalContent;
-                }
+
+                    // Reset button state
+                    setTimeout(() => {
+                        downloadBtn.innerHTML = originalContent;
+                    }, 2000);
+                }, 500);
             });
         }
 

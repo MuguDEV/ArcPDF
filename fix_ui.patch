@@ -1,0 +1,23 @@
+--- lib/src/features/tools/pages/merge_pdfs_page.dart
++++ lib/src/features/tools/pages/merge_pdfs_page.dart
+@@ -103,16 +103,7 @@
+                     },
+                     proxyDecorator: (child, index, animation) {
+                       return AnimatedBuilder(
+                         animation: animation,
+                         builder: (BuildContext context, Widget? child) {
+                           final double animValue = Curves.easeInOut.transform(animation.value);
+                           final double elevation = lerpDouble(0, 8, animValue)!;
+                           return Material(
+-                            elevation: elevation,
+-                            color: Colors.transparent,
++                            elevation: elevation,
++                            color: theme.colorScheme.surface,
+                             shadowColor: Colors.black26,
+                             borderRadius: BorderRadius.circular(24),
+                             child: child,
+                           );
+                         },
+                         child: child,
+                       );
+                     },

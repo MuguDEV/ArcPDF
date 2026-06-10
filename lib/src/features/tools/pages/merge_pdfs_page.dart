@@ -126,25 +126,20 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                           ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
                           : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
-                      return Padding(
+                      return Container(
                         key: ValueKey(path),
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: ClipRRect(
+                        margin: const EdgeInsets.only(bottom: 12.0),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
+                          border: Border.all(
+                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(16),
@@ -212,13 +207,10 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            ],
                           ),
                         ),
-                      ).animate().fadeIn(duration: 300.ms).slideX(begin: 0.05);
+                      );
                     },
                   ),
           ),
