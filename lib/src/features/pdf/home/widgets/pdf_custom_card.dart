@@ -257,16 +257,18 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
             ),
           ],
         ) : null,
-        child: ArcBouncyCard(
-          onTap: () {
-            ref.read(hapticServiceProvider).selectionClick();
-            widget.onTap();
-          },
-          onLongPress: () {
-            ref.read(hapticServiceProvider).lightImpact();
-            showPdfBottomSheet(context, ref, widget.item);
-          },
-          child: cardContent,
+        child: RepaintBoundary(
+          child: ArcBouncyCard(
+            onTap: () {
+              ref.read(hapticServiceProvider).selectionClick();
+              widget.onTap();
+            },
+            onLongPress: () {
+              ref.read(hapticServiceProvider).lightImpact();
+              showPdfBottomSheet(context, ref, widget.item);
+            },
+            child: cardContent,
+          ),
         ),
       ),
     );
