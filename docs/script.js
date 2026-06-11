@@ -1,7 +1,33 @@
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     fetchLatestRelease();
+    initScrollAnimations();
 });
+
+// Scroll Reveal Animations
+function initScrollAnimations() {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.1
+    };
+
+    const observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                // Add the 'visible' class to trigger animation
+                entry.target.classList.add('visible');
+                // Stop observing once animated
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    // Observe all elements with animation classes
+    document.querySelectorAll('.slide-up, .fade-in').forEach(el => {
+        observer.observe(el);
+    });
+}
 
 // Theme Management
 function initTheme() {
@@ -110,8 +136,11 @@ function renderDownloadSection(container, downloadUrl) {
     if (isAndroid) {
         container.innerHTML = `
             <button id="blob-download-btn" class="btn btn-primary">
-                <span class="material-symbols-outlined">download</span>
-                Download APK
+                <div class="btn-progress-overlay" id="download-progress"></div>
+                <div class="btn-content-flex" id="download-content">
+                    <span class="material-symbols-outlined">download</span>
+                    <span>Download APK</span>
+                </div>
             </button>
             <a href="https://github.com/MuguDEV/ArcPDF/releases/latest" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
                 All Releases
@@ -119,19 +148,30 @@ function renderDownloadSection(container, downloadUrl) {
         `;
 
         const downloadBtn = document.getElementById('blob-download-btn');
+        const downloadProgress = document.getElementById('download-progress');
+        const downloadContent = document.getElementById('download-content');
+
         if (downloadBtn) {
             downloadBtn.addEventListener('click', () => {
-                const originalContent = downloadBtn.innerHTML;
-                downloadBtn.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></div> Starting Download...';
+                // Prevent multiple clicks
+                if (downloadBtn.classList.contains('downloading')) return;
+                downloadBtn.classList.add('downloading');
+
+                // Start animation
+                downloadContent.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px; margin:0;"></div> <span>Starting Download...</span>';
+
+                // Simulate liquid progress
+                requestAnimationFrame(() => {
+                    downloadProgress.style.width = '80%';
+                });
 
                 // Create a hidden iframe to trigger the download without leaving the page
-                // This bypasses CORS issues that fetch() would encounter with GitHub Releases.
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
                 iframe.src = downloadUrl;
                 document.body.appendChild(iframe);
 
-                // Fallback to a direct link click in case the iframe gets blocked by strict browser policies
+                // Fallback and completion animation
                 setTimeout(() => {
                     const a = document.createElement('a');
                     a.href = downloadUrl;
@@ -141,11 +181,23 @@ function renderDownloadSection(container, downloadUrl) {
                     a.click();
                     document.body.removeChild(a);
 
-                    // Reset button state
+                    // Complete progress bar and show checkmark
+                    downloadProgress.style.width = '100%';
+                    downloadContent.innerHTML = '<span class="material-symbols-outlined">check_circle</span> <span>Downloaded!</span>';
+
+                    // Reset button state after a few seconds
                     setTimeout(() => {
-                        downloadBtn.innerHTML = originalContent;
-                    }, 2000);
-                }, 500);
+                        downloadProgress.style.transition = 'none';
+                        downloadProgress.style.width = '0%';
+                        // Restore transition
+                        setTimeout(() => {
+                            downloadProgress.style.transition = 'width 2s cubic-bezier(0.1, 0.7, 0.1, 1)';
+                        }, 50);
+
+                        downloadContent.innerHTML = '<span class="material-symbols-outlined">download</span> <span>Download APK</span>';
+                        downloadBtn.classList.remove('downloading');
+                    }, 3000);
+                }, 1500); // Give it a moment to show the progress
             });
         }
 

@@ -28,8 +28,8 @@
     </nav>
 
     <main>
-        <section class="hero slide-up">
-            <div class="hero-content liquid-glass pill-container">
+        <section class="hero">
+            <div class="hero-content liquid-glass pill-container slide-up">
                 <h1 class="hero-title">ArcPDF</h1>
                 <p class="hero-subtitle">Modern, local-first PDF manager and viewer.</p>
                 <div class="version-badge" id="version-badge">Loading version...</div>
@@ -37,6 +37,15 @@
                 <div id="download-section" class="download-section">
                     <!-- Download content populated by JS -->
                     <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <div class="hero-mockup fade-in">
+                <div class="smartphone-mockup">
+                    <div class="smartphone-notch"></div>
+                    <div class="smartphone-screen">
+                        <img src="screenshot.jpg" alt="ArcPDF App Screenshot" class="app-screenshot">
+                    </div>
                 </div>
             </div>
         </section>
@@ -60,10 +69,61 @@
                 <p class="feature-desc">Optional blur effect for toolbars and floating UI, creating a premium visual experience.</p>
             </div>
 
-            <div class="feature-card liquid-glass pill-container">
-                <span class="material-symbols-outlined feature-icon">speed</span>
-                <h3 class="feature-title">High Performance</h3>
-                <p class="feature-desc">Buttery smooth experience with 120Hz display mode support on Android devices.</p>
+            <div class="feature-card liquid-glass pill-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center;">
+                <span class="material-symbols-outlined feature-icon">handyman</span>
+                <h3 class="feature-title">Powerful Tools</h3>
+                <p class="feature-desc" style="max-width: 600px; margin-bottom: 24px;">Everything you need to manage your documents, built right in.</p>
+
+                <div class="tools-grid">
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">layers</span>
+                        <span>Merge PDFs</span>
+                    </div>
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">content_cut</span>
+                        <span>Extract Pages</span>
+                    </div>
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">lock</span>
+                        <span>Secure Vault</span>
+                    </div>
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">imagesmode</span>
+                        <span>Images to PDF</span>
+                    </div>
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">battery_saver</span>
+                        <span>Eco Mode</span>
+                    </div>
+                    <div class="tool-item">
+                        <span class="material-symbols-outlined">compress</span>
+                        <span>Compress PDF</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="showcase-section slide-up">
+            <h2 class="section-title">Beautifully Crafted</h2>
+            <div class="showcase-container">
+                <div class="showcase-mockup">
+                    <div class="smartphone-notch"></div>
+                    <div class="smartphone-screen">
+                        <img src="screenshot.jpg" alt="Home Screen" class="app-screenshot">
+                    </div>
+                </div>
+                <div class="showcase-mockup">
+                    <div class="smartphone-notch"></div>
+                    <div class="smartphone-screen">
+                        <img src="screenshot.jpg" alt="Tools Menu" class="app-screenshot" style="filter: hue-rotate(10deg);">
+                    </div>
+                </div>
+                <div class="showcase-mockup">
+                    <div class="smartphone-notch"></div>
+                    <div class="smartphone-screen">
+                        <img src="screenshot.jpg" alt="Secure Vault" class="app-screenshot" style="filter: brightness(0.9);">
+                    </div>
+                </div>
             </div>
         </section>
 

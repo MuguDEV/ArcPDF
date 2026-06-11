@@ -63,7 +63,7 @@ class ToolsScreen extends ConsumerWidget {
                 ToolCard(
                   title: 'Rearrange / Delete Pages',
                   subtitle: 'Change page order or remove pages from a PDF',
-                  icon: HugeIcons.strokeRoundedViewGrid,
+                  icon: HugeIcons.strokeRoundedGridView,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
