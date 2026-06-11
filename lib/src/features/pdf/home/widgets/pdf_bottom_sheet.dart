@@ -8,6 +8,7 @@ import '../../domain/pdf_file_item.dart';
 import '../../../vault/vault_controller.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../../../tools/pages/rearrange_pages_page.dart';
+import '../../../tools/pages/metadata_editor_page.dart';
 
 void showPdfBottomSheet(BuildContext context, WidgetRef ref, PdfFileItem item) {
   showModalBottomSheet(
@@ -201,6 +202,18 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                 HapticFeedback.lightImpact();
                 Navigator.pop(context);
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+              },
+            ),
+            _ActionTile(
+              icon: HugeIcons.strokeRoundedInformationCircle,
+              title: 'Edit Metadata',
+              color: theme.colorScheme.onSurface,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => MetadataEditorPage(initialFile: widget.item),
+                ));
               },
             ),
             _ActionTile(
