@@ -26,7 +26,6 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
   List<PdfFileItem> _selectedFiles = [];
   bool _isLoadingInfo = false;
   bool _isProcessing = false;
-  PdfMetadataInfo? _originalInfo;
 
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
@@ -56,7 +55,6 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
     setState(() {
       _selectedFiles = files;
       _isLoadingInfo = true;
-      _originalInfo = null;
 
       _titleController.text = '';
       _authorController.text = '';
@@ -69,7 +67,6 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       if (mounted) {
         setState(() {
           _isLoadingInfo = false;
-          _originalInfo = info;
           if (info != null) {
             _titleController.text = info.title;
             _authorController.text = info.author;
@@ -143,7 +140,6 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
 
         if (resultPath != null) {
           if (!saveAsCopy) {
-             final originalFile = File(inputPath);
              final tempFile = File(resultPath);
              if (await tempFile.exists()) {
                 await tempFile.copy(inputPath);

@@ -233,7 +233,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onChanged: ctrl.setLowPowerMode,
                       title: const Text('Eco Mode / Low Power'),
                       subtitle: const Text('Disables blur, 120Hz, animations, and lowers thumbnail quality to save battery and memory.'),
-                      activeColor: theme.colorScheme.primary,
+                      activeTrackColor: theme.colorScheme.primary,
                       secondary: Icon(HugeIcons.strokeRoundedBatteryLow, color: settings.lowPowerMode ? theme.colorScheme.primary : null),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),

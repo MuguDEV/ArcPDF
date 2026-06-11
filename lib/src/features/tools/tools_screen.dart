@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -173,9 +172,7 @@ class ToolsScreen extends ConsumerWidget {
         }
       ) ?? false;
 
-      if (!userPicked) return;
-
-      if (!context.mounted) return;
+      if (!userPicked || !context.mounted) return;
 
       // Single file scenario
       if (paths.length == 1) {

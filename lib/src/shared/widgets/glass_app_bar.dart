@@ -28,8 +28,8 @@ class GlassSliverAppBar extends ConsumerWidget {
 
     // Monochrome matching colors
     final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.4))
-        : theme.colorScheme.surface.withOpacity(isBlur ? 0.7 : 1.0);
+        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return SliverAppBar(
       pinned: pinned,

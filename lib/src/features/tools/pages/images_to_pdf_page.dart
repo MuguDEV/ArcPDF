@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_file/open_file.dart';
 
 import '../tools_service.dart';
