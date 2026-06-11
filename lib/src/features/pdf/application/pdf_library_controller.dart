@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../data/pdf_scanner_service.dart';
 import '../domain/pdf_file_item.dart';
+import '../../../core/utils/fuzzy_search.dart';
 
 export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
 
@@ -125,10 +126,42 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   Future<void> refresh({bool requestPermission = false}) async {
     state = state.copyWith(loading: true);
     final result = await _scanner.scan(requestPermission: requestPermission);
+
+    // Auto-tagging based on filename heuristics
+    final currentTags = Map<String, List<String>>.from(state.tags);
+    bool tagsModified = false;
+
+    for (final file in result.files) {
+      final lowerName = file.name.toLowerCase();
+      final heuristics = {
+        'invoice': 'Invoice',
+        'receipt': 'Receipt',
+        'tax': 'Tax',
+        'book': 'Book',
+        'ticket': 'Ticket',
+        'resume': 'Resume',
+        'cv': 'Resume',
+        'statement': 'Statement',
+      };
+
+      for (final entry in heuristics.entries) {
+        if (lowerName.contains(entry.key)) {
+          final fileTags = List<String>.from(currentTags[file.path] ?? []);
+          if (!fileTags.contains(entry.value)) {
+            fileTags.add(entry.value);
+            currentTags[file.path] = fileTags;
+            await _tagsBox.put(file.path, fileTags);
+            tagsModified = true;
+          }
+        }
+      }
+    }
+
     state = state.copyWith(
       loading: false,
       items: result.files,
       permissionStatus: result.permissionStatus,
+      tags: tagsModified ? currentTags : state.tags,
     );
   }
 
@@ -258,7 +291,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       if (state.filter == PdfFilter.large && e.sizeBytes < 10 * 1024 * 1024) {
         return false;
       }
-      if (q.isNotEmpty && !e.name.toLowerCase().contains(q)) {
+      if (q.isNotEmpty && !isFuzzyMatch(e.name.toLowerCase(), q)) {
         return false;
       }
       if (state.selectedTag != null && state.selectedTag!.isNotEmpty) {

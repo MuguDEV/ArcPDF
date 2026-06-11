@@ -5,6 +5,7 @@ import 'features/navigation/app_shell.dart';
 import 'features/security/lock_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'package:animations/animations.dart';
 import 'dart:io';
 
 import 'features/settings/settings_controller.dart';
@@ -151,8 +152,12 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         pageTransitionsTheme: const PageTransitionsTheme(builders: {
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.android: SharedAxisPageTransitionsBuilder(
+            transitionType: SharedAxisTransitionType.scaled,
+          ),
+          TargetPlatform.iOS: SharedAxisPageTransitionsBuilder(
+            transitionType: SharedAxisTransitionType.scaled,
+          ),
         }),
         appBarTheme: AppBarTheme(
           backgroundColor: colorScheme.surface,
