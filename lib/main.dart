@@ -21,14 +21,6 @@ Future<void> main() async {
     ),
   );
 
-  if (Platform.isAndroid) {
-    try {
-      await FlutterDisplayMode.setHighRefreshRate();
-    } catch (_) {
-      // Ignore on devices where this fails
-    }
-  }
-
   await bootstrap();
   runApp(const ProviderScope(child: ArcPdfApp()));
 }

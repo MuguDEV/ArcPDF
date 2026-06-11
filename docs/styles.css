@@ -639,3 +639,27 @@ footer {
     font-size: 24px;
     color: var(--md-sys-color-primary);
 }
+
+/* Clean Changelog List */
+.clean-list {
+    list-style: none !important;
+    padding-left: 0 !important;
+}
+
+.clean-list li {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 12px !important;
+    font-size: 1.05rem;
+    color: var(--md-sys-color-on-surface) !important;
+}
+
+.clean-list li::before {
+    content: 'check_circle';
+    font-family: 'Material Symbols Outlined';
+    position: absolute;
+    left: 0;
+    top: 2px;
+    font-size: 18px;
+    color: var(--md-sys-color-primary);
+}

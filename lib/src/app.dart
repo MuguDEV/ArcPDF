@@ -23,6 +23,18 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
   void initState() {
     super.initState();
     ref.read(intentServiceProvider).init();
+
+    // Apply initial refresh rate safely outside of build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Platform.isAndroid) {
+        final settings = ref.read(settingsControllerProvider);
+        if (settings.lowPowerMode) {
+          FlutterDisplayMode.setLowRefreshRate().catchError((_) {});
+        } else {
+          FlutterDisplayMode.setHighRefreshRate().catchError((_) {});
+        }
+      }
+    });
   }
 
   @override
