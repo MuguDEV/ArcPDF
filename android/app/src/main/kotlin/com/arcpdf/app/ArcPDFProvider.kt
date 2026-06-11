@@ -59,10 +59,22 @@ class ArcPDFProvider : DocumentsProvider() {
 
     private fun getFileForDocId(documentId: String): File {
         val baseDir = getBaseDirectory()
-        return File(baseDir, documentId)
+        if (documentId == ROOT_ID) {
+            return baseDir
+        }
+        val target = File(baseDir, documentId)
+        // Basic path traversal protection
+        if (!target.canonicalPath.startsWith(baseDir.canonicalPath)) {
+            throw SecurityException("Invalid documentId: $documentId")
+        }
+        return target
     }
 
     private fun getDocIdForFile(file: File): String {
+        val baseDir = getBaseDirectory()
+        if (file.canonicalPath == baseDir.canonicalPath) {
+            return ROOT_ID
+        }
         return file.name
     }
 
@@ -74,7 +86,7 @@ class ArcPDFProvider : DocumentsProvider() {
         row.add(Root.COLUMN_SUMMARY, "ArcPDF Files")
         row.add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_SEARCH or Root.FLAG_SUPPORTS_RECENTS)
         row.add(Root.COLUMN_TITLE, "ArcPDF")
-        row.add(Root.COLUMN_DOCUMENT_ID, getDocIdForFile(getBaseDirectory()))
+        row.add(Root.COLUMN_DOCUMENT_ID, ROOT_ID)
         row.add(Root.COLUMN_MIME_TYPES, "application/pdf")
         row.add(Root.COLUMN_ICON, R.mipmap.ic_launcher)
 
