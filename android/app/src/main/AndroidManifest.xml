@@ -58,6 +58,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Storage Access Framework Provider for ArcPDF -->
+        <provider
+            android:name=".ArcPDFProvider"
+            android:authorities="com.arcpdf.app.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
     <queries>
         <intent>
