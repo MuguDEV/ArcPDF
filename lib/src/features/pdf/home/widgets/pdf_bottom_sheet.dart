@@ -194,7 +194,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
             Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             _ActionTile(
-              icon: HugeIcons.strokeRoundedViewGrid,
+              icon: HugeIcons.strokeRoundedGridView,
               title: 'Rearrange / Delete Pages',
               color: theme.colorScheme.onSurface,
               onTap: () {

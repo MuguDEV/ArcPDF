@@ -205,11 +205,56 @@ main {
     background-color: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.btn-primary:hover::before {
+    opacity: 1;
+    animation: pulseGlow 2s infinite ease-in-out;
 }
 
 .btn-primary:hover {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-    opacity: 0.9;
+}
+
+/* Liquid Progress Animation overlay */
+.btn-progress-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(255,255,255,0.15);
+    width: 0%;
+    transition: width 2s cubic-bezier(0.1, 0.7, 0.1, 1);
+    pointer-events: none;
+}
+
+.btn-content-flex {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+@keyframes pulseGlow {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.5; }
 }
 
 .btn-secondary {
@@ -347,15 +392,23 @@ footer {
     50% { transform: translateY(-10px); }
 }
 
+/* Base state for animated elements */
 .slide-up {
-    animation: slideUp 0.8s var(--spring-easing) forwards;
     opacity: 0;
     transform: translateY(40px);
 }
 
 .fade-in {
-    animation: fadeIn 1s ease forwards;
     opacity: 0;
+}
+
+/* Visible state applied via JS IntersectionObserver */
+.slide-up.visible {
+    animation: slideUp 0.8s var(--spring-easing) forwards;
+}
+
+.fade-in.visible {
+    animation: fadeIn 1s ease forwards;
 }
 
 @keyframes slideUp {
@@ -402,4 +455,187 @@ footer {
     .changelog-content {
         padding: 24px;
     }
+}
+/* Mockup Container */
+.hero {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 60px;
+    text-align: left;
+    flex-wrap: wrap;
+}
+
+.hero-content {
+    flex: 1;
+    min-width: 300px;
+}
+
+.hero-mockup {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    min-width: 300px;
+    position: relative;
+    z-index: 10;
+}
+
+/* Smartphone Mockup (CSS Only) */
+.smartphone-mockup {
+    width: 300px;
+    height: 600px;
+    background-color: var(--md-sys-color-surface);
+    border-radius: 40px;
+    border: 12px solid var(--md-sys-color-primary);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+    transform: rotate(2deg);
+    transition: transform 0.4s var(--spring-easing);
+}
+
+.smartphone-mockup:hover {
+    transform: rotate(0deg) scale(1.02);
+}
+
+.smartphone-notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 25px;
+    background-color: var(--md-sys-color-primary);
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+    z-index: 20;
+}
+
+.smartphone-screen {
+    width: 100%;
+    height: 100%;
+    background-color: var(--md-sys-color-background);
+    overflow: hidden;
+    position: relative;
+}
+
+.app-screenshot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+}
+
+@media (max-width: 768px) {
+    .hero {
+        flex-direction: column;
+        text-align: center;
+    }
+    .hero-mockup {
+        margin-top: 20px;
+    }
+}
+
+/* Showcase Section */
+.showcase-section {
+    max-width: 1000px;
+    margin: 0 auto 80px;
+    text-align: center;
+}
+
+.showcase-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 40px;
+    flex-wrap: wrap;
+}
+
+.showcase-mockup {
+    width: 250px;
+    height: 500px;
+    background-color: var(--md-sys-color-surface);
+    border-radius: 36px;
+    border: 10px solid var(--md-sys-color-surface-container);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.4s var(--spring-easing), box-shadow 0.4s ease;
+}
+
+.showcase-mockup:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.showcase-mockup:nth-child(1) {
+    transform: rotate(-5deg);
+}
+
+.showcase-mockup:nth-child(2) {
+    transform: translateY(-20px);
+    z-index: 5;
+}
+
+.showcase-mockup:nth-child(3) {
+    transform: rotate(5deg);
+}
+
+.showcase-mockup:nth-child(1):hover,
+.showcase-mockup:nth-child(2):hover,
+.showcase-mockup:nth-child(3):hover {
+    transform: translateY(-30px) scale(1.05) rotate(0deg);
+}
+
+@media (max-width: 768px) {
+    .showcase-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .showcase-mockup:nth-child(1),
+    .showcase-mockup:nth-child(2),
+    .showcase-mockup:nth-child(3) {
+        transform: none;
+    }
+
+    .showcase-mockup:hover {
+        transform: scale(1.05);
+    }
+}
+
+/* Tools Grid */
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 800px;
+}
+
+.tool-item {
+    background-color: var(--md-sys-color-surface-container);
+    padding: 16px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.tool-item:hover {
+    background-color: var(--md-sys-color-primary-container);
+    transform: translateY(-2px);
+}
+
+.tool-item .material-symbols-outlined {
+    font-size: 24px;
+    color: var(--md-sys-color-primary);
 }
