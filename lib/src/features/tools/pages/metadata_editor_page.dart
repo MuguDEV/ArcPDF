@@ -23,7 +23,7 @@ class MetadataEditorPage extends ConsumerStatefulWidget {
 }
 
 class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
-  PdfFileItem? _selectedFile;
+  List<PdfFileItem> _selectedFiles = [];
   bool _isLoadingInfo = false;
   bool _isProcessing = false;
   PdfMetadataInfo? _originalInfo;
@@ -37,7 +37,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
   void initState() {
     super.initState();
     if (widget.initialFile != null) {
-      _handleFileSelected(widget.initialFile!);
+      _handleFilesSelected([widget.initialFile!]);
     }
   }
 
@@ -50,36 +50,46 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
     super.dispose();
   }
 
-  Future<void> _handleFileSelected(PdfFileItem file) async {
+  Future<void> _handleFilesSelected(List<PdfFileItem> files) async {
+    if (files.isEmpty) return;
+
     setState(() {
-      _selectedFile = file;
+      _selectedFiles = files;
       _isLoadingInfo = true;
       _originalInfo = null;
+
+      _titleController.text = '';
+      _authorController.text = '';
+      _subjectController.text = '';
+      _keywordsController.text = '';
     });
 
-    final info = await ToolsService.readPdfMetadata(file.path);
-
-    if (mounted) {
-      setState(() {
-        _isLoadingInfo = false;
-        _originalInfo = info;
-        if (info != null) {
-          _titleController.text = info.title;
-          _authorController.text = info.author;
-          _subjectController.text = info.subject;
-          _keywordsController.text = info.keywords;
-        } else {
-          _titleController.text = '';
-          _authorController.text = '';
-          _subjectController.text = '';
-          _keywordsController.text = '';
-        }
-      });
+    if (files.length == 1) {
+      final info = await ToolsService.readPdfMetadata(files.first.path);
+      if (mounted) {
+        setState(() {
+          _isLoadingInfo = false;
+          _originalInfo = info;
+          if (info != null) {
+            _titleController.text = info.title;
+            _authorController.text = info.author;
+            _subjectController.text = info.subject;
+            _keywordsController.text = info.keywords;
+          }
+        });
+      }
+    } else {
+      // For batch processing, we don't prefill metadata since files likely differ.
+      if (mounted) {
+        setState(() {
+          _isLoadingInfo = false;
+        });
+      }
     }
   }
 
   Future<void> _handleSave() async {
-    if (_selectedFile == null) return;
+    if (_selectedFiles.isEmpty) return;
 
     // Unfocus keyboard
     FocusScope.of(context).unfocus();
@@ -100,61 +110,66 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
     });
 
     try {
-      final inputPath = _selectedFile!.path;
-      String outputPath;
+      int successCount = 0;
+      final targetDir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
 
-      if (saveAsCopy) {
-        final targetDir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-        final baseName = p.basenameWithoutExtension(inputPath);
-        outputPath = p.join(targetDir, '${baseName}_meta.pdf');
+      for (final file in _selectedFiles) {
+        final inputPath = file.path;
+        String outputPath;
 
-        int counter = 1;
-        while (File(outputPath).existsSync()) {
-          outputPath = p.join(targetDir, '${baseName}_meta_$counter.pdf');
-          counter++;
+        if (saveAsCopy) {
+          final baseName = p.basenameWithoutExtension(inputPath);
+          outputPath = p.join(targetDir, '${baseName}_meta.pdf');
+
+          int counter = 1;
+          while (File(outputPath).existsSync()) {
+            outputPath = p.join(targetDir, '${baseName}_meta_$counter.pdf');
+            counter++;
+          }
+        } else {
+          // Overwrite: Save to a temp file first, then move
+          final tempDir = Directory.systemTemp;
+          outputPath = p.join(tempDir.path, 'meta_temp_${DateTime.now().millisecondsSinceEpoch}_${file.name}.pdf');
         }
-      } else {
-        // Overwrite: Save to a temp file first, then move
-        final tempDir = Directory.systemTemp;
-        outputPath = p.join(tempDir.path, 'meta_temp_${DateTime.now().millisecondsSinceEpoch}.pdf');
+
+        final resultPath = await ToolsService.editPdfMetadata(
+          inputPath: inputPath,
+          outputPath: outputPath,
+          title: _titleController.text.trim(),
+          author: _authorController.text.trim(),
+          subject: _subjectController.text.trim(),
+          keywords: _keywordsController.text.trim(),
+        );
+
+        if (resultPath != null) {
+          if (!saveAsCopy) {
+             final originalFile = File(inputPath);
+             final tempFile = File(resultPath);
+             if (await tempFile.exists()) {
+                await tempFile.copy(inputPath);
+                await tempFile.delete();
+             }
+          }
+          successCount++;
+        }
       }
 
-      final resultPath = await ToolsService.editPdfMetadata(
-        inputPath: inputPath,
-        outputPath: outputPath,
-        title: _titleController.text.trim(),
-        author: _authorController.text.trim(),
-        subject: _subjectController.text.trim(),
-        keywords: _keywordsController.text.trim(),
-      );
+      // Refresh library to show changes
+      ref.read(pdfLibraryControllerProvider.notifier).refresh();
 
-      if (resultPath != null && mounted) {
-        if (!saveAsCopy) {
-           final originalFile = File(inputPath);
-           final tempFile = File(resultPath);
-           if (await tempFile.exists()) {
-              await tempFile.copy(inputPath);
-              await tempFile.delete();
-           }
-        }
-
-        final finalPath = saveAsCopy ? resultPath : inputPath;
-
-        // Refresh library to show changes
-        ref.read(pdfLibraryControllerProvider.notifier).refresh();
-
-        if (mounted) {
-           showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => ToolActionDialog(
-              title: 'Metadata Updated!',
-              message: 'The document properties have been successfully updated.',
-              outputPath: finalPath,
-              isLoading: false,
-            ),
-          );
-        }
+      if (mounted) {
+         showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => ToolActionDialog(
+            title: _selectedFiles.length == 1 ? 'Metadata Updated!' : 'Batch Update Complete!',
+            message: _selectedFiles.length == 1
+                ? 'The document properties have been successfully updated.'
+                : 'Successfully updated properties for $successCount out of ${_selectedFiles.length} files.',
+            outputPath: _selectedFiles.length == 1 ? (saveAsCopy ? p.join(targetDir, '${p.basenameWithoutExtension(_selectedFiles.first.path)}_meta.pdf') : _selectedFiles.first.path) : targetDir,
+            isLoading: false,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -222,9 +237,9 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                   GestureDetector(
                     onTap: () async {
                       ref.read(hapticServiceProvider).lightImpact();
-                      final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+                      final paths = await InAppPdfSelector.show(context, allowMultiple: true);
                       if (paths != null && paths.isNotEmpty) {
-                        _handleFileSelected(PdfFileItem.fromFile(File(paths.first)));
+                        _handleFilesSelected(paths.map((p) => PdfFileItem.fromFile(File(p))).toList());
                       }
                     },
                     child: Container(
@@ -240,9 +255,11 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
-                              _selectedFile != null ? p.basename(_selectedFile!.path) : 'Tap to select a PDF...',
+                              _selectedFiles.isNotEmpty
+                                  ? (_selectedFiles.length == 1 ? p.basename(_selectedFiles.first.path) : '${_selectedFiles.length} files selected')
+                                  : 'Tap to select PDF(s)...',
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                color: _selectedFile != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                                color: _selectedFiles.isNotEmpty ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -254,10 +271,10 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                     ),
                   ),
 
-                  if (_selectedFile != null) ...[
+                  if (_selectedFiles.isNotEmpty) ...[
                     const SizedBox(height: 32),
                     Text(
-                      'Document Properties',
+                      _selectedFiles.length == 1 ? 'Document Properties' : 'Batch Apply Properties',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
