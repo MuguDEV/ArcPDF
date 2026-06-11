@@ -22,8 +22,8 @@ class GlassSliverAppBar extends ConsumerWidget {
     final theme = Theme.of(context);
 
     final isDark = theme.brightness == Brightness.dark;
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
+    final isBlur = settings.useBlurEffect && !settings.lowPowerMode;
+    final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
     final double sigma = isLiquid ? 48.0 : 16.0;
 
     // Monochrome matching colors

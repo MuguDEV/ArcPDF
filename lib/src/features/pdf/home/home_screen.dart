@@ -8,6 +8,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../shared/widgets/empty_state.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import '../../settings/settings_controller.dart';
 import '../application/pdf_library_controller.dart';
 import '../../vault/vault_controller.dart';
@@ -32,6 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _searchActive = false;
   final _scrollController = ScrollController();
   bool _showScrollToTop = false;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -244,7 +247,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   curve: Curves.easeOutCubic,
                   child: TextField(
                     controller: _searchController,
-                    onChanged: ctrl.setQuery,
+                    onChanged: (val) {
+                      if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+                      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+                        ctrl.setQuery(val);
+                      });
+                    },
                     onTap: () => setState(() => _searchActive = true),
                     onTapOutside: (_) => setState(() => _searchActive = false),
                     decoration: InputDecoration(

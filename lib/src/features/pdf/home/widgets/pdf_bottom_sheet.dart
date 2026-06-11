@@ -7,6 +7,7 @@ import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import '../../../vault/vault_controller.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../../tools/pages/rearrange_pages_page.dart';
 
 void showPdfBottomSheet(BuildContext context, WidgetRef ref, PdfFileItem item) {
   showModalBottomSheet(
@@ -192,6 +193,16 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
             const SizedBox(height: 24),
             Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
+            _ActionTile(
+              icon: HugeIcons.strokeRoundedViewGrid,
+              title: 'Rearrange / Delete Pages',
+              color: theme.colorScheme.onSurface,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.pop(context);
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+              },
+            ),
             _ActionTile(
               icon: HugeIcons.strokeRoundedFolderSecurity,
               title: 'Move to Secure Vault',

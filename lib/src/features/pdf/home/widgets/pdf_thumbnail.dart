@@ -3,19 +3,22 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'pdf_thumbnail_cache.dart';
+import '../../../settings/settings_controller.dart';
 
-class PdfThumbnail extends StatelessWidget {
+class PdfThumbnail extends ConsumerWidget {
   const PdfThumbnail({super.key, required this.path, this.isEncrypted = false, this.isCorrupted = false});
   final String path;
   final bool isEncrypted;
   final bool isCorrupted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     if (isCorrupted) {
       return _CorruptedFallback(theme: theme);
@@ -32,7 +35,7 @@ class PdfThumbnail extends StatelessWidget {
             ? _LockedState(theme: theme)
             : FutureBuilder<Uint8List?>(
                 initialData: PdfThumbnailCache.getCached(path),
-                future: PdfThumbnailCache.getThumbnail(path),
+                future: PdfThumbnailCache.getThumbnail(path, lowPowerMode: lowPowerMode),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                     return Shimmer.fromColors(

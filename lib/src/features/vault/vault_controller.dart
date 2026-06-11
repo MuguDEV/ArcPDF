@@ -93,11 +93,6 @@ class VaultController extends StateNotifier<VaultState> {
       final file = File(item.path);
       if (!await file.exists()) return false;
 
-      final bytes = await file.readAsBytes();
-      // Use standard encryption mechanism, avoiding .bytes getter which might fail on some sizes
-      final encrypted = _encrypter.encryptBytes(bytes, iv: _iv);
-      final encryptedBytes = encrypted.bytes;
-
       final vaultDir = await _getVaultDirectory();
 
       String newName = item.name;
@@ -108,8 +103,12 @@ class VaultController extends StateNotifier<VaultState> {
         counter++;
       }
       final newPath = p.join(vaultDir.path, newName);
-
       final newFile = File(newPath);
+
+      final bytes = await file.readAsBytes();
+      final encrypted = _encrypter.encryptBytes(bytes, iv: _iv);
+      final encryptedBytes = encrypted.bytes;
+
       await newFile.writeAsBytes(encryptedBytes, flush: true);
 
       if (await newFile.exists() && (await newFile.length()) > 0) {

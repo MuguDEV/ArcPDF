@@ -12,6 +12,7 @@ import 'tools_service.dart';
 import 'tool_action_dialog.dart';
 import 'pages/merge_pdfs_page.dart';
 import 'pages/split_pdf_page.dart';
+import 'pages/rearrange_pages_page.dart';
 import 'pages/images_to_pdf_page.dart';
 import 'pages/pdf_to_images_page.dart';
 import 'widgets/in_app_pdf_selector.dart';
@@ -60,11 +61,21 @@ class ToolsScreen extends ConsumerWidget {
                 ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 const SizedBox(height: 12),
                 ToolCard(
+                  title: 'Rearrange / Delete Pages',
+                  subtitle: 'Change page order or remove pages from a PDF',
+                  icon: HugeIcons.strokeRoundedViewGrid,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+                  },
+                ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                const SizedBox(height: 12),
+                ToolCard(
                   title: 'Compress PDF',
                   subtitle: 'Reduce the file size of your PDF document',
                   icon: HugeIcons.strokeRoundedFile01,
                   onTap: () => _handleCompress(context, ref),
-                ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 
                 const SizedBox(height: 32),
                 _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),

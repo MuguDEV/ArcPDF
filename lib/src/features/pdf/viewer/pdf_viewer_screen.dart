@@ -214,8 +214,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect));
-    final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass));
+    final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect && !s.lowPowerMode));
+    final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass && !s.lowPowerMode));
     final repo = ref.read(readingProgressRepositoryProvider);
 
     return Scaffold(
@@ -1154,17 +1154,18 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _FrostedBar extends StatelessWidget {
+class _FrostedBar extends ConsumerWidget {
   const _FrostedBar({required this.child, required this.useBlur, required this.useLiquidGlass});
   final Widget child;
   final bool useBlur;
   final bool useLiquidGlass;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFF5F5F5);
+    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     final double sigma = useLiquidGlass ? 48.0 : 16.0;
     final Color bgColor = useLiquidGlass
@@ -1173,7 +1174,7 @@ class _FrostedBar extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
-      child: useBlur ? BackdropFilter(
+      child: useBlur && !lowPowerMode ? BackdropFilter(
         filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: DecoratedBox(
           decoration: BoxDecoration(
