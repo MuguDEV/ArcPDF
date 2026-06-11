@@ -150,7 +150,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
             builder: (_) => ToolActionDialog(
               title: 'Metadata Updated!',
               message: 'The document properties have been successfully updated.',
-              resultPath: finalPath,
+              outputPath: finalPath,
               isLoading: false,
             ),
           );
@@ -202,7 +202,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       body: CustomScrollView(
         slivers: [
           const GlassSliverAppBar(
-            title: 'Metadata Editor',
+            title: Text('Metadata Editor'),
             actions: [],
           ),
           SliverToBoxAdapter(
@@ -219,9 +219,39 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  InAppPdfSelector(
-                    initialFile: _selectedFile,
-                    onFileSelected: _handleFileSelected,
+                  GestureDetector(
+                    onTap: () async {
+                      ref.read(hapticServiceProvider).lightImpact();
+                      final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+                      if (paths != null && paths.isNotEmpty) {
+                        _handleFileSelected(PdfFileItem.fromFile(File(paths.first)));
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(HugeIcons.strokeRoundedPdf02, color: theme.colorScheme.primary),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              _selectedFile != null ? p.basename(_selectedFile!.path) : 'Tap to select a PDF...',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: _selectedFile != null ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Icon(HugeIcons.strokeRoundedArrowRight01, color: theme.colorScheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
                   ),
 
                   if (_selectedFile != null) ...[
