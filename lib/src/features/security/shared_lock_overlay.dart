@@ -7,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'security_controller.dart';
 import 'pin_pad.dart';
 import 'pattern_pad.dart';
+import '../settings/settings_controller.dart';
 
 class SharedLockOverlay extends ConsumerStatefulWidget {
   final Future<bool> Function(String) onVerify;
@@ -49,19 +50,22 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final security = ref.watch(securityControllerProvider);
+    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Frosted glass background
+          // Background
           Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-              child: Container(
-                color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.85),
-              ),
-            ),
+            child: lowPowerMode
+                ? Container(color: theme.colorScheme.surface)
+                : BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+                    child: Container(
+                      color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.85),
+                    ),
+                  ),
           ),
 
           SafeArea(

@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/navigation/app_shell.dart';
 import 'features/security/lock_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'dart:io';
+
 import 'features/settings/settings_controller.dart';
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
@@ -31,6 +35,24 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final font = settings.fontFamily;
+
+    // Listen to changes to set refresh rate safely (not every build frame)
+    ref.listen<AppSettings>(settingsControllerProvider, (prev, next) {
+      if (prev?.lowPowerMode != next.lowPowerMode && Platform.isAndroid) {
+        if (next.lowPowerMode) {
+          FlutterDisplayMode.setLowRefreshRate().catchError((_) {});
+        } else {
+          FlutterDisplayMode.setHighRefreshRate().catchError((_) {});
+        }
+      }
+    });
+
+    // Apply low power mode to global animations
+    if (settings.lowPowerMode) {
+      Animate.defaultDuration = 0.ms;
+    } else {
+      Animate.defaultDuration = (300 * settings.animationSpeed).ms;
+    }
 
     const lightColorScheme = ColorScheme(
       brightness: Brightness.light,

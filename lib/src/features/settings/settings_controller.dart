@@ -42,6 +42,7 @@ class AppSettings {
     required this.useHaptics,
     required this.keepScreenAwake,
     required this.compressionThreads,
+    required this.lowPowerMode,
   });
 
   final ThemeMode themeMode;
@@ -54,6 +55,7 @@ class AppSettings {
   final bool useHaptics;
   final bool keepScreenAwake;
   final int compressionThreads;
+  final bool lowPowerMode;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -66,6 +68,7 @@ class AppSettings {
     bool? useHaptics,
     bool? keepScreenAwake,
     int? compressionThreads,
+    bool? lowPowerMode,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -78,6 +81,7 @@ class AppSettings {
       useHaptics: useHaptics ?? this.useHaptics,
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       compressionThreads: compressionThreads ?? this.compressionThreads,
+      lowPowerMode: lowPowerMode ?? this.lowPowerMode,
     );
   }
 }
@@ -97,6 +101,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
           keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
           compressionThreads: ((_box.get('compressionThreads', defaultValue: 2) as num).toInt()).clamp(1, 5),
+          lowPowerMode: _box.get('lowPowerMode', defaultValue: false) ?? false,
         ));
 
   final Box _box;
@@ -150,6 +155,11 @@ class SettingsController extends StateNotifier<AppSettings> {
     final clamped = value.clamp(1, 5);
     state = state.copyWith(compressionThreads: clamped);
     await _box.put('compressionThreads', clamped);
+  }
+
+  Future<void> setLowPowerMode(bool value) async {
+    state = state.copyWith(lowPowerMode: value);
+    await _box.put('lowPowerMode', value);
   }
 }
 

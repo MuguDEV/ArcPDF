@@ -6,6 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../settings/haptic_service.dart';
+import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
@@ -41,23 +42,11 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
     final time = DateFormat.jm().format(widget.item.lastModified);
     final isDark = theme.brightness == Brightness.dark;
+    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
-    Widget cardContent = ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                width: 1.0,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
+    Widget innerContent = Padding(
+      padding: const EdgeInsets.all(10),
+      child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Thumbnail
@@ -174,8 +163,33 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     ),
                   ),
                 ],
+      ),
+    );
+
+    Widget cardContent = ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: lowPowerMode ? Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                width: 1.0,
               ),
             ),
+            child: innerContent,
+        ) : BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                width: 1.0,
+              ),
+            ),
+            child: innerContent,
           ),
         ),
     );

@@ -41,6 +41,47 @@ class ToolsService {
     });
   }
 
+  static Future<String?> rearrangePdf(String inputPath, String outputPath, List<int> pagesToExtract) async {
+    return await Isolate.run(() async {
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+        final syncfusion.PdfDocument loadedDocument =
+            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+        final syncfusion.PdfDocument newDocument = syncfusion.PdfDocument();
+
+        for (int pageNum in pagesToExtract) {
+          int index = pageNum - 1;
+          if (index >= 0 && index < loadedDocument.pages.count) {
+            final syncfusion.PdfPage loadedPage = loadedDocument.pages[index];
+
+            newDocument.pageSettings.size = loadedPage.size;
+            newDocument.pageSettings.margins.all = 0;
+            newDocument.pageSettings.rotate = loadedPage.rotation;
+
+            final syncfusion.PdfPage newPage = newDocument.pages.add();
+            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+          }
+        }
+
+        if (newDocument.pages.count == 0) {
+           loadedDocument.dispose();
+           newDocument.dispose();
+           return null;
+        }
+
+        final bytes = newDocument.saveSync();
+        File(outputPath).writeAsBytesSync(bytes);
+
+        loadedDocument.dispose();
+        newDocument.dispose();
+        return outputPath;
+      } catch (e) {
+        return null;
+      }
+    });
+  }
+
   static Future<String?> splitPdf(String inputPath, String outputDirPath,
       List<int> pagesToExtract) async {
     return await Isolate.run(() async {
