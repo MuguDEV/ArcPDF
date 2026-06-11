@@ -201,7 +201,9 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               onTap: () {
                 HapticFeedback.lightImpact();
                 Navigator.pop(context);
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => RearrangePagesPage(initialFile: widget.item),
+                ));
               },
             ),
             _ActionTile(

@@ -11,8 +11,11 @@ import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
+import '../../pdf/domain/pdf_file_item.dart';
+
 class SplitPdfPage extends StatefulWidget {
-  const SplitPdfPage({super.key});
+  final PdfFileItem? initialFile;
+  const SplitPdfPage({super.key, this.initialFile});
 
   @override
   State<SplitPdfPage> createState() => _SplitPdfPageState();
@@ -26,6 +29,14 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
   void dispose() {
     _pagesController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFile != null) {
+      _selectedFile = widget.initialFile!.path;
+    }
   }
 
   Future<void> _pickFile() async {

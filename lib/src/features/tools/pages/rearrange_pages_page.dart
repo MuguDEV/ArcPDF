@@ -12,8 +12,11 @@ import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
+import '../../pdf/domain/pdf_file_item.dart';
+
 class RearrangePagesPage extends StatefulWidget {
-  const RearrangePagesPage({super.key});
+  final PdfFileItem? initialFile;
+  const RearrangePagesPage({super.key, this.initialFile});
 
   @override
   State<RearrangePagesPage> createState() => _RearrangePagesPageState();
@@ -28,6 +31,14 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
   void dispose() {
     _document?.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFile != null) {
+      _loadPdf(widget.initialFile!.path);
+    }
   }
 
   Future<void> _pickFile() async {

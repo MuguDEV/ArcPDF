@@ -80,8 +80,19 @@ async function fetchLatestRelease() {
         versionBadge.textContent = `Latest Version: ${version}`;
 
         // Update Changelog
+
+        // Clean up auto-generated GitHub release boilerplate
+        let cleanBody = body
+            // Remove "What's Changed" headers
+            .replace(/## What's Changed/gi, '')
+            .replace(/## What's New/gi, '')
+            // Remove full changelog links at the bottom
+            .replace(/\*\*Full Changelog\*\*: https:\/\/github.com\/[^\s]+/gi, '')
+            // Clean up "by @User in https://..." from PR merges to just keep the message
+            .replace(/ by @[^\s]+ in https:\/\/github.com\/[^\s]+/gi, '');
+
         // Improved Markdown parsing
-        let formattedBody = body
+        let formattedBody = cleanBody
             // Headers
             .replace(/^### (.*$)/gim, '<h3>$1</h3>')
             .replace(/^## (.*$)/gim, '<h2>$1</h2>')
@@ -92,11 +103,13 @@ async function fetchLatestRelease() {
             .replace(/(^|[^"'])(https?:\/\/[^\s]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
             // Bold
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Clean PR numbers like (#79) at the end of lists
+            .replace(/\s*\(\#[0-9]+\)/g, '')
             // List items (* or -)
             .replace(/^[\*-]\s+(.*)$/gim, '<li>$1</li>');
 
-        // Wrap consecutive <li> elements in <ul>
-        formattedBody = formattedBody.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul>$&</ul>');
+        // Wrap consecutive <li> elements in <ul class="clean-list">
+        formattedBody = formattedBody.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul class="clean-list">$&</ul>');
 
         // Clean up empty lines and wrap paragraphs
         formattedBody = formattedBody
@@ -110,7 +123,7 @@ async function fetchLatestRelease() {
             })
             .join('\n');
 
-        changelogContent.innerHTML = formattedBody;
+        changelogContent.innerHTML = formattedBody || '<p>A brand new update with exciting features and improvements!</p>';
 
         // Find APKs
         const universalApk = assets.find(a => a.name.includes('universal.apk') || a.name.endsWith('.apk') && !a.name.includes('arm') && !a.name.includes('x86'));
