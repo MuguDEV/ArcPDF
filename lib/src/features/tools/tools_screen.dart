@@ -15,6 +15,7 @@ import 'pages/split_pdf_page.dart';
 import 'pages/rearrange_pages_page.dart';
 import 'pages/images_to_pdf_page.dart';
 import 'pages/pdf_to_images_page.dart';
+import 'pages/metadata_editor_page.dart';
 import 'widgets/in_app_pdf_selector.dart';
 import 'utils/tools_directory_util.dart';
 import '../../shared/widgets/glass_app_bar.dart';
@@ -76,6 +77,16 @@ class ToolsScreen extends ConsumerWidget {
                   icon: HugeIcons.strokeRoundedFile01,
                   onTap: () => _handleCompress(context, ref),
                 ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                const SizedBox(height: 12),
+                ToolCard(
+                  title: 'Metadata Editor',
+                  subtitle: 'View and edit document properties',
+                  icon: HugeIcons.strokeRoundedInformationCircle,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MetadataEditorPage()));
+                  },
+                ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 
                 const SizedBox(height: 32),
                 _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),

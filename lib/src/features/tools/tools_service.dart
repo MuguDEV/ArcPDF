@@ -6,7 +6,78 @@ import 'dart:typed_data';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:image/image.dart' as img;
 
+class PdfMetadataInfo {
+  final String title;
+  final String author;
+  final String subject;
+  final String keywords;
+
+  const PdfMetadataInfo({
+    this.title = '',
+    this.author = '',
+    this.subject = '',
+    this.keywords = '',
+  });
+}
+
 class ToolsService {
+  static Future<PdfMetadataInfo?> readPdfMetadata(String inputPath) async {
+    return await Isolate.run(() async {
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+        final syncfusion.PdfDocument document =
+            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+
+        final info = PdfMetadataInfo(
+          title: document.documentInformation.title,
+          author: document.documentInformation.author,
+          subject: document.documentInformation.subject,
+          keywords: document.documentInformation.keywords,
+        );
+
+        document.dispose();
+        return info;
+      } catch (e) {
+        return null;
+      }
+    });
+  }
+
+  static Future<String?> editPdfMetadata({
+    required String inputPath,
+    required String outputPath,
+    required String title,
+    required String author,
+    required String subject,
+    required String keywords,
+  }) async {
+    return await Isolate.run(() async {
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+
+        final syncfusion.PdfDocument document =
+            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+
+        document.documentInformation.title = title;
+        document.documentInformation.author = author;
+        document.documentInformation.subject = subject;
+        document.documentInformation.keywords = keywords;
+
+        final bytes = document.saveSync();
+        document.dispose();
+
+        final outputFile = File(outputPath);
+        await outputFile.writeAsBytes(bytes);
+
+        return outputPath;
+      } catch (e) {
+        return null;
+      }
+    });
+  }
+
   static Future<String?> mergePdfs(
       List<String> inputPaths, String outputPath) async {
     return await Isolate.run(() async {
