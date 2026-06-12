@@ -53,12 +53,12 @@ class ToolsService {
     required String keywords,
   }) async {
     return await Isolate.run(() async {
+      syncfusion.PdfDocument? document;
       try {
         final file = File(inputPath);
         if (!file.existsSync()) return null;
 
-        final syncfusion.PdfDocument document =
-            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
 
         document.documentInformation.title = title;
         document.documentInformation.author = author;
@@ -66,7 +66,6 @@ class ToolsService {
         document.documentInformation.keywords = keywords;
 
         final bytes = document.saveSync();
-        document.dispose();
 
         final outputFile = File(outputPath);
         await outputFile.writeAsBytes(bytes);
@@ -74,6 +73,8 @@ class ToolsService {
         return outputPath;
       } catch (e) {
         return null;
+      } finally {
+        document?.dispose();
       }
     });
   }

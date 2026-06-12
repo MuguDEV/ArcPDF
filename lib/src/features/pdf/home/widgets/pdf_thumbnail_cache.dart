@@ -10,7 +10,7 @@ import '../../../../core/utils/logger.dart';
 import 'dart:collection';
 
 class PdfThumbnailCache {
-  static final _memCache = LinkedHashMap<String, Uint8List>();
+  static final _memCache = <String, Uint8List>{};
   static const int _maxMemCacheSize = 100;
   static String? _cacheDir;
 

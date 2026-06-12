@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'dart:ui';
@@ -20,7 +19,7 @@ class MergePdfsPage extends StatefulWidget {
 }
 
 class _MergePdfsPageState extends State<MergePdfsPage> {
-  List<String> _selectedFiles = [];
+  final List<String> _selectedFiles = [];
 
   Future<void> _pickFiles() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: true);

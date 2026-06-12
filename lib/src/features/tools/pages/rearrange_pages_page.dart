@@ -1,16 +1,13 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../tools_service.dart';
 import '../tool_action_dialog.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
-import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
 import '../../pdf/domain/pdf_file_item.dart';
 
