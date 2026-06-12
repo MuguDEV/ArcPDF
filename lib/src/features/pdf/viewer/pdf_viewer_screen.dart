@@ -20,6 +20,7 @@ import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 import '../application/open_tabs_provider.dart';
 import '../application/pdf_library_controller.dart';
+import 'tab_switcher_screen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'arc_outline_node.dart';
@@ -454,39 +455,41 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 },
                                 icon: const Icon(Icons.search_rounded),
                               ),
-                              // Multi-Tab UI element
+                              // Chrome-style Multi-Tab Button
                               if (ref.watch(openTabsProvider).tabs.length > 1)
-                                Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    IconButton(
-                                      onPressed: () {
-                                        final state = ref.read(openTabsProvider);
-                                        ref.read(openTabsProvider.notifier).closeTab(state.activeIndex);
-                                      },
-                                      icon: const Icon(Icons.close_rounded),
-                                      tooltip: 'Close Tab',
-                                    ),
-                                    Positioned(
-                                      right: 8,
-                                      top: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.primary,
-                                          shape: BoxShape.circle,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => const TabSwitcherScreen(),
+                                          fullscreenDialog: true, // Up-slide transition
                                         ),
-                                        child: Text(
-                                          '${ref.watch(openTabsProvider).tabs.length}',
-                                          style: TextStyle(
-                                            color: theme.colorScheme.onPrimary,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                      );
+                                    },
+                                    child: Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        border: Border.all(
+                                          color: theme.colorScheme.onSurface,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '${ref.watch(openTabsProvider).tabs.length}',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert_rounded),
