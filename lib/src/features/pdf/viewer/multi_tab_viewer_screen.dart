@@ -33,7 +33,7 @@ class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
 
     if (tabs.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
       });
       return const Scaffold();
     }
