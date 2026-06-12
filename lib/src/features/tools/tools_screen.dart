@@ -124,6 +124,7 @@ class ToolsScreen extends ConsumerWidget {
     final paths = await InAppPdfSelector.show(context, allowMultiple: true);
 
     if (paths != null && paths.isNotEmpty) {
+      if (!context.mounted) return;
       // Let user pick compression level
       int quality = 40; // Default
       bool userPicked = await showDialog<bool>(
@@ -172,7 +173,8 @@ class ToolsScreen extends ConsumerWidget {
         }
       ) ?? false;
 
-      if (!userPicked || !context.mounted) return;
+      if (!userPicked) return;
+      if (!context.mounted) return;
 
       // Single file scenario
       if (paths.length == 1) {
