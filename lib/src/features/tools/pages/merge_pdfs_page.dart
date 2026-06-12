@@ -12,7 +12,8 @@ import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
 class MergePdfsPage extends StatefulWidget {
-  const MergePdfsPage({super.key});
+  final List<String>? initialFiles;
+  const MergePdfsPage({super.key, this.initialFiles});
 
   @override
   State<MergePdfsPage> createState() => _MergePdfsPageState();
@@ -20,6 +21,14 @@ class MergePdfsPage extends StatefulWidget {
 
 class _MergePdfsPageState extends State<MergePdfsPage> {
   final List<String> _selectedFiles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFiles != null) {
+      _selectedFiles.addAll(widget.initialFiles!);
+    }
+  }
 
   Future<void> _pickFiles() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: true);

@@ -10,7 +10,7 @@ import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
-import 'pdf_bottom_sheet.dart';
+import 'peek_overlay.dart';
 import '../../../../shared/widgets/arc_bouncy_card.dart';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
@@ -21,6 +21,7 @@ class PdfCustomCard extends ConsumerStatefulWidget {
     required this.onTap,
     required this.onFavorite,
     this.onVault,
+    this.onLongPress,
   });
 
   final PdfFileItem item;
@@ -28,6 +29,7 @@ class PdfCustomCard extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onFavorite;
   final VoidCallback? onVault;
+  final VoidCallback? onLongPress;
 
   @override
   ConsumerState<PdfCustomCard> createState() => _PdfCustomCardState();
@@ -273,8 +275,24 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
               widget.onTap();
             },
             onLongPress: () {
-              ref.read(hapticServiceProvider).lightImpact();
-              showPdfBottomSheet(context, ref, widget.item);
+              // Custom injected long press (e.g., selection mode) wins over Peek
+              if (widget.onLongPress != null) {
+                widget.onLongPress!.call();
+                return;
+              }
+
+              // Peek overlay
+              ref.read(hapticServiceProvider).mediumImpact();
+              OverlayEntry? entry;
+              entry = OverlayEntry(
+                builder: (context) => PeekOverlay(
+                  item: widget.item,
+                  onDismiss: () {
+                    entry?.remove();
+                  },
+                ),
+              );
+              Overlay.of(context).insert(entry);
             },
             child: cardContent,
           ),

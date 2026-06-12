@@ -16,6 +16,7 @@ Future<void> bootstrap() async {
   await Hive.openBox<String>(LocalBoxes.thumbnailCache);
   await Hive.openBox<int>(LocalBoxes.recentsTimestamps);
   await Hive.openBox<List<String>>(LocalBoxes.tags);
+  await Hive.openBox<dynamic>(LocalBoxes.sessions);
   await Hive.openBox<PdfAnnotation>('pdf_annotations');
   await Hive.openBox<int>('reading_progress_pages');
   await Hive.openBox<double>('reading_progress_zoom');
