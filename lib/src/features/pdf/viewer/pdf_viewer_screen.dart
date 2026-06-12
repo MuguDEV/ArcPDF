@@ -163,7 +163,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           _showToolbar = false;
           _isToolbarExpanded = false;
         });
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        if (!_isFullscreen) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
       }
     });
   }
@@ -199,9 +201,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           _searchFocus.unfocus();
           _textSearcher.resetTextSearch();
         }
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        if (!_isFullscreen) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
       } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        if (!_isFullscreen) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        }
       }
     });
     if (_showToolbar) _scheduleHide();
@@ -455,41 +461,24 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 },
                                 icon: const Icon(Icons.search_rounded),
                               ),
-                              // Chrome-style Multi-Tab Button
+                              // Chrome-style Multi-Tab Button (Redesigned)
                               if (ref.watch(openTabsProvider).tabs.length > 1)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => const TabSwitcherScreen(),
-                                          fullscreenDialog: true, // Up-slide transition
-                                        ),
-                                      );
-                                    },
-                                    child: Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          color: theme.colorScheme.onSurface,
-                                          width: 2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
+                                IconButton(
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const TabSwitcherScreen(),
+                                        fullscreenDialog: true,
                                       ),
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        '${ref.watch(openTabsProvider).tabs.length}',
-                                        style: TextStyle(
-                                          color: theme.colorScheme.onSurface,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
+                                    );
+                                  },
+                                  icon: Badge(
+                                    label: Text('${ref.watch(openTabsProvider).tabs.length}'),
+                                    backgroundColor: theme.colorScheme.primary,
+                                    textColor: theme.colorScheme.onPrimary,
+                                    child: const Icon(Icons.filter_none_rounded),
                                   ),
+                                  tooltip: 'Open Tabs',
                                 ),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert_rounded),

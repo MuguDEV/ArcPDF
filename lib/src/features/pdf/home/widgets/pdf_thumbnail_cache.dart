@@ -41,7 +41,11 @@ class PdfThumbnailCache {
   }
 
   static void _addToMemCache(String path, Uint8List bytes) {
+    if (_memCache.containsKey(path)) {
+      _memCache.remove(path); // Remove so it gets added to the end (most recent)
+    }
     _memCache[path] = bytes;
+
     if (_memCache.length > _maxMemCacheSize) {
       // Remove least recently used (first element in LinkedHashMap)
       final firstKey = _memCache.keys.first;
