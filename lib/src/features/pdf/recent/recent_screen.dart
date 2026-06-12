@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import '../application/pdf_library_controller.dart';
+import '../application/open_tabs_provider.dart';
 import '../../vault/vault_controller.dart';
 import '../../security/security_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
+import '../viewer/multi_tab_viewer_screen.dart';
 import '../home/widgets/pdf_custom_card.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
 import '../../../shared/widgets/arc_progress_indicator.dart';
@@ -187,8 +189,9 @@ class _RecentGroupsList extends ConsumerWidget {
                   onTap: () async {
                     await ctrl.markRecent(item);
                     if (!context.mounted) return;
+                    ref.read(openTabsProvider.notifier).openTab(item);
                     await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
+                      MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()),
                     );
                   },
                 )

@@ -50,12 +50,21 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Thumbnail
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: 60,
-                      height: 80,
-                      child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                  Hero(
+                    tag: 'pdf_thumb_${widget.item.path}',
+                    flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                       return FadeTransition(
+                         opacity: animation,
+                         child: toHeroContext.widget,
+                       );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 60,
+                        height: 80,
+                        child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

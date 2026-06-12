@@ -7,12 +7,17 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../../../../core/utils/logger.dart';
 
+import 'dart:async';
 import 'dart:collection';
 
 class PdfThumbnailCache {
-  static final _memCache = <String, Uint8List>{};
+  static final LinkedHashMap<String, Uint8List> _memCache = LinkedHashMap<String, Uint8List>();
   static const int _maxMemCacheSize = 100;
   static String? _cacheDir;
+
+  static final Queue<_ThumbnailTask> _taskQueue = Queue<_ThumbnailTask>();
+  static int _activeTasks = 0;
+  static const int _maxConcurrentTasks = 4;
 
   static Future<String> get _dir async {
     if (_cacheDir != null) return _cacheDir!;
@@ -36,14 +41,44 @@ class PdfThumbnailCache {
   }
 
   static void _addToMemCache(String path, Uint8List bytes) {
-    if (_memCache.length >= _maxMemCacheSize) {
-      // Remove first (least recently used)
-      _memCache.remove(_memCache.keys.first);
-    }
     _memCache[path] = bytes;
+    if (_memCache.length > _maxMemCacheSize) {
+      // Remove least recently used (first element in LinkedHashMap)
+      final firstKey = _memCache.keys.first;
+      _memCache.remove(firstKey);
+    }
   }
 
   static Future<Uint8List?> getThumbnail(String pdfPath, {bool lowPowerMode = false}) async {
+    final cached = getCached(pdfPath);
+    if (cached != null) return cached;
+
+    final completer = Completer<Uint8List?>();
+    _taskQueue.add(_ThumbnailTask(pdfPath, lowPowerMode, completer));
+    _processQueue();
+
+    return completer.future;
+  }
+
+  static void _processQueue() async {
+    if (_activeTasks >= _maxConcurrentTasks || _taskQueue.isEmpty) return;
+
+    _activeTasks++;
+    final task = _taskQueue.removeFirst();
+
+    try {
+      final result = await _generateThumbnail(task.pdfPath, task.lowPowerMode);
+      task.completer.complete(result);
+    } catch (e) {
+      task.completer.complete(null);
+    } finally {
+      _activeTasks--;
+      _processQueue();
+    }
+  }
+
+  static Future<Uint8List?> _generateThumbnail(String pdfPath, bool lowPowerMode) async {
+    // Check cache again in case another task already generated it
     final cached = getCached(pdfPath);
     if (cached != null) return cached;
 
@@ -96,4 +131,12 @@ class PdfThumbnailCache {
     }
     return null;
   }
+}
+
+class _ThumbnailTask {
+  final String pdfPath;
+  final bool lowPowerMode;
+  final Completer<Uint8List?> completer;
+
+  _ThumbnailTask(this.pdfPath, this.lowPowerMode, this.completer);
 }

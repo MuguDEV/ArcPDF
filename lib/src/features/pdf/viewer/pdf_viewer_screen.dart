@@ -18,6 +18,7 @@ import '../../settings/settings_controller.dart';
 import '../../../shared/widgets/arc_progress_indicator.dart';
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
+import '../application/open_tabs_provider.dart';
 import '../application/pdf_library_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -94,9 +95,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _searchFocus.dispose();
     _textSearcher.dispose();
 
-    if (_isFullscreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
     // Ensure wakelock matches global setting on exit
     final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
@@ -163,6 +162,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           _showToolbar = false;
           _isToolbarExpanded = false;
         });
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       }
     });
   }
@@ -198,6 +198,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           _searchFocus.unfocus();
           _textSearcher.resetTextSearch();
         }
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     });
     if (_showToolbar) _scheduleHide();
@@ -228,12 +231,20 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: ArcProgressIndicator(),
             )
           else
-            RotatedBox(
-                quarterTurns: _rotationQuarterTurns,
-                child: PdfViewer.file(
-                  widget.item.path,
-                initialPageNumber: repo.getLastReadPage(widget.item.path),
-              controller: _pdfViewerController,
+            Hero(
+              tag: 'pdf_thumb_${widget.item.path}',
+              flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                 return FadeTransition(
+                   opacity: animation,
+                   child: toHeroContext.widget,
+                 );
+              },
+              child: RotatedBox(
+                  quarterTurns: _rotationQuarterTurns,
+                  child: PdfViewer.file(
+                    widget.item.path,
+                  initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
+                controller: _pdfViewerController,
               passwordProvider: () async => _showPasswordPrompt(context),
               params: PdfViewerParams(
                   onViewerReady: (document, controller) {
@@ -316,6 +327,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
+          ),
 
           // 2. Top App Bar / Search Bar
           Positioned(
@@ -442,6 +454,40 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 },
                                 icon: const Icon(Icons.search_rounded),
                               ),
+                              // Multi-Tab UI element
+                              if (ref.watch(openTabsProvider).tabs.length > 1)
+                                Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    IconButton(
+                                      onPressed: () {
+                                        final state = ref.read(openTabsProvider);
+                                        ref.read(openTabsProvider.notifier).closeTab(state.activeIndex);
+                                      },
+                                      icon: const Icon(Icons.close_rounded),
+                                      tooltip: 'Close Tab',
+                                    ),
+                                    Positioned(
+                                      right: 8,
+                                      top: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Text(
+                                          '${ref.watch(openTabsProvider).tabs.length}',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.onPrimary,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert_rounded),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

@@ -9,7 +9,9 @@ import '../../../shared/widgets/empty_state.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import '../application/pdf_library_controller.dart';
+import '../application/open_tabs_provider.dart';
 import '../../vault/vault_controller.dart';
+import '../viewer/multi_tab_viewer_screen.dart';
 import '../../security/security_controller.dart';
 import '../domain/pdf_file_item.dart';
 import '../viewer/pdf_viewer_screen.dart';
@@ -504,8 +506,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
         await ctrl.markRecent(item);
         if (!context.mounted) return;
+        ref.read(openTabsProvider.notifier).openTab(item);
         await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)));
+            MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()));
       },
     );
   }
