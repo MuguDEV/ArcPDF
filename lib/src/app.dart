@@ -11,6 +11,7 @@ import 'dart:io';
 import 'features/settings/settings_controller.dart';
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
+import 'features/pdf/viewer/route_observer.dart';
 
 class ArcPdfApp extends ConsumerStatefulWidget {
   const ArcPdfApp({super.key});
@@ -253,6 +254,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       theme: buildTheme(lightColorScheme, Brightness.light),
       darkTheme: buildTheme(darkColorScheme, Brightness.dark),
       scrollBehavior: scrollBehavior,
+      navigatorObservers: [pdfRouteObserver],
       home: const AppShell(),
       builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
     );

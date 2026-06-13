@@ -4,14 +4,16 @@ import 'package:intl/intl.dart';
 import 'dart:ui';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../settings/haptic_service.dart';
 import '../../../settings/settings_controller.dart';
 import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
-import 'pdf_bottom_sheet.dart';
+import 'peek_overlay.dart';
 import '../../../../shared/widgets/arc_bouncy_card.dart';
+import '../../../../shared/widgets/parallax_wrapper.dart';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
   const PdfCustomCard({
@@ -21,6 +23,8 @@ class PdfCustomCard extends ConsumerStatefulWidget {
     required this.onTap,
     required this.onFavorite,
     this.onVault,
+    this.onLongPress,
+    this.scrollController,
   });
 
   final PdfFileItem item;
@@ -28,12 +32,16 @@ class PdfCustomCard extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onFavorite;
   final VoidCallback? onVault;
+  final VoidCallback? onLongPress;
+  final ScrollController? scrollController;
 
   @override
   ConsumerState<PdfCustomCard> createState() => _PdfCustomCardState();
 }
 
 class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
+  final GlobalKey _cardKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
@@ -63,7 +71,14 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                       child: SizedBox(
                         width: 60,
                         height: 80,
-                        child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                        child: widget.scrollController != null
+                          ? ParallaxWrapper(
+                              scrollController: widget.scrollController!,
+                              listItemKey: _cardKey,
+                              parallaxSpeed: 0.15,
+                              child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                            )
+                          : PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                       ),
                     ),
                   ),
@@ -91,7 +106,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Favorite Button integrated in the top right
+                            // Favorite Button integrated in the top right with spring micro-interaction
                             GestureDetector(
                               onTap: () {
                                 ref.read(hapticServiceProvider).selectionClick();
@@ -101,6 +116,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                                 isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                                 color: isFav ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                                 size: 22,
+                              ).animate(key: ValueKey(isFav)).scale(
+                                begin: const Offset(0.5, 0.5),
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.elasticOut,
                               ),
                             ),
                           ],
@@ -204,6 +223,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     );
 
     return Padding(
+      key: _cardKey,
       padding: const EdgeInsets.only(bottom: 12),
       child: Slidable(
         key: ValueKey(widget.item.path),
@@ -232,6 +252,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   isFav ? HugeIcons.strokeRoundedFavourite : Icons.favorite_rounded,
                   color: isFav ? theme.colorScheme.onSurface : theme.colorScheme.primary,
                   size: 28,
+                ).animate(key: ValueKey(isFav)).scale(
+                  begin: const Offset(0.5, 0.5),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
                 ),
               ),
             ),
@@ -261,6 +285,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   HugeIcons.strokeRoundedSafe,
                   color: theme.colorScheme.onSurface,
                   size: 28,
+                ).animate().scale(
+                  begin: const Offset(0.5, 0.5),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
                 ),
               ),
             ),
@@ -273,8 +301,24 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
               widget.onTap();
             },
             onLongPress: () {
-              ref.read(hapticServiceProvider).lightImpact();
-              showPdfBottomSheet(context, ref, widget.item);
+              // Custom injected long press (e.g., selection mode) wins over Peek
+              if (widget.onLongPress != null) {
+                widget.onLongPress!.call();
+                return;
+              }
+
+              // Peek overlay
+              ref.read(hapticServiceProvider).mediumImpact();
+              OverlayEntry? entry;
+              entry = OverlayEntry(
+                builder: (context) => PeekOverlay(
+                  item: widget.item,
+                  onDismiss: () {
+                    entry?.remove();
+                  },
+                ),
+              );
+              Overlay.of(context).insert(entry);
             },
             child: cardContent,
           ),

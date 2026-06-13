@@ -14,8 +14,8 @@ import '../../vault/vault_controller.dart';
 import '../viewer/multi_tab_viewer_screen.dart';
 import '../../security/security_controller.dart';
 import '../domain/pdf_file_item.dart';
-import '../viewer/pdf_viewer_screen.dart';
 import 'permission_screen.dart';
+import '../../tools/pages/merge_pdfs_page.dart';
 import 'widgets/pdf_custom_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
 import '../../vault/vault_screen.dart';
@@ -34,6 +34,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   bool _showScrollToTop = false;
   Timer? _debounceTimer;
+
+  bool _isSelectionMode = false;
+  final Set<String> _selectedPaths = {};
+
+  double _scrollVelocity = 0.0;
 
   @override
   void initState() {
@@ -83,28 +88,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final items = ctrl.filteredItems();
     final theme = Theme.of(context);
 
+    // Calculate squash & stretch based on velocity
+    final squash = (_scrollVelocity.abs() * 0.0001).clamp(0.0, 0.15);
+    final scaleY = 1.0 + squash;
+    final scaleX = 1.0 - (squash * 0.5);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      floatingActionButton: _showScrollToTop
+      floatingActionButton: _isSelectionMode
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 90.0),
+            child: Transform.scale(
+              scaleX: scaleX,
+              scaleY: scaleY,
+              alignment: Alignment.bottomCenter,
+              child: FloatingActionButton.extended(
+                onPressed: _selectedPaths.length > 1 ? () => _handleQuickCombine(context) : null,
+                backgroundColor: _selectedPaths.length > 1 ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+                foregroundColor: _selectedPaths.length > 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                icon: const Icon(HugeIcons.strokeRoundedLayers01),
+                label: Text('Combine (${_selectedPaths.length})'),
+              ),
+            ).animate().slideY(begin: 1.0, duration: 250.ms, curve: Curves.easeOutBack),
+          )
+        : _showScrollToTop
           ? Padding(
               padding: const EdgeInsets.only(bottom: 90.0), // Elevate above the bottom navigation bar
-              child: FloatingActionButton(
-                onPressed: () {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.fastOutSlowIn,
-                  );
-                },
-                backgroundColor: theme.colorScheme.secondaryContainer,
-                foregroundColor: theme.colorScheme.onSecondaryContainer,
-                elevation: 4,
-                child: const Icon(Icons.arrow_upward_rounded),
+              child: Transform.scale(
+                scaleX: scaleX,
+                scaleY: scaleY,
+                alignment: Alignment.bottomCenter,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  },
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
+                  elevation: 4,
+                  child: const Icon(Icons.arrow_upward_rounded),
+                ),
               ),
             )
           : null,
-      body: CustomScrollView(
+      body: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (notification) {
+          if (notification.scrollDelta != null) {
+             setState(() {
+               // Decay velocity to 0 if stopped, else track Delta
+               _scrollVelocity = notification.scrollDelta! * 50;
+             });
+          }
+          return false;
+        },
+        child: NotificationListener<ScrollEndNotification>(
+          onNotification: (notification) {
+            setState(() => _scrollVelocity = 0.0);
+            return false;
+          },
+          child: CustomScrollView(
       controller: _scrollController,
+      cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
       physics:
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
@@ -114,30 +161,92 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             await ctrl.refresh();
           },
         ),
+        // Resume Session Banner
+        if (ref.watch(openTabsProvider).tabs.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.restore_page_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Resume Reading',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            Text(
+                              'You have ${ref.read(openTabsProvider).tabs.length} tabs open',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    ],
+                  ),
+                ),
+              ),
+            ).animate().slideY(begin: -0.2, duration: 300.ms, curve: Curves.easeOutBack).fadeIn(),
+          ),
+
         // Unified app bar (no large duplication)
         GlassSliverAppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('ArcPDF',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-              Text(
-                'Your local PDF workspace',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+          title: _isSelectionMode
+            ? Text('${_selectedPaths.length} Selected', style: const TextStyle(fontWeight: FontWeight.w800))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('ArcPDF', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    'Your local PDF workspace',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ),
-            ],
-          ),
           actions: [
-            IconButton(
-              icon: const Icon(HugeIcons.strokeRoundedFolderSecurity),
-              tooltip: 'Secure Vault',
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
-              },
-            ),
+            if (_isSelectionMode)
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () {
+                  setState(() {
+                    _isSelectionMode = false;
+                    _selectedPaths.clear();
+                  });
+                },
+              )
+            else
+              IconButton(
+                icon: const Icon(HugeIcons.strokeRoundedFolderSecurity),
+                tooltip: 'Secure Vault',
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
+                },
+              ),
             PopupMenuButton<String>(
               icon: const Icon(HugeIcons.strokeRoundedMoreVerticalCircle01),
               tooltip: 'Menu',
@@ -450,6 +559,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ],
       ),
+        ),
+      ),
     );
   }
 
@@ -465,51 +576,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       BuildContext context, WidgetRef ref, PdfFileItem item, int index,
       {Key? key}) {
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
-    return PdfCustomCard(
-      key: key,
-      item: item,
-      index: index,
-      onFavorite: () => ctrl.toggleFavorite(item),
-      onVault: () async {
-        final security = ref.read(securityControllerProvider);
-        if (!security.isLockEnabled) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('App lock is not enabled. Enable it in Settings first.'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 3),
+    Widget content;
+
+    // In selection mode, wrap with custom selection tap
+    if (_isSelectionMode) {
+      final isSelected = _selectedPaths.contains(item.path);
+      content = GestureDetector(
+        onTap: () {
+          setState(() {
+            if (isSelected) {
+              _selectedPaths.remove(item.path);
+              if (_selectedPaths.isEmpty) _isSelectionMode = false;
+            } else {
+              _selectedPaths.add(item.path);
+            }
+          });
+        },
+        child: Opacity(
+          opacity: isSelected ? 0.6 : 1.0,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(30),
             ),
-          );
-          return;
-        }
-        final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
-        if (success && context.mounted) {
-          ref.read(pdfLibraryControllerProvider.notifier).refresh();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Moved to Vault'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 2),
+            child: AbsorbPointer(
+              child: PdfCustomCard(
+                key: key,
+                item: item,
+                index: index,
+                scrollController: _scrollController,
+                onFavorite: () {},
+                onTap: () {},
+              ),
             ),
-          );
-        }
-      },
-      onTap: () async {
-        if (item.sizeBytes == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Cannot open empty or corrupted file')),
-          );
-          return;
-        }
-        await ctrl.markRecent(item);
-        if (!context.mounted) return;
-        ref.read(openTabsProvider.notifier).openTab(item);
-        await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()));
-      },
-    );
+          ),
+        ),
+      );
+    } else {
+      content = PdfCustomCard(
+        key: key,
+        item: item,
+        index: index,
+        scrollController: _scrollController,
+        onFavorite: () => ctrl.toggleFavorite(item),
+        // Delegate long press logic for the Multi-Select (Quick Combine) directly into the card
+        onLongPress: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _isSelectionMode = true;
+            _selectedPaths.add(item.path);
+          });
+        },
+        onVault: () async {
+          final security = ref.read(securityControllerProvider);
+          if (!security.isLockEnabled) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('App lock is not enabled. Enable it in Settings first.'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
+          if (success && context.mounted) {
+            ref.read(pdfLibraryControllerProvider.notifier).refresh();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Moved to Vault'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        onTap: () async {
+          if (item.sizeBytes == 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Cannot open empty or corrupted file')),
+            );
+            return;
+          }
+          await ctrl.markRecent(item);
+          if (!context.mounted) return;
+          ref.read(openTabsProvider.notifier).openTab(item);
+          await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()));
+        },
+      );
+    }
+
+    return RepaintBoundary(child: content);
+  }
+
+  Future<void> _handleQuickCombine(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    final paths = _selectedPaths.toList();
+    setState(() {
+      _isSelectionMode = false;
+      _selectedPaths.clear();
+    });
+
+    // Delegate to the merge page but auto-inject the initial paths
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MergePdfsPage(initialFiles: paths),
+    ));
   }
 }

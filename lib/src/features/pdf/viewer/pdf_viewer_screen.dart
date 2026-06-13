@@ -21,6 +21,7 @@ import '../data/reading_progress_repository.dart';
 import '../application/open_tabs_provider.dart';
 import '../application/pdf_library_controller.dart';
 import 'tab_switcher_screen.dart';
+import 'route_observer.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'arc_outline_node.dart';
@@ -34,7 +35,7 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
 }
 
-class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver {
+class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver, RouteAware {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   late final PdfTextSearcher _textSearcher;
 
@@ -68,12 +69,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _scheduleHide();
     _startReadingTimer();
 
-    // Delay rendering slightly to ensure the page transition animation
-    // stays at 120fps before locking the thread to load the PDF.
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) setState(() => _isReadyToRender = true);
-    });
-
     // Apply initial wake lock if needed based on settings
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
@@ -81,8 +76,57 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     });
   }
 
+  bool _isRouteObserverInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute != null) {
+      pdfRouteObserver.subscribe(this, modalRoute);
+
+      if (!_isRouteObserverInitialized) {
+        _isRouteObserverInitialized = true;
+        if (modalRoute.animation != null) {
+          if (modalRoute.animation!.isCompleted) {
+            setState(() => _isReadyToRender = true);
+          } else {
+            modalRoute.animation!.addStatusListener((status) {
+              if (status == AnimationStatus.completed && mounted && !_isReadyToRender) {
+                setState(() => _isReadyToRender = true);
+              }
+            });
+          }
+        } else {
+          setState(() => _isReadyToRender = true);
+        }
+      }
+    }
+  }
+
+  @override
+  void didPush() {
+    // Left intentionally empty as logic moved to didChangeDependencies
+  }
+
+  @override
+  void didPushNext() {
+    // A route was pushed on top
+  }
+
+  @override
+  void didPopNext() {
+    // The route on top was popped, we are active again
+  }
+
+  @override
+  void didPop() {
+    // We are popped
+  }
+
   @override
   void dispose() {
+    pdfRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _pdfViewerController.removeListener(_onPdfViewerChanged);
     _textSearcher.removeListener(_onSearcherChanged);
@@ -248,7 +292,92 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               },
               child: RotatedBox(
                   quarterTurns: _rotationQuarterTurns,
-                  child: PdfViewer.file(
+                  child: _pdfDarkMode ? ColorFiltered(
+                    colorFilter: const ColorFilter.matrix([
+                      -0.333, -0.333, -0.333, 0, 255,
+                      -0.333, -0.333, -0.333, 0, 255,
+                      -0.333, -0.333, -0.333, 0, 255,
+                      0,      0,      0,      1, 0,
+                    ]),
+                    child: PdfViewer.file(
+                      widget.item.path,
+                      initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
+                      controller: _pdfViewerController,
+                      passwordProvider: () async => _showPasswordPrompt(context),
+                      params: PdfViewerParams(
+                          onViewerReady: (document, controller) {
+                            final lastZoom = repo.getLastZoom(widget.item.path);
+                            if (lastZoom != null) {
+                              controller.setZoom(controller.centerPosition, lastZoom);
+                            }
+                          },
+                        errorBannerBuilder: (context, error, stackTrace, documentRef) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline_rounded,
+                                    size: 48,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Failed to load PDF',
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    error.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        backgroundColor: theme.colorScheme.surface,
+                        pageDropShadow: const BoxShadow(color: Colors.transparent),
+                        enableTextSelection: true,
+                        margin: 4.0,
+                        layoutPages: _isHorizontalScroll ? (pages, params) {
+                          final height = pages.fold(
+                            0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
+                          final pageLayouts = <Rect>[];
+                          double x = params.margin;
+                          for (final page in pages) {
+                            pageLayouts.add(Rect.fromLTWH(
+                              x, (height - page.height) / 2, page.width, page.height,
+                            ));
+                            x += page.width + params.margin;
+                          }
+                          return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
+                        } : null,
+                        pagePaintCallbacks: [
+                          _textSearcher.pageTextMatchPaintCallback
+                        ],
+                          viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                            GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTapUp: (details) {
+                                if (!handleLinkTap(details.localPosition)) {
+                                  _toggleToolbar();
+                                }
+                              },
+                              child: SizedBox(width: size.width, height: size.height),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ) : PdfViewer.file(
                     widget.item.path,
                   initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
                 controller: _pdfViewerController,
@@ -311,13 +440,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
                 } : null,
                 pagePaintCallbacks: [
-                  if (_pdfDarkMode)
-                    (canvas, pageRect, page) {
-                      final paint = Paint()
-                        ..blendMode = BlendMode.difference
-                        ..color = Colors.white;
-                      canvas.drawRect(pageRect, paint);
-                    },
                   _textSearcher.pageTextMatchPaintCallback
                 ],
                   viewerOverlayBuilder: (context, size, handleLinkTap) => [
