@@ -21,6 +21,7 @@ import '../data/reading_progress_repository.dart';
 import '../application/open_tabs_provider.dart';
 import '../application/pdf_library_controller.dart';
 import 'tab_switcher_screen.dart';
+import 'route_observer.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'arc_outline_node.dart';
@@ -34,7 +35,7 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
 }
 
-class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver {
+class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver, RouteAware {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   late final PdfTextSearcher _textSearcher;
 
@@ -68,12 +69,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _scheduleHide();
     _startReadingTimer();
 
-    // Delay rendering slightly to ensure the page transition animation
-    // stays at 120fps before locking the thread to load the PDF.
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (mounted) setState(() => _isReadyToRender = true);
-    });
-
     // Apply initial wake lock if needed based on settings
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
@@ -81,8 +76,57 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     });
   }
 
+  bool _isRouteObserverInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute != null) {
+      pdfRouteObserver.subscribe(this, modalRoute);
+
+      if (!_isRouteObserverInitialized) {
+        _isRouteObserverInitialized = true;
+        if (modalRoute.animation != null) {
+          if (modalRoute.animation!.isCompleted) {
+            setState(() => _isReadyToRender = true);
+          } else {
+            modalRoute.animation!.addStatusListener((status) {
+              if (status == AnimationStatus.completed && mounted && !_isReadyToRender) {
+                setState(() => _isReadyToRender = true);
+              }
+            });
+          }
+        } else {
+          setState(() => _isReadyToRender = true);
+        }
+      }
+    }
+  }
+
+  @override
+  void didPush() {
+    // Left intentionally empty as logic moved to didChangeDependencies
+  }
+
+  @override
+  void didPushNext() {
+    // A route was pushed on top
+  }
+
+  @override
+  void didPopNext() {
+    // The route on top was popped, we are active again
+  }
+
+  @override
+  void didPop() {
+    // We are popped
+  }
+
   @override
   void dispose() {
+    pdfRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _pdfViewerController.removeListener(_onPdfViewerChanged);
     _textSearcher.removeListener(_onSearcherChanged);

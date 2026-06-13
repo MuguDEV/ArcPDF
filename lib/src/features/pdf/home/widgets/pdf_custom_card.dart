@@ -12,6 +12,7 @@ import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'peek_overlay.dart';
 import '../../../../shared/widgets/arc_bouncy_card.dart';
+import '../../../../shared/widgets/parallax_wrapper.dart';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
   const PdfCustomCard({
@@ -22,6 +23,7 @@ class PdfCustomCard extends ConsumerStatefulWidget {
     required this.onFavorite,
     this.onVault,
     this.onLongPress,
+    this.scrollController,
   });
 
   final PdfFileItem item;
@@ -30,12 +32,15 @@ class PdfCustomCard extends ConsumerStatefulWidget {
   final VoidCallback onFavorite;
   final VoidCallback? onVault;
   final VoidCallback? onLongPress;
+  final ScrollController? scrollController;
 
   @override
   ConsumerState<PdfCustomCard> createState() => _PdfCustomCardState();
 }
 
 class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
+  final GlobalKey _cardKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
@@ -65,7 +70,14 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                       child: SizedBox(
                         width: 60,
                         height: 80,
-                        child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                        child: widget.scrollController != null
+                          ? ParallaxWrapper(
+                              scrollController: widget.scrollController!,
+                              listItemKey: _cardKey,
+                              parallaxSpeed: 0.15,
+                              child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                            )
+                          : PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                       ),
                     ),
                   ),
@@ -206,6 +218,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     );
 
     return Padding(
+      key: _cardKey,
       padding: const EdgeInsets.only(bottom: 12),
       child: Slidable(
         key: ValueKey(widget.item.path),

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -33,7 +34,7 @@ class PdfThumbnail extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         child: isEncrypted
             ? _LockedState(theme: theme)
-            : FutureBuilder<Uint8List?>(
+            : FutureBuilder<ui.Image?>(
                 initialData: PdfThumbnailCache.getCached(path),
                 future: PdfThumbnailCache.getThumbnail(path, lowPowerMode: lowPowerMode),
                 builder: (context, snapshot) {
@@ -49,8 +50,8 @@ class PdfThumbnail extends ConsumerWidget {
                     return const _Fallback();
                   }
 
-                  return Image.memory(
-                    snapshot.data!,
+                  return RawImage(
+                    image: snapshot.data!,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   );

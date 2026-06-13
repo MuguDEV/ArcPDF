@@ -16,11 +16,24 @@ import '../home/widgets/pdf_custom_card.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
 import '../../../shared/widgets/arc_progress_indicator.dart';
 
-class RecentScreen extends ConsumerWidget {
+class RecentScreen extends ConsumerStatefulWidget {
   const RecentScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecentScreen> createState() => _RecentScreenState();
+}
+
+class _RecentScreenState extends ConsumerState<RecentScreen> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final loading = ref.watch(pdfLibraryControllerProvider.select((s) => s.loading));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.recents));
@@ -29,6 +42,8 @@ class RecentScreen extends ConsumerWidget {
     final isEmpty = groups.isEmpty;
 
     return CustomScrollView(
+      controller: _scrollController,
+      cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
       physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
@@ -83,7 +98,7 @@ class RecentScreen extends ConsumerWidget {
               ),
             )
           else
-            _RecentGroupsList(groups: groups, ctrl: ctrl),
+            _RecentGroupsList(groups: groups, ctrl: ctrl, scrollController: _scrollController),
 
           const SliverSafeArea(
             minimum: EdgeInsets.only(bottom: 120),
@@ -95,9 +110,10 @@ class RecentScreen extends ConsumerWidget {
 }
 
 class _RecentGroupsList extends ConsumerWidget {
-  const _RecentGroupsList({required this.groups, required this.ctrl});
+  const _RecentGroupsList({required this.groups, required this.ctrl, this.scrollController});
   final Map<String, List<PdfFileItem>> groups;
   final PdfLibraryController ctrl;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -159,6 +175,7 @@ class _RecentGroupsList extends ConsumerWidget {
                 child: PdfCustomCard(
                   item: item,
                   index: idx,
+                  scrollController: scrollController,
                   onFavorite: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(item),
                   onVault: () async {
                     final security = ref.read(securityControllerProvider);

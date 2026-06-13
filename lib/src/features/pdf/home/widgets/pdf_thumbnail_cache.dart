@@ -11,7 +11,7 @@ import 'dart:async';
 import 'dart:collection';
 
 class PdfThumbnailCache {
-  static final LinkedHashMap<String, Uint8List> _memCache = LinkedHashMap<String, Uint8List>();
+  static final LinkedHashMap<String, ui.Image> _memCache = LinkedHashMap<String, ui.Image>();
   static const int _maxMemCacheSize = 100;
   static String? _cacheDir;
 
@@ -30,7 +30,7 @@ class PdfThumbnailCache {
 
   static String _key(String path) => path.hashCode.toString();
 
-  static Uint8List? getCached(String pdfPath) {
+  static ui.Image? getCached(String pdfPath) {
     if (_memCache.containsKey(pdfPath)) {
       // Move to end (most recently used)
       final val = _memCache.remove(pdfPath)!;
@@ -40,24 +40,26 @@ class PdfThumbnailCache {
     return null;
   }
 
-  static void _addToMemCache(String path, Uint8List bytes) {
+  static void _addToMemCache(String path, ui.Image image) {
     if (_memCache.containsKey(path)) {
       _memCache.remove(path); // Remove so it gets added to the end (most recent)
     }
-    _memCache[path] = bytes;
+    _memCache[path] = image;
 
     if (_memCache.length > _maxMemCacheSize) {
       // Remove least recently used (first element in LinkedHashMap)
       final firstKey = _memCache.keys.first;
       _memCache.remove(firstKey);
+      // We don't forcefully call dispose() on the ui.Image because a RawImage widget
+      // may still be actively attached to it in the widget tree, which will crash the app.
     }
   }
 
-  static Future<Uint8List?> getThumbnail(String pdfPath, {bool lowPowerMode = false}) async {
+  static Future<ui.Image?> getThumbnail(String pdfPath, {bool lowPowerMode = false}) async {
     final cached = getCached(pdfPath);
     if (cached != null) return cached;
 
-    final completer = Completer<Uint8List?>();
+    final completer = Completer<ui.Image?>();
     _taskQueue.add(_ThumbnailTask(pdfPath, lowPowerMode, completer));
     _processQueue();
 
@@ -81,7 +83,7 @@ class PdfThumbnailCache {
     }
   }
 
-  static Future<Uint8List?> _generateThumbnail(String pdfPath, bool lowPowerMode) async {
+  static Future<ui.Image?> _generateThumbnail(String pdfPath, bool lowPowerMode) async {
     // Check cache again in case another task already generated it
     final cached = getCached(pdfPath);
     if (cached != null) return cached;
@@ -92,8 +94,11 @@ class PdfThumbnailCache {
 
     if (file.existsSync()) {
       final bytes = await file.readAsBytes();
-      _addToMemCache(pdfPath, bytes);
-      return bytes;
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      _addToMemCache(pdfPath, image);
+      return image;
     }
 
     try {
@@ -120,14 +125,17 @@ class PdfThumbnailCache {
       if (pdfImage != null) {
         final image = await pdfImage.createImage();
         pdfImage.dispose();
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData != null) {
-          final bytes = byteData.buffer.asUint8List();
-          // Write asynchronously so we don't block
-          file.writeAsBytes(bytes);
-          _addToMemCache(pdfPath, bytes);
-          return bytes;
-        }
+
+        _addToMemCache(pdfPath, image);
+
+        // Async write bytes to disk without blocking UI texture memory load
+        image.toByteData(format: ui.ImageByteFormat.png).then((byteData) {
+           if (byteData != null) {
+              file.writeAsBytes(byteData.buffer.asUint8List());
+           }
+        });
+
+        return image;
       }
     } catch (e, stackTrace) {
       final redactedPath = pdfPath.split('/').lastOrNull ?? 'unknown_file';
@@ -140,7 +148,7 @@ class PdfThumbnailCache {
 class _ThumbnailTask {
   final String pdfPath;
   final bool lowPowerMode;
-  final Completer<Uint8List?> completer;
+  final Completer<ui.Image?> completer;
 
   _ThumbnailTask(this.pdfPath, this.lowPowerMode, this.completer);
 }

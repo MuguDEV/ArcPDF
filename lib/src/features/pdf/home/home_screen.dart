@@ -119,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : null,
       body: CustomScrollView(
       controller: _scrollController,
+      cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
       physics:
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
@@ -541,11 +542,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       BuildContext context, WidgetRef ref, PdfFileItem item, int index,
       {Key? key}) {
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
+    Widget content;
 
     // In selection mode, wrap with custom selection tap
     if (_isSelectionMode) {
       final isSelected = _selectedPaths.contains(item.path);
-      return GestureDetector(
+      content = GestureDetector(
         onTap: () {
           setState(() {
             if (isSelected) {
@@ -571,6 +573,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 key: key,
                 item: item,
                 index: index,
+                scrollController: _scrollController,
                 onFavorite: () {},
                 onTap: () {},
               ),
@@ -578,62 +581,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       );
+    } else {
+      content = PdfCustomCard(
+        key: key,
+        item: item,
+        index: index,
+        scrollController: _scrollController,
+        onFavorite: () => ctrl.toggleFavorite(item),
+        // Delegate long press logic for the Multi-Select (Quick Combine) directly into the card
+        onLongPress: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _isSelectionMode = true;
+            _selectedPaths.add(item.path);
+          });
+        },
+        onVault: () async {
+          final security = ref.read(securityControllerProvider);
+          if (!security.isLockEnabled) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('App lock is not enabled. Enable it in Settings first.'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
+          if (success && context.mounted) {
+            ref.read(pdfLibraryControllerProvider.notifier).refresh();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Moved to Vault'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        onTap: () async {
+          if (item.sizeBytes == 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Cannot open empty or corrupted file')),
+            );
+            return;
+          }
+          await ctrl.markRecent(item);
+          if (!context.mounted) return;
+          ref.read(openTabsProvider.notifier).openTab(item);
+          await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()));
+        },
+      );
     }
 
-    return PdfCustomCard(
-      key: key,
-      item: item,
-      index: index,
-      onFavorite: () => ctrl.toggleFavorite(item),
-      // Delegate long press logic for the Multi-Select (Quick Combine) directly into the card
-      onLongPress: () {
-        HapticFeedback.selectionClick();
-        setState(() {
-          _isSelectionMode = true;
-          _selectedPaths.add(item.path);
-        });
-      },
-      onVault: () async {
-        final security = ref.read(securityControllerProvider);
-        if (!security.isLockEnabled) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('App lock is not enabled. Enable it in Settings first.'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          return;
-        }
-        final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
-        if (success && context.mounted) {
-          ref.read(pdfLibraryControllerProvider.notifier).refresh();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Moved to Vault'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      },
-      onTap: () async {
-        if (item.sizeBytes == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Cannot open empty or corrupted file')),
-          );
-          return;
-        }
-        await ctrl.markRecent(item);
-        if (!context.mounted) return;
-        ref.read(openTabsProvider.notifier).openTab(item);
-        await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()));
-      },
-    );
+    return RepaintBoundary(child: content);
   }
 
   Future<void> _handleQuickCombine(BuildContext context) async {
