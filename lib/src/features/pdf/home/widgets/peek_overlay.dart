@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 
@@ -88,6 +89,11 @@ class _PeekOverlayState extends State<PeekOverlay> with SingleTickerProviderStat
                                 ),
                               ),
                             ),
+                          ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
+                            begin: 1.0,
+                            end: 1.03,
+                            duration: 3.seconds,
+                            curve: Curves.easeInOutSine,
                           ),
                           const SizedBox(height: 24),
                           Text(

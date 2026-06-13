@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'dart:ui';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../settings/haptic_service.dart';
 import '../../../settings/settings_controller.dart';
@@ -105,7 +106,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Favorite Button integrated in the top right
+                            // Favorite Button integrated in the top right with spring micro-interaction
                             GestureDetector(
                               onTap: () {
                                 ref.read(hapticServiceProvider).selectionClick();
@@ -115,6 +116,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                                 isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                                 color: isFav ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                                 size: 22,
+                              ).animate(key: ValueKey(isFav)).scale(
+                                begin: const Offset(0.5, 0.5),
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.elasticOut,
                               ),
                             ),
                           ],
@@ -247,6 +252,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   isFav ? HugeIcons.strokeRoundedFavourite : Icons.favorite_rounded,
                   color: isFav ? theme.colorScheme.onSurface : theme.colorScheme.primary,
                   size: 28,
+                ).animate(key: ValueKey(isFav)).scale(
+                  begin: const Offset(0.5, 0.5),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
                 ),
               ),
             ),
@@ -276,6 +285,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   HugeIcons.strokeRoundedSafe,
                   color: theme.colorScheme.onSurface,
                   size: 28,
+                ).animate().scale(
+                  begin: const Offset(0.5, 0.5),
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.elasticOut,
                 ),
               ),
             ),

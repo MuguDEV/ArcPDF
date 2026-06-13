@@ -38,6 +38,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedPaths = {};
 
+  double _scrollVelocity = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -86,38 +88,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final items = ctrl.filteredItems();
     final theme = Theme.of(context);
 
+    // Calculate squash & stretch based on velocity
+    final squash = (_scrollVelocity.abs() * 0.0001).clamp(0.0, 0.15);
+    final scaleY = 1.0 + squash;
+    final scaleX = 1.0 - (squash * 0.5);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       floatingActionButton: _isSelectionMode
         ? Padding(
             padding: const EdgeInsets.only(bottom: 90.0),
-            child: FloatingActionButton.extended(
-              onPressed: _selectedPaths.length > 1 ? () => _handleQuickCombine(context) : null,
-              backgroundColor: _selectedPaths.length > 1 ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
-              foregroundColor: _selectedPaths.length > 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
-              icon: const Icon(HugeIcons.strokeRoundedLayers01),
-              label: Text('Combine (${_selectedPaths.length})'),
+            child: Transform.scale(
+              scaleX: scaleX,
+              scaleY: scaleY,
+              alignment: Alignment.bottomCenter,
+              child: FloatingActionButton.extended(
+                onPressed: _selectedPaths.length > 1 ? () => _handleQuickCombine(context) : null,
+                backgroundColor: _selectedPaths.length > 1 ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
+                foregroundColor: _selectedPaths.length > 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                icon: const Icon(HugeIcons.strokeRoundedLayers01),
+                label: Text('Combine (${_selectedPaths.length})'),
+              ),
             ).animate().slideY(begin: 1.0, duration: 250.ms, curve: Curves.easeOutBack),
           )
         : _showScrollToTop
           ? Padding(
               padding: const EdgeInsets.only(bottom: 90.0), // Elevate above the bottom navigation bar
-              child: FloatingActionButton(
-                onPressed: () {
-                  _scrollController.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.fastOutSlowIn,
-                  );
-                },
-                backgroundColor: theme.colorScheme.secondaryContainer,
-                foregroundColor: theme.colorScheme.onSecondaryContainer,
-                elevation: 4,
-                child: const Icon(Icons.arrow_upward_rounded),
+              child: Transform.scale(
+                scaleX: scaleX,
+                scaleY: scaleY,
+                alignment: Alignment.bottomCenter,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  },
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
+                  elevation: 4,
+                  child: const Icon(Icons.arrow_upward_rounded),
+                ),
               ),
             )
           : null,
-      body: CustomScrollView(
+      body: NotificationListener<ScrollUpdateNotification>(
+        onNotification: (notification) {
+          if (notification.scrollDelta != null) {
+             setState(() {
+               // Decay velocity to 0 if stopped, else track Delta
+               _scrollVelocity = notification.scrollDelta! * 50;
+             });
+          }
+          return false;
+        },
+        child: NotificationListener<ScrollEndNotification>(
+          onNotification: (notification) {
+            setState(() => _scrollVelocity = 0.0);
+            return false;
+          },
+          child: CustomScrollView(
       controller: _scrollController,
       cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
       physics:
@@ -526,6 +558,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
+      ),
+        ),
       ),
     );
   }

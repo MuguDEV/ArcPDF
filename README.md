@@ -24,7 +24,12 @@ ArcPDF is a modern, local-first PDF manager and viewer built from the ground up 
 ArcPDF employs a modular architecture using **Riverpod** for state management and **Hive** for fast local storage.
 - `lib/src/features/` contains modular components such as `pdf` (library scanning & viewers), `tools` (PDF manipulation), `vault` (security), and `settings`.
 - `lib/src/shared/` hosts the reusable monochrome and glass UI widgets.
-- Strict caching policies, including an optimized LRU thumbnail cache, to prevent Out Of Memory errors when viewing massive libraries.
+
+### Zero-Jank Philosophy
+We utilize deep, hardware-level optimization techniques to ensure the app hits 120fps flawlessly:
+- **RawImage Decoding:** Thumbnails are decoded into native `ui.Image` frames completely off-thread using isolate task queues (`PdfThumbnailCache`).
+- **Deferred Route Rendering:** Heavy `pdfrx` document rendering is halted until route flight animations conclude, eliminating page stutter.
+- **Hardware Animations:** The app heavily uses `Matrix4` transformations (like the 3D Tab Carousel and Card Tilting), and leverages strict `RepaintBoundary` nodes to animate without triggering layout recalculations.
 
 ## Building from Source
 
