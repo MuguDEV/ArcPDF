@@ -1,19 +1,14 @@
-import '../settings/settings_controller.dart';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 import '../pdf/favorites/favorites_screen.dart';
 import '../pdf/home/home_screen.dart';
 import '../pdf/recent/recent_screen.dart';
 import '../settings/settings_screen.dart';
-import '../settings/haptic_service.dart';
 import '../tools/tools_screen.dart';
 import '../splash/splash_screen.dart';
 import 'navigation_controller.dart';
+import 'arc_nav_bar.dart';
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
@@ -36,7 +31,7 @@ class AppShell extends ConsumerWidget {
         ],
       ),
       extendBody: true,
-      bottomNavigationBar: _ArcNavBar(selectedIndex: nav.index),
+      bottomNavigationBar: ArcNavBar(selectedIndex: nav.index),
     );
   }
 
@@ -50,107 +45,6 @@ class AppShell extends ConsumerWidget {
         curve: Curves.fastLinearToSlowEaseIn,
         child: child,
       ),
-    );
-  }
-}
-
-class _ArcNavBar extends ConsumerWidget {
-  const _ArcNavBar({required this.selectedIndex});
-  final int selectedIndex;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final settings = ref.watch(settingsControllerProvider);
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
-    final double sigma = isLiquid ? 48.0 : 24.0;
-
-    final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
-
-    final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
-        : navBg.withValues(alpha: isDark ? 0.75 : 0.85);
-
-    Widget navContainer = Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: isBlur ? bgColor : navBg,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.04),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: NavigationBarTheme(
-        data: NavigationBarThemeData(
-          // Overriding indicator to be smaller
-          indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: NavigationBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedIndex: selectedIndex,
-          height: 60,
-          indicatorColor: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : theme.colorScheme.primary.withValues(alpha: 0.08),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          destinations: [
-            _buildDest(HugeIcons.strokeRoundedHome01, 'Home', 0, isDark, theme),
-            _buildDest(HugeIcons.strokeRoundedFavourite, 'Favorites', 1, isDark, theme),
-            _buildDest(HugeIcons.strokeRoundedClock01, 'Recent', 2, isDark, theme),
-            _buildDest(HugeIcons.strokeRoundedDashboardSquare01, 'Tools', 3, isDark, theme),
-            _buildDest(HugeIcons.strokeRoundedSettings01, 'Settings', 4, isDark, theme),
-          ],
-          onDestinationSelected: (i) {
-            if (i != selectedIndex) {
-              ref.read(hapticServiceProvider).selectionClick();
-              ref.read(navigationControllerProvider.notifier).setIndex(i);
-            }
-          },
-        ),
-      ),
-    );
-
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(40, 0, 40, 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: isBlur ? BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-          child: navContainer,
-        ) : navContainer,
-      ),
-    );
-  }
-
-  NavigationDestination _buildDest(IconData icon, String label, int index, bool isDark, ThemeData theme) {
-    final isSelected = selectedIndex == index;
-    final color = isSelected 
-        ? (isDark ? Colors.white : theme.colorScheme.primary)
-        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
-
-    return NavigationDestination(
-      icon: AnimatedScale(
-        scale: isSelected ? 1.05 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutBack,
-        child: Icon(icon, color: color, size: 24),
-      ),
-      label: label,
     );
   }
 }

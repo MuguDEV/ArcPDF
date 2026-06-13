@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ArcBouncyCard extends StatefulWidget {
   const ArcBouncyCard({
@@ -22,6 +23,9 @@ class _ArcBouncyCardState extends State<ArcBouncyCard> {
   bool _isPressed = false;
   Offset _localOffset = Offset.zero;
   final GlobalKey _key = GlobalKey();
+
+  bool _showBurst = false;
+  Offset _burstPosition = Offset.zero;
 
   void _updateTilt(Offset localPosition) {
     if (_key.currentContext == null) return;
@@ -47,53 +51,98 @@ class _ArcBouncyCardState extends State<ArcBouncyCard> {
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanDown: (details) {
+      child: Listener(
+        onPointerDown: (event) {
           if (widget.onTap != null || widget.onLongPress != null) {
-            _updateTilt(details.localPosition);
-            setState(() => _isPressed = true);
+            _updateTilt(event.localPosition);
           }
         },
-        onPanUpdate: (details) {
-          if (_isPressed) _updateTilt(details.localPosition);
+        onPointerMove: (event) {
+          if (_isPressed) _updateTilt(event.localPosition);
         },
-        onPanEnd: (_) {
-          setState(() {
-            _isPressed = false;
-            _localOffset = Offset.zero;
-          });
+        onPointerUp: (_) {
+          if (_isPressed && mounted) {
+            setState(() {
+              _isPressed = false;
+              _localOffset = Offset.zero;
+            });
+          }
         },
-        onTapUp: (_) {
-          setState(() {
-            _isPressed = false;
-            _localOffset = Offset.zero;
-          });
-          widget.onTap?.call();
+        onPointerCancel: (_) {
+          if (_isPressed && mounted) {
+            setState(() {
+              _isPressed = false;
+              _localOffset = Offset.zero;
+            });
+          }
         },
-        onPanCancel: () {
-          setState(() {
-            _isPressed = false;
-            _localOffset = Offset.zero;
-          });
-        },
-        onLongPress: widget.onLongPress != null ? () {
-          setState(() {
-            _isPressed = false;
-            _localOffset = Offset.zero;
-          });
-          widget.onLongPress?.call();
-        } : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOutCubic,
-          transform: transform,
-          transformAlignment: Alignment.center,
-          child: AnimatedScale(
-            scale: _isPressed ? widget.scaleDown : 1.0,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.elasticOut,
-            child: SizedBox(key: _key, child: widget.child),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            if (widget.onTap != null || widget.onLongPress != null) {
+              setState(() => _isPressed = true);
+            }
+          },
+          onTapUp: (details) {
+            if (widget.onTap != null) {
+              setState(() {
+                _burstPosition = details.localPosition;
+                _showBurst = true;
+              });
+              Future.delayed(const Duration(milliseconds: 300), () {
+                if (mounted) setState(() => _showBurst = false);
+              });
+            }
+            setState(() {
+              _isPressed = false;
+              _localOffset = Offset.zero;
+            });
+            widget.onTap?.call();
+          },
+          onTapCancel: () {
+            setState(() {
+              _isPressed = false;
+              _localOffset = Offset.zero;
+            });
+          },
+          onLongPress: widget.onLongPress != null ? () {
+            setState(() {
+              _isPressed = false;
+              _localOffset = Offset.zero;
+            });
+            widget.onLongPress?.call();
+          } : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            transform: transform,
+            transformAlignment: Alignment.center,
+            child: AnimatedScale(
+              scale: _isPressed ? widget.scaleDown : 1.0,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.elasticOut,
+              child: SizedBox(
+                key: _key,
+                child: Stack(
+                  children: [
+                    widget.child,
+                    if (_showBurst)
+                      Positioned(
+                        left: _burstPosition.dx - 50,
+                        top: _burstPosition.dy - 50,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                          ),
+                        ).animate().scale(begin: const Offset(0.0, 0.0), end: const Offset(5.0, 5.0), duration: 400.ms, curve: Curves.easeOutCirc).fadeOut(duration: 300.ms),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
