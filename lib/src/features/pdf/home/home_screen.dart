@@ -155,62 +155,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       physics:
           const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
-        CupertinoSliverRefreshControl(
-          onRefresh: () async {
-            HapticFeedback.mediumImpact();
-            await ctrl.refresh();
-          },
-        ),
-        // Resume Session Banner
-        if (ref.watch(openTabsProvider).tabs.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.restore_page_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Resume Reading',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                            Text(
-                              'You have ${ref.read(openTabsProvider).tabs.length} tabs open',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                    ],
-                  ),
-                ),
-              ),
-            ).animate().slideY(begin: -0.2, duration: 300.ms, curve: Curves.easeOutBack).fadeIn(),
-          ),
-
         // Unified app bar (no large duplication)
         GlassSliverAppBar(
           title: _isSelectionMode
@@ -333,6 +277,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
+
+        CupertinoSliverRefreshControl(
+          onRefresh: () async {
+            HapticFeedback.mediumImpact();
+            await ctrl.refresh();
+          },
+        ),
+
+        // Resume Session Banner
+        if (ref.watch(openTabsProvider).tabs.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.restore_page_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Resume Reading',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            Text(
+                              'You have ${ref.read(openTabsProvider).tabs.length} tabs open',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    ],
+                  ),
+                ),
+              ),
+            ).animate().slideY(begin: -0.2, duration: 300.ms, curve: Curves.easeOutBack).fadeIn(),
+          ),
 
         // Search + filter chips
         SliverToBoxAdapter(
