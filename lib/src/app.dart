@@ -159,7 +159,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           TargetPlatform.android: ZoomPageTransitionsBuilder(
             allowEnterRouteSnapshotting: false,
           ),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
         }),
         appBarTheme: AppBarTheme(
           backgroundColor: colorScheme.surface,
