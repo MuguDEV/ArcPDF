@@ -27,14 +27,16 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
     ref.read(intentServiceProvider).init();
 
     // Apply initial refresh rate safely outside of build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isAndroid) {
-        final settings = ref.read(settingsControllerProvider);
-        if (settings.lowPowerMode) {
-          FlutterDisplayMode.setLowRefreshRate().catchError((_) {});
-        } else {
-          FlutterDisplayMode.setHighRefreshRate().catchError((_) {});
-        }
+        try {
+          final settings = ref.read(settingsControllerProvider);
+          if (settings.lowPowerMode) {
+            await FlutterDisplayMode.setLowRefreshRate();
+          } else {
+            await FlutterDisplayMode.setHighRefreshRate();
+          }
+        } catch (_) {}
       }
     });
   }
@@ -51,13 +53,15 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
     final font = settings.fontFamily;
 
     // Listen to changes to set refresh rate safely (not every build frame)
-    ref.listen<AppSettings>(settingsControllerProvider, (prev, next) {
+    ref.listen<AppSettings>(settingsControllerProvider, (prev, next) async {
       if (prev?.lowPowerMode != next.lowPowerMode && Platform.isAndroid) {
-        if (next.lowPowerMode) {
-          FlutterDisplayMode.setLowRefreshRate().catchError((_) {});
-        } else {
-          FlutterDisplayMode.setHighRefreshRate().catchError((_) {});
-        }
+        try {
+          if (next.lowPowerMode) {
+            await FlutterDisplayMode.setLowRefreshRate();
+          } else {
+            await FlutterDisplayMode.setHighRefreshRate();
+          }
+        } catch (_) {}
       }
     });
 

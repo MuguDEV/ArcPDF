@@ -28,35 +28,41 @@ class PdfThumbnail extends ConsumerWidget {
     final file = File(path);
     if (!file.existsSync()) return const _Fallback();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: ColoredBox(
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: isEncrypted
-            ? _LockedState(theme: theme)
-            : FutureBuilder<ui.Image?>(
-                initialData: PdfThumbnailCache.getCached(path),
-                future: PdfThumbnailCache.getThumbnail(path, lowPowerMode: lowPowerMode),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                    return Shimmer.fromColors(
-                      baseColor: theme.colorScheme.surfaceContainer,
-                      highlightColor: theme.colorScheme.surfaceContainerHighest,
-                      child: Container(color: theme.colorScheme.surfaceContainer),
-                    );
-                  }
-                  
-                  if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-                    return const _Fallback();
-                  }
+    return SizedBox(
+      width: 60,
+      height: 80,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ColoredBox(
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: isEncrypted
+              ? _LockedState(theme: theme)
+              : FutureBuilder<ui.Image?>(
+                  initialData: PdfThumbnailCache.getCached(path),
+                  future: PdfThumbnailCache.getThumbnail(path, lowPowerMode: lowPowerMode),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                      return Shimmer.fromColors(
+                        baseColor: theme.colorScheme.surfaceContainer,
+                        highlightColor: theme.colorScheme.surfaceContainerHighest,
+                        child: Container(color: theme.colorScheme.surfaceContainer),
+                      );
+                    }
 
-                  return RawImage(
-                    image: snapshot.data!,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  );
-                },
-              ),
+                    if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                      return const _Fallback();
+                    }
+
+                    return RawImage(
+                      image: snapshot.data!,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      width: 60,
+                      height: 80,
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -68,8 +74,9 @@ class _CorruptedFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 0.75, // Default ratio
+    return SizedBox(
+      width: 60,
+      height: 80,
       child: Center(
         child: Icon(
           Icons.broken_image_rounded,
@@ -86,8 +93,9 @@ class _Fallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 0.75, // Default ratio
+    return SizedBox(
+      width: 60,
+      height: 80,
       child: Center(
         child: Icon(
           HugeIcons.strokeRoundedPdf02,
@@ -105,8 +113,9 @@ class _LockedState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 0.75,
+    return SizedBox(
+      width: 60,
+      height: 80,
       child: Stack(
         fit: StackFit.expand,
         children: [
