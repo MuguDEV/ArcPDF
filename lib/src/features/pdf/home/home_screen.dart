@@ -157,21 +157,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       slivers: [
         // Unified app bar (no large duplication)
         GlassSliverAppBar(
-          title: _isSelectionMode
-            ? Text('${_selectedPaths.length} Selected', style: const TextStyle(fontWeight: FontWeight.w800))
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('ArcPDF', style: TextStyle(fontWeight: FontWeight.w800)),
-                  Text(
-                    'Your local PDF workspace',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
+          title: Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+            child: _isSelectionMode
+              ? Text('${_selectedPaths.length} Selected', style: const TextStyle(fontWeight: FontWeight.w800))
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('ArcPDF', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      'Your local PDF workspace',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            height: 1.1,
+                          ),
+                    ),
+                  ],
+                ),
+          ),
           actions: [
             if (_isSelectionMode)
               IconButton(
@@ -555,7 +559,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
 
         const SliverSafeArea(
-          minimum: EdgeInsets.only(bottom: 120),
+          minimum: EdgeInsets.only(bottom: 140),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],

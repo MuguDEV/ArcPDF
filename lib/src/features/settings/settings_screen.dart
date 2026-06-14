@@ -350,7 +350,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         const SliverSafeArea(
-          minimum: EdgeInsets.only(bottom: 120),
+          minimum: EdgeInsets.only(bottom: 140),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],

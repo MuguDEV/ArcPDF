@@ -53,16 +53,16 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     Widget innerContent = Padding(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Thumbnail
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     child: SizedBox(
-                      width: 60,
-                      height: 80,
+                      width: 52,
+                      height: 72,
                       child: widget.scrollController != null
                         ? ParallaxWrapper(
                             scrollController: widget.scrollController!,
@@ -186,11 +186,11 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     );
 
     Widget cardContent = ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         child: lowPowerMode ? Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                 width: 1.0,
@@ -202,7 +202,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
           child: Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                 width: 1.0,
