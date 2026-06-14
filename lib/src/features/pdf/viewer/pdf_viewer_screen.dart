@@ -282,24 +282,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: ArcProgressIndicator(),
             )
           else
-            Hero(
-              tag: 'pdf_thumb_${widget.item.path}',
-              flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
-                 return FadeTransition(
-                   opacity: animation,
-                   child: toHeroContext.widget,
-                 );
-              },
-              child: RotatedBox(
-                  quarterTurns: _rotationQuarterTurns,
-                  child: _pdfDarkMode ? ColorFiltered(
-                    colorFilter: const ColorFilter.matrix([
-                      -0.333, -0.333, -0.333, 0, 255,
-                      -0.333, -0.333, -0.333, 0, 255,
-                      -0.333, -0.333, -0.333, 0, 255,
-                      0,      0,      0,      1, 0,
-                    ]),
-                    child: PdfViewer.file(
+            RotatedBox(
+                quarterTurns: _rotationQuarterTurns,
+                child: _pdfDarkMode ? ColorFiltered(
+                  colorFilter: const ColorFilter.matrix([
+                    -0.333, -0.333, -0.333, 0, 255,
+                    -0.333, -0.333, -0.333, 0, 255,
+                    -0.333, -0.333, -0.333, 0, 255,
+                    0,      0,      0,      1, 0,
+                  ]),
+                  child: PdfViewer.file(
                       widget.item.path,
                       initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
                       controller: _pdfViewerController,
@@ -456,7 +448,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 ),
               ),
             ),
-          ),
 
           // 2. Top App Bar / Search Bar
           Positioned(

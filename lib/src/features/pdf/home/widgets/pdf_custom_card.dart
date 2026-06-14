@@ -58,28 +58,19 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Thumbnail
-                  Hero(
-                    tag: 'pdf_thumb_${widget.item.path}',
-                    flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
-                       return FadeTransition(
-                         opacity: animation,
-                         child: toHeroContext.widget,
-                       );
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 60,
-                        height: 80,
-                        child: widget.scrollController != null
-                          ? ParallaxWrapper(
-                              scrollController: widget.scrollController!,
-                              listItemKey: _cardKey,
-                              parallaxSpeed: 0.15,
-                              child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
-                            )
-                          : PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
-                      ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 60,
+                      height: 80,
+                      child: widget.scrollController != null
+                        ? ParallaxWrapper(
+                            scrollController: widget.scrollController!,
+                            listItemKey: _cardKey,
+                            parallaxSpeed: 0.15,
+                            child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                          )
+                        : PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                     ),
                   ),
                   const SizedBox(width: 12),

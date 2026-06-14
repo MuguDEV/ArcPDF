@@ -31,19 +31,25 @@ class GlassSliverAppBar extends ConsumerWidget {
         ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
         : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
-    return SliverAppBar(
-      pinned: pinned,
-      backgroundColor: bgColor,
-      flexibleSpace: isBlur
-          ? ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: Container(color: Colors.transparent),
-              ),
-            )
-          : null,
-      title: title,
-      actions: actions,
+    // Wrapping inside a SafeArea internally or ensuring SliverAppBar does not draw under status bar content poorly
+    return SliverSafeArea(
+      top: true,
+      bottom: false,
+      sliver: SliverAppBar(
+        pinned: pinned,
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent, // Prevents Material 3 tint overlay
+        flexibleSpace: isBlur
+            ? ClipRRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                  child: Container(color: Colors.transparent),
+                ),
+              )
+            : null,
+        title: title,
+        actions: actions,
+      ),
     );
   }
 }
