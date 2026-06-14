@@ -101,7 +101,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
             _RecentGroupsList(groups: groups, ctrl: ctrl, scrollController: _scrollController),
 
           const SliverSafeArea(
-            minimum: EdgeInsets.only(bottom: 120),
+            minimum: EdgeInsets.only(bottom: 140),
             sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
         ],

@@ -87,19 +87,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
       if (!_isRouteObserverInitialized) {
         _isRouteObserverInitialized = true;
-        if (modalRoute.animation != null) {
-          if (modalRoute.animation!.isCompleted) {
-            setState(() => _isReadyToRender = true);
-          } else {
-            modalRoute.animation!.addStatusListener((status) {
-              if (status == AnimationStatus.completed && mounted && !_isReadyToRender) {
-                setState(() => _isReadyToRender = true);
-              }
-            });
-          }
-        } else {
-          setState(() => _isReadyToRender = true);
-        }
+
+        // Immediately ready to render without waiting for animation.
+        // Waiting for the animation to complete causes a blank screen
+        // until the end of the transition, making it feel choppy or broken.
+        // We defer pdfrx document loading internally instead if needed,
+        // but visually we must exist right away.
+        setState(() => _isReadyToRender = true);
       }
     }
   }
@@ -282,9 +276,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: ArcProgressIndicator(),
             )
           else
-            RotatedBox(
-                quarterTurns: _rotationQuarterTurns,
-                child: _pdfDarkMode ? ColorFiltered(
+            RepaintBoundary(
+              child: RotatedBox(
+                  quarterTurns: _rotationQuarterTurns,
+                  child: _pdfDarkMode ? ColorFiltered(
                   colorFilter: const ColorFilter.matrix([
                     -0.333, -0.333, -0.333, 0, 255,
                     -0.333, -0.333, -0.333, 0, 255,
@@ -340,6 +335,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                         pageDropShadow: const BoxShadow(color: Colors.transparent),
                         enableTextSelection: true,
                         margin: 4.0,
+                        maxScale: 8.0,
                         layoutPages: _isHorizontalScroll ? (pages, params) {
                           final height = pages.fold(
                             0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
@@ -418,6 +414,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 pageDropShadow: const BoxShadow(color: Colors.transparent),
                 enableTextSelection: true,
                 margin: 4.0,
+                maxScale: 8.0,
                 layoutPages: _isHorizontalScroll ? (pages, params) {
                   final height = pages.fold(
                     0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
@@ -447,6 +444,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   ],
                 ),
               ),
+            ),
             ),
 
           // 2. Top App Bar / Search Bar

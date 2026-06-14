@@ -110,7 +110,7 @@ class ToolsScreen extends ConsumerWidget {
                   },
                 ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
 
-                const SizedBox(height: 120), // Bottom padding for nav bar
+                const SizedBox(height: 140), // Bottom padding for nav bar
               ],
             ),
           ),

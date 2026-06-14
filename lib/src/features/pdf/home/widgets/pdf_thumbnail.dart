@@ -29,10 +29,10 @@ class PdfThumbnail extends ConsumerWidget {
     if (!file.existsSync()) return const _Fallback();
 
     return SizedBox(
-      width: 60,
-      height: 80,
+      width: 52,
+      height: 72,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: ColoredBox(
           color: theme.colorScheme.surfaceContainerHighest,
           child: isEncrypted
@@ -57,8 +57,8 @@ class PdfThumbnail extends ConsumerWidget {
                       image: snapshot.data!,
                       fit: BoxFit.cover,
                       alignment: Alignment.topCenter,
-                      width: 60,
-                      height: 80,
+                      width: 52,
+                      height: 72,
                     );
                   },
                 ),
@@ -75,13 +75,13 @@ class _CorruptedFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 60,
-      height: 80,
+      width: 52,
+      height: 72,
       child: Center(
         child: Icon(
           Icons.broken_image_rounded,
           color: theme.colorScheme.error.withValues(alpha: 0.7),
-          size: 32,
+          size: 28,
         ),
       ),
     );
@@ -94,13 +94,13 @@ class _Fallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 60,
-      height: 80,
+      width: 52,
+      height: 72,
       child: Center(
         child: Icon(
           HugeIcons.strokeRoundedPdf02,
           color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          size: 28,
+          size: 24,
         ),
       ),
     );
@@ -114,8 +114,8 @@ class _LockedState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 60,
-      height: 80,
+      width: 52,
+      height: 72,
       child: Stack(
         fit: StackFit.expand,
         children: [

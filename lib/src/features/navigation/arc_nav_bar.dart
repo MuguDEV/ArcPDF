@@ -58,68 +58,74 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
           ),
         ],
       ),
-      child: Stack(
-        children: [
-          // Fluid Pill Indicator
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack, // Bouncy slide
-            left: _calculateIndicatorOffset(context),
-            top: 10,
-            bottom: 10,
-            width: _calculateItemWidth(context),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : theme.colorScheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / _icons.length;
 
-          // Icons Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(_icons.length, (index) {
-              final isSelected = widget.selectedIndex == index;
-              final color = isSelected
-                  ? (isDark ? Colors.white : theme.colorScheme.primary)
-                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
-
-              Widget iconWidget = Icon(_icons[index], color: color, size: 24);
-
-              if (isSelected) {
-                // Jelly squash and stretch effect when selected
-                iconWidget = iconWidget.animate(key: ValueKey(index)).scaleX(
-                  begin: 1.3, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
-                ).scaleY(
-                  begin: 0.7, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
-                );
-              } else {
-                 iconWidget = iconWidget.animate().scale(begin: const Offset(0.9, 0.9));
-              }
-
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (index != widget.selectedIndex) {
-                      ref.read(hapticServiceProvider).selectionClick();
-                      ref.read(navigationControllerProvider.notifier).setIndex(index);
-                    }
-                  },
-                  child: Center(child: iconWidget),
+          return Stack(
+            children: [
+              // Fluid Pill Indicator
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutBack, // Bouncy slide
+                left: (itemWidth * widget.selectedIndex) + 12,
+                top: 10,
+                bottom: 10,
+                width: itemWidth - 24,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-              );
-            }),
-          ),
-        ],
+              ),
+
+              // Icons Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(_icons.length, (index) {
+                  final isSelected = widget.selectedIndex == index;
+                  final color = isSelected
+                      ? (isDark ? Colors.white : theme.colorScheme.primary)
+                      : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+
+                  Widget iconWidget = Icon(_icons[index], color: color, size: 24);
+
+                  if (isSelected) {
+                    // Jelly squash and stretch effect when selected
+                    iconWidget = iconWidget.animate(key: ValueKey(index)).scaleX(
+                      begin: 1.3, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
+                    ).scaleY(
+                      begin: 0.7, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
+                    );
+                  } else {
+                     iconWidget = iconWidget.animate().scale(begin: const Offset(0.9, 0.9));
+                  }
+
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (index != widget.selectedIndex) {
+                          ref.read(hapticServiceProvider).selectionClick();
+                          ref.read(navigationControllerProvider.notifier).setIndex(index);
+                        }
+                      },
+                      child: Center(child: iconWidget),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          );
+        }
       ),
     );
 
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(40, 0, 40, 24),
+      minimum: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: isBlur ? BackdropFilter(
@@ -128,15 +134,5 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
         ) : navContainer,
       ),
     );
-  }
-
-  double _calculateItemWidth(BuildContext context) {
-    // 80 padding (40 left + 40 right) from SafeArea
-    final availableWidth = MediaQuery.of(context).size.width - 80;
-    return availableWidth / _icons.length;
-  }
-
-  double _calculateIndicatorOffset(BuildContext context) {
-    return _calculateItemWidth(context) * widget.selectedIndex;
   }
 }
