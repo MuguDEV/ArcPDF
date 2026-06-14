@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class PdfCardShimmer extends StatelessWidget {
   const PdfCardShimmer({super.key});
@@ -20,6 +21,11 @@ class PdfCardShimmer extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
           ),
         ),
+      ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
+        begin: 1.0,
+        end: 0.98,
+        duration: 1.5.seconds,
+        curve: Curves.easeInOutSine,
       ),
     );
   }
