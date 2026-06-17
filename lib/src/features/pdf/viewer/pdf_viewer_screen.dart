@@ -56,6 +56,25 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
   bool _isSearching = false;
   bool _isReadyToRender = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
+  bool _isPdfParsed = false;
   bool _isToolbarExpanded = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -277,9 +296,28 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: ArcProgressIndicator(),
             )
           else
-            RepaintBoundary(
-              child: RotatedBox(
-                  quarterTurns: _rotationQuarterTurns,
+            AnimatedOpacity(
+              opacity: _isPdfParsed ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              child: RepaintBoundary(
+                child: RotatedBox(
+              opacity: _isPdfParsed ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
+            AnimatedOpacity(
+              opacity: _isPdfParsed ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              child: RepaintBoundary(
+                child: RotatedBox(
+            AnimatedOpacity(
+              opacity: _isPdfParsed ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              child: RepaintBoundary(
+                child: RotatedBox(
+                    quarterTurns: _rotationQuarterTurns,
                   child: _pdfDarkMode ? ColorFiltered(
                   colorFilter: const ColorFilter.matrix([
                     -0.333, -0.333, -0.333, 0, 255,
@@ -294,6 +332,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                       passwordProvider: () async => _showPasswordPrompt(context),
                       params: PdfViewerParams(
                           onViewerReady: (document, controller) {
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                    if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
                             final lastZoom = repo.getLastZoom(widget.item.path);
                             if (lastZoom != null) {
                               controller.setZoom(controller.centerPosition, lastZoom);
@@ -373,7 +421,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               passwordProvider: () async => _showPasswordPrompt(context),
               params: PdfViewerParams(
                   onViewerReady: (document, controller) {
-                    final lastZoom = repo.getLastZoom(widget.item.path);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                            if (mounted) setState(() => _isPdfParsed = true);
+                    if (mounted) setState(() => _isPdfParsed = true);
+                    if (mounted) setState(() => _isPdfParsed = true);
+                    if (mounted) setState(() => _isPdfParsed = true);
+                            final lastZoom = repo.getLastZoom(widget.item.path);
                     if (lastZoom != null) {
                       controller.setZoom(controller.centerPosition, lastZoom);
                     }
@@ -448,6 +506,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             ),
             ),
 
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
+            ),
           // 2. Top App Bar / Search Bar
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
