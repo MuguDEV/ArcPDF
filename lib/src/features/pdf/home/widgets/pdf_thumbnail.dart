@@ -53,12 +53,12 @@ class PdfThumbnail extends ConsumerWidget {
                       return const _Fallback();
                     }
 
-                    return RawImage(
-                      image: snapshot.data!,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      width: 52,
-                      height: 72,
+                    return SizedBox.expand(
+                      child: RawImage(
+                        image: snapshot.data!,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                      ),
                     );
                   },
                 ),

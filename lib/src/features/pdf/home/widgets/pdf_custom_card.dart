@@ -63,14 +63,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     child: SizedBox(
                       width: 52,
                       height: 72,
-                      child: widget.scrollController != null
-                        ? ParallaxWrapper(
-                            scrollController: widget.scrollController!,
-                            listItemKey: _cardKey,
-                            parallaxSpeed: 0.15,
-                            child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
-                          )
-                        : PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+                      child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
                     ),
                   ),
                   const SizedBox(width: 12),

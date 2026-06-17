@@ -88,37 +88,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final items = ctrl.filteredItems();
     final theme = Theme.of(context);
 
-    // Calculate squash & stretch based on velocity
-    final squash = (_scrollVelocity.abs() * 0.0001).clamp(0.0, 0.15);
-    final scaleY = 1.0 + squash;
-    final scaleX = 1.0 - (squash * 0.5);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       floatingActionButton: _isSelectionMode
         ? Padding(
             padding: const EdgeInsets.only(bottom: 90.0),
-            child: Transform.scale(
-              scaleX: scaleX,
-              scaleY: scaleY,
-              alignment: Alignment.bottomCenter,
-              child: FloatingActionButton.extended(
+            child: FloatingActionButton.extended(
                 onPressed: _selectedPaths.length > 1 ? () => _handleQuickCombine(context) : null,
                 backgroundColor: _selectedPaths.length > 1 ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest,
                 foregroundColor: _selectedPaths.length > 1 ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
                 icon: const Icon(HugeIcons.strokeRoundedLayers01),
                 label: Text('Combine (${_selectedPaths.length})'),
-              ),
-            ).animate().slideY(begin: 1.0, duration: 250.ms, curve: Curves.easeOutBack),
-          )
+              ).animate().slideY(begin: 1.0, duration: 250.ms, curve: Curves.easeOutBack),
+            )
         : _showScrollToTop
           ? Padding(
               padding: const EdgeInsets.only(bottom: 90.0), // Elevate above the bottom navigation bar
-              child: Transform.scale(
-                scaleX: scaleX,
-                scaleY: scaleY,
-                alignment: Alignment.bottomCenter,
-                child: FloatingActionButton(
+              child: FloatingActionButton(
                   onPressed: () {
                     _scrollController.animateTo(
                       0,
@@ -130,7 +117,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   foregroundColor: theme.colorScheme.onSecondaryContainer,
                   elevation: 4,
                   child: const Icon(Icons.arrow_upward_rounded),
-                ),
               ),
             )
           : null,
@@ -544,14 +530,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             key: ValueKey('list_${item.path}'))
                     .animate(key: ValueKey('anim_${item.path}'))
                     .fadeIn(
-                      delay: (index > 20 ? 0 : index * 30).ms,
-                      duration: 400.ms,
+                      delay: (index > 20 ? 0 : index * 20).ms,
+                      duration: 350.ms,
                     )
                     .slideY(
                       begin: 0.1,
-                      delay: (index > 20 ? 0 : index * 30).ms,
-                      duration: 400.ms,
-                      curve: Curves.easeInOutCubicEmphasized,
+                      delay: (index > 20 ? 0 : index * 20).ms,
+                      duration: 350.ms,
+                      curve: Curves.easeOutQuart,
                     );
               },
               childCount: items.length,

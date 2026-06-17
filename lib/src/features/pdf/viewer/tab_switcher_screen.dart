@@ -107,8 +107,9 @@ class TabSwitcherScreen extends ConsumerWidget {
                               ),
                               GestureDetector(
                                 onTap: () {
+                                  final isLast = ref.read(openTabsProvider).tabs.length == 1;
                                   ref.read(openTabsProvider.notifier).closeTab(index);
-                                  if (ref.read(openTabsProvider).tabs.isEmpty) {
+                                  if (isLast) {
                                     Navigator.of(context).popUntil((route) => route.isFirst);
                                   }
                                 },

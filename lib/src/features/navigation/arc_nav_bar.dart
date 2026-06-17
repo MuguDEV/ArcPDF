@@ -96,9 +96,9 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
                   if (isSelected) {
                     // Jelly squash and stretch effect when selected
                     iconWidget = iconWidget.animate(key: ValueKey(index)).scaleX(
-                      begin: 1.3, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
+                      begin: 1.4, end: 1.0, duration: 500.ms, curve: Curves.elasticOut
                     ).scaleY(
-                      begin: 0.7, end: 1.0, duration: 400.ms, curve: Curves.elasticOut
+                      begin: 0.6, end: 1.0, duration: 500.ms, curve: Curves.elasticOut
                     );
                   } else {
                      iconWidget = iconWidget.animate().scale(begin: const Offset(0.9, 0.9));

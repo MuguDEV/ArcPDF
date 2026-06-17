@@ -71,11 +71,13 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
 
     if (tabs.isEmpty) {
       newIndex = 0;
-    } else if (newIndex >= index) {
-      newIndex = newIndex > 0 ? newIndex - 1 : 0;
+      state = OpenTabsState(tabs: [], activeIndex: 0);
+    } else {
+      if (newIndex >= index) {
+        newIndex = newIndex > 0 ? newIndex - 1 : 0;
+      }
+      state = state.copyWith(tabs: tabs, activeIndex: newIndex);
     }
-
-    state = state.copyWith(tabs: tabs, activeIndex: newIndex);
     _saveSession();
   }
 
