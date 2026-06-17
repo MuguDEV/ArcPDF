@@ -81,7 +81,14 @@ main {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    /* Subtle inner glow / rim light to add depth */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.liquid-glass:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .pill-container {
@@ -154,12 +161,25 @@ main {
     font-size: 3.5rem;
     margin-bottom: 16px;
     letter-spacing: -0.02em;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.8s ease forwards 0.2s;
 }
 
 .hero-subtitle {
     font-size: 1.25rem;
     color: var(--md-sys-color-on-surface-variant);
     margin-bottom: 24px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.8s ease forwards 0.4s;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .version-badge {
@@ -194,11 +214,33 @@ main {
     text-decoration: none;
     border: none;
     cursor: pointer;
-    transition: transform 0.2s var(--spring-easing), box-shadow 0.2s ease, opacity 0.2s ease;
+    transition: transform 0.2s var(--spring-easing), box-shadow 0.2s ease, opacity 0.2s ease, background 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Magnetic sheen effect on hover */
+.btn::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.btn:hover::after {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .btn:active {
-    transform: scale(0.95);
+    transform: scale(0.95) !important; /* Force scale down on click overriding magnetic translation */
 }
 
 .btn-primary {
@@ -395,7 +437,8 @@ footer {
 /* Base state for animated elements */
 .slide-up {
     opacity: 0;
-    transform: translateY(40px);
+    transform: translateY(40px) scale(0.95);
+    filter: blur(8px);
 }
 
 .fade-in {
@@ -414,7 +457,8 @@ footer {
 @keyframes slideUp {
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
+        filter: blur(0px);
     }
 }
 
@@ -526,6 +570,23 @@ footer {
     height: 100%;
     object-fit: cover;
     object-position: top center;
+    /* Prevent alt text flash on slow connections */
+    color: transparent;
+    background-color: var(--md-sys-color-surface-variant);
+    /* Subtle pulsing placeholder */
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: placeholder-shimmer 2s infinite linear;
+}
+
+@keyframes placeholder-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
 @media (max-width: 768px) {
