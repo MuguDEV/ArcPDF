@@ -531,13 +531,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     .animate(key: ValueKey('anim_${item.path}'))
                     .fadeIn(
                       delay: (index > 20 ? 0 : index * 20).ms,
-                      duration: 350.ms,
+                      duration: 400.ms,
+                      curve: Curves.easeOut,
                     )
                     .slideY(
-                      begin: 0.1,
+                      begin: 0.15,
                       delay: (index > 20 ? 0 : index * 20).ms,
-                      duration: 350.ms,
-                      curve: Curves.easeOutQuart,
+                      duration: 400.ms,
+                      curve: Curves.easeOutCubic,
+                    )
+                    .scaleXY(
+                      begin: 0.92,
+                      end: 1.0,
+                      delay: (index > 20 ? 0 : index * 20).ms,
+                      duration: 400.ms,
+                      curve: Curves.easeOutBack,
                     );
               },
               childCount: items.length,

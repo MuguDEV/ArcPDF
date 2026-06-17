@@ -10,6 +10,7 @@ import '../../shared/widgets/arc_progress_indicator.dart';
 import '../updater/updater_service.dart';
 import 'log_viewer_screen.dart';
 import 'settings_controller.dart';
+import 'about_screen.dart';
 import '../security/security_settings_section.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../shared/widgets/glass_app_bar.dart';
@@ -333,6 +334,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       title: const Text('ArcPDF'),
                       subtitle: Text('$_version · Your local PDF workspace'),
+                      trailing: const Icon(Icons.info_outline_rounded),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AboutScreen()),
+                        );
+                      },
                     ),
                     const Divider(height: 1),
                     ListTile(
