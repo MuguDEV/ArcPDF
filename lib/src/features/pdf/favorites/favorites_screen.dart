@@ -115,13 +115,21 @@ class FavoritesScreen extends ConsumerWidget {
                     ).animate(key: ValueKey('fav_${item.path}'))
                      .fadeIn(
                        duration: 400.ms,
-                       delay: (index > 20 ? 0 : index * 30).ms,
+                       delay: (index > 20 ? 0 : index * 20).ms,
+                       curve: Curves.easeOut,
                      )
                      .slideY(
-                       begin: 0.1,
+                       begin: 0.15,
                        duration: 400.ms,
-                       delay: (index > 20 ? 0 : index * 30).ms,
-                       curve: Curves.easeInOutCubicEmphasized,
+                       delay: (index > 20 ? 0 : index * 20).ms,
+                       curve: Curves.easeOutCubic,
+                     )
+                     .scaleXY(
+                       begin: 0.92,
+                       end: 1.0,
+                       duration: 400.ms,
+                       delay: (index > 20 ? 0 : index * 20).ms,
+                       curve: Curves.easeOutBack,
                      ),
                   );
                 },

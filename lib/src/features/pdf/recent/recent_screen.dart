@@ -215,13 +215,21 @@ class _RecentGroupsList extends ConsumerWidget {
                 .animate()
                 .fadeIn(
                   delay: (idx > 20 ? 0 : idx * 20).ms,
-                  duration: 350.ms,
+                  duration: 400.ms,
+                  curve: Curves.easeOut,
                 )
                 .slideY(
-                  begin: 0.1,
+                  begin: 0.15,
                   delay: (idx > 20 ? 0 : idx * 20).ms,
-                  duration: 350.ms,
-                  curve: Curves.easeOutQuart,
+                  duration: 400.ms,
+                  curve: Curves.easeOutCubic,
+                )
+                .scaleXY(
+                  begin: 0.92,
+                  end: 1.0,
+                  delay: (idx > 20 ? 0 : idx * 20).ms,
+                  duration: 400.ms,
+                  curve: Curves.easeOutBack,
                 ),
               );
             },
