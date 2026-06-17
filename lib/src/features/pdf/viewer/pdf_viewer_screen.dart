@@ -587,13 +587,24 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                       ),
                                     );
                                   },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Badge(
-                                      label: Text('${ref.watch(openTabsProvider).tabs.length}'),
-                                      backgroundColor: theme.colorScheme.primary,
-                                      textColor: theme.colorScheme.onPrimary,
-                                      child: const Icon(Icons.filter_none_rounded),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 1.5),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '${ref.watch(openTabsProvider).tabs.length}',
+                                          style: theme.textTheme.labelLarge?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                            color: theme.colorScheme.onPrimaryContainer,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   tooltip: 'Open Tabs',

@@ -214,14 +214,14 @@ class _RecentGroupsList extends ConsumerWidget {
                 )
                 .animate()
                 .fadeIn(
-                  delay: (idx > 20 ? 0 : idx * 30).ms,
-                  duration: 400.ms,
+                  delay: (idx > 20 ? 0 : idx * 20).ms,
+                  duration: 350.ms,
                 )
                 .slideY(
                   begin: 0.1,
-                  delay: (idx > 20 ? 0 : idx * 30).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeInOutCubicEmphasized,
+                  delay: (idx > 20 ? 0 : idx * 20).ms,
+                  duration: 350.ms,
+                  curve: Curves.easeOutQuart,
                 ),
               );
             },
