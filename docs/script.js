@@ -2,7 +2,74 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     fetchLatestRelease();
     initScrollAnimations();
+    initMagneticButtons();
+    initParallaxMockups();
 });
+
+// Magnetic Buttons
+function initMagneticButtons() {
+    const buttons = document.querySelectorAll('.btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+            const rect = btn.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+
+            // Subtle magnetic pull
+            btn.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
+
+            // Adjust the sheen gradient position
+            const after = btn.style;
+            // We use css variables to pass mouse position to the pseudo element
+            btn.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+            btn.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+        });
+
+        btn.addEventListener('mouseleave', () => {
+            btn.style.transform = 'translate(0px, 0px)';
+        });
+    });
+}
+
+// Parallax and 3D Mockups
+function initParallaxMockups() {
+    const mockups = document.querySelectorAll('.smartphone-mockup');
+
+    // Mouse hover 3D tilt
+    mockups.forEach(mockup => {
+        mockup.addEventListener('mousemove', (e) => {
+            const rect = mockup.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const rotateX = ((y - centerY) / centerY) * -10; // Max 10 deg
+            const rotateY = ((x - centerX) / centerX) * 10;
+
+            mockup.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
+        });
+
+        mockup.addEventListener('mouseleave', () => {
+            mockup.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) rotateZ(2deg)';
+        });
+    });
+
+    // Scroll parallax
+    window.addEventListener('scroll', () => {
+        const scrolled = window.scrollY;
+        mockups.forEach((mockup, index) => {
+            // Only apply scroll parallax if not currently being hovered (checking transform string)
+            if (!mockup.style.transform.includes('rotateX')) {
+                 const speed = (index + 1) * 0.05;
+                 const yOffset = scrolled * speed;
+                 // Keep the base Z rotation
+                 mockup.style.transform = `translateY(${yOffset}px) rotateZ(2deg)`;
+            }
+        });
+    });
+}
 
 // Scroll Reveal Animations
 function initScrollAnimations() {
