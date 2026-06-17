@@ -13,6 +13,7 @@ import 'settings_controller.dart';
 import 'about_screen.dart';
 import '../security/security_settings_section.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../shared/widgets/glass_app_bar.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -64,33 +65,98 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showUpdateDialog(GitHubRelease release) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Update Available: ${release.version}'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Changelog:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(release.body),
-            ],
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    HugeIcons.strokeRoundedPackageUnbox,
+                    size: 32,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Update Available',
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  release.version,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    ),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: MarkdownBody(
+                        data: release.body,
+                        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                          p: theme.textTheme.bodyMedium,
+                          h1: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          h2: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          h3: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          listBullet: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Later'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () {
+                        launchUrl(Uri.parse(release.url), mode: LaunchMode.externalApplication);
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(HugeIcons.strokeRoundedDownload04, size: 20),
+                      label: const Text('Download'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Later'),
-          ),
-          FilledButton(
-            onPressed: () {
-              launchUrl(Uri.parse(release.url), mode: LaunchMode.externalApplication);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Download'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

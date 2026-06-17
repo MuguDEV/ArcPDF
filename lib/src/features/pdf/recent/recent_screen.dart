@@ -61,18 +61,70 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
                   onPressed: () async {
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (c) => AlertDialog(
-                        title: const Text('Clear Recent History'),
-                        content: const Text('Are you sure you want to clear your recent history? This cannot be undone.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                          TextButton(
-                            onPressed: () => Navigator.pop(c, true),
-                            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                            child: const Text('Clear'),
+                      builder: (c) {
+                        final theme = Theme.of(context);
+                        return Dialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.errorContainer,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.delete_sweep_rounded,
+                                    size: 32,
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Clear Recent History',
+                                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Are you sure you want to clear your recent history? This cannot be undone.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      ),
+                                      onPressed: () => Navigator.pop(c, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        backgroundColor: theme.colorScheme.error,
+                                        foregroundColor: theme.colorScheme.onError,
+                                      ),
+                                      onPressed: () => Navigator.pop(c, true),
+                                      child: const Text('Clear'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     );
                     if (confirm == true) {
                       await ctrl.clearRecents();
