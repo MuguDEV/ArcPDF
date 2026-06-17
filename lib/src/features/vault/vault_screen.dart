@@ -196,7 +196,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                            }
                         },
                       ),
-                    );
+                    ).animate(delay: (index * 50).ms).fadeIn(duration: 300.ms).slideY(begin: 0.05);
                   },
                 ),
     );

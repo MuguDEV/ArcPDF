@@ -66,6 +66,20 @@ class TabSwitcherScreen extends ConsumerWidget {
                         color: isActive ? theme.colorScheme.primary : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                         width: isActive ? 2 : 1,
                       ),
+                      boxShadow: [
+                        if (isActive)
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          )
+                        else
+                           BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                      ]
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
