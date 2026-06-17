@@ -26,9 +26,9 @@ class GlassSliverAppBar extends ConsumerWidget {
     final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
     final double sigma = isLiquid ? 48.0 : 16.0;
 
-    // Monochrome matching colors
+    // Refined premium liquid glass effect
     final Color bgColor = isLiquid
-        ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.4))
+        ? (isDark ? const Color(0x33000000) : const Color(0x66FFFFFF)) // More subtle tint to let blur shine
         : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
 
     return SliverAppBar(
@@ -39,7 +39,17 @@ class GlassSliverAppBar extends ConsumerWidget {
           ? ClipRRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: Container(color: Colors.transparent),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    border: isLiquid ? Border(
+                      bottom: BorderSide(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                        width: 0.5, // Subtle bottom rim light
+                      ),
+                    ) : null,
+                  ),
+                ),
               ),
             )
           : null,
