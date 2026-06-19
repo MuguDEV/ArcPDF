@@ -43,6 +43,7 @@ class AppSettings {
     required this.keepScreenAwake,
     required this.compressionThreads,
     required this.lowPowerMode,
+    this.skippedUpdateVersion,
   });
 
   final ThemeMode themeMode;
@@ -56,6 +57,7 @@ class AppSettings {
   final bool keepScreenAwake;
   final int compressionThreads;
   final bool lowPowerMode;
+  final String? skippedUpdateVersion;
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -69,6 +71,7 @@ class AppSettings {
     bool? keepScreenAwake,
     int? compressionThreads,
     bool? lowPowerMode,
+    String? skippedUpdateVersion,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -82,6 +85,7 @@ class AppSettings {
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       compressionThreads: compressionThreads ?? this.compressionThreads,
       lowPowerMode: lowPowerMode ?? this.lowPowerMode,
+      skippedUpdateVersion: skippedUpdateVersion ?? this.skippedUpdateVersion,
     );
   }
 }
@@ -102,6 +106,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
           compressionThreads: ((_box.get('compressionThreads', defaultValue: 2) as num).toInt()).clamp(1, 5),
           lowPowerMode: _box.get('lowPowerMode', defaultValue: false) ?? false,
+          skippedUpdateVersion: _box.get('skippedUpdateVersion') as String?,
         ));
 
   final Box _box;
@@ -160,6 +165,11 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setLowPowerMode(bool value) async {
     state = state.copyWith(lowPowerMode: value);
     await _box.put('lowPowerMode', value);
+  }
+
+  Future<void> setSkippedUpdateVersion(String version) async {
+    state = state.copyWith(skippedUpdateVersion: version);
+    await _box.put('skippedUpdateVersion', version);
   }
 }
 

@@ -1,9 +1,14 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:install_plugin/install_plugin.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +25,8 @@ import 'widgets/pdf_custom_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
 import '../../vault/vault_screen.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
+import '../../updater/updater_service.dart';
+import '../../settings/settings_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -38,7 +45,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedPaths = {};
 
-  double _scrollVelocity = 0.0;
+  GitHubRelease? _availableUpdate;
+  bool _isDownloadingUpdate = false;
 
   @override
   void initState() {
@@ -50,6 +58,109 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() => _showScrollToTop = false);
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBackgroundUpdate();
+    });
+  }
+
+  Future<void> _checkBackgroundUpdate() async {
+    final release = await UpdaterService.checkForUpdates();
+    if (release != null && mounted) {
+      final settings = ref.read(settingsControllerProvider);
+      if (settings.skippedUpdateVersion != release.version) {
+        setState(() {
+          _availableUpdate = release;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadAndInstallUpdate() async {
+    if (_availableUpdate == null) return;
+
+    setState(() {
+      _isDownloadingUpdate = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Downloading update in background...'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    try {
+      // Find universal or any apk
+      final response = await http.get(Uri.parse('https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest'));
+      String? apkUrl;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> assetsList = data['assets'] ?? [];
+        final universalApk = assetsList.firstWhere(
+            (a) => (a['name'] as String).contains('universal.apk') || ((a['name'] as String).endsWith('.apk') && !(a['name'] as String).contains('arm') && !(a['name'] as String).contains('x86')),
+            orElse: () => null);
+        final anyApk = assetsList.firstWhere((a) => (a['name'] as String).endsWith('.apk'), orElse: () => null);
+
+        if (universalApk != null) {
+          apkUrl = universalApk['browser_download_url'];
+        } else if (anyApk != null) {
+          apkUrl = anyApk['browser_download_url'];
+        }
+      }
+
+      if (apkUrl == null) {
+        throw Exception("No APK found in release");
+      }
+
+      final dir = await getTemporaryDirectory();
+      final filePath = '${dir.path}/ArcPDF_Update.apk';
+      final file = File(filePath);
+
+      final dlResponse = await http.get(Uri.parse(apkUrl));
+      await file.writeAsBytes(dlResponse.bodyBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Update downloaded!'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Install',
+              onPressed: () {
+                InstallPlugin.install(file.path);
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to download update: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloadingUpdate = false;
+          _availableUpdate = null;
+        });
+      }
+    }
+  }
+
+  void _ignoreUpdate() {
+    if (_availableUpdate != null) {
+      ref.read(settingsControllerProvider.notifier).setSkippedUpdateVersion(_availableUpdate!.version);
+      setState(() {
+        _availableUpdate = null;
+      });
+    }
   }
 
   @override
@@ -120,27 +231,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           : null,
-      body: NotificationListener<ScrollUpdateNotification>(
-        onNotification: (notification) {
-          if (notification.scrollDelta != null) {
-             setState(() {
-               // Decay velocity to 0 if stopped, else track Delta
-               _scrollVelocity = notification.scrollDelta! * 50;
-             });
-          }
-          return false;
-        },
-        child: NotificationListener<ScrollEndNotification>(
-          onNotification: (notification) {
-            setState(() => _scrollVelocity = 0.0);
-            return false;
-          },
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: RefreshIndicator.adaptive(
+          onRefresh: ctrl.refresh,
+          displacement: 120,
           child: CustomScrollView(
-      controller: _scrollController,
-      cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
-      physics:
-          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-      slivers: [
+            controller: _scrollController,
+            cacheExtent: 500,
+            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+            slivers: [
+        // Unified app bar (no large duplication)
+        if (_availableUpdate != null)
+          SliverToBoxAdapter(
+            child: Material(
+              color: theme.colorScheme.primaryContainer,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(HugeIcons.strokeRoundedPackageOpen, color: theme.colorScheme.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Update Available: ${_availableUpdate!.version}',
+                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _ignoreUpdate,
+                        child: const Text('Ignore'),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _isDownloadingUpdate ? null : _downloadAndInstallUpdate,
+                        child: _isDownloadingUpdate ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Update'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ).animate().slideY(begin: -1, duration: 300.ms, curve: Curves.easeOutBack),
+          ),
+
         // Unified app bar (no large duplication)
         GlassSliverAppBar(
           title: Padding(
@@ -557,7 +700,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
-      ),
+          ),
         ),
       ),
     );

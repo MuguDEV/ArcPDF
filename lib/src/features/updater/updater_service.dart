@@ -21,6 +21,21 @@ class GitHubRelease {
 class UpdaterService {
   static const String _repoUrl = 'https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest';
 
+  static bool _isNewerVersion(String latest, String current) {
+    try {
+      final latestParts = latest.split('.').map(int.parse).toList();
+      final currentParts = current.split('.').map(int.parse).toList();
+
+      for (int i = 0; i < latestParts.length && i < currentParts.length; i++) {
+        if (latestParts[i] > currentParts[i]) return true;
+        if (latestParts[i] < currentParts[i]) return false;
+      }
+      return latestParts.length > currentParts.length;
+    } catch (e) {
+      return latest != current;
+    }
+  }
+
   static Future<GitHubRelease?> checkForUpdates() async {
     try {
       final response = await http.get(Uri.parse(_repoUrl));
@@ -29,10 +44,12 @@ class UpdaterService {
         final latestRelease = GitHubRelease.fromJson(json);
 
         final packageInfo = await PackageInfo.fromPlatform();
-        final currentVersion = 'v${packageInfo.version}';
 
-        // simple string compare; if the latest version is different from the current
-        if (latestRelease.version != currentVersion) {
+        // Also strip leading 'v' to handle comparisons like 'v1.0.17' vs '1.0.18' just in case.
+        final cleanLatest = latestRelease.version.replaceAll('v', '');
+        final cleanCurrent = packageInfo.version;
+
+        if (_isNewerVersion(cleanLatest, cleanCurrent)) {
           return latestRelease;
         }
       }
