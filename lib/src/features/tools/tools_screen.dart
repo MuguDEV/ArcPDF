@@ -149,7 +149,7 @@ class ToolsScreen extends ConsumerWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          HugeIcons.strokeRoundedCompress,
+                          HugeIcons.strokeRoundedFolder01,
                           size: 32,
                           color: theme.colorScheme.primary,
                         ),

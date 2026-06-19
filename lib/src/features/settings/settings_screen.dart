@@ -82,7 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    HugeIcons.strokeRoundedPackageUnbox,
+                    HugeIcons.strokeRoundedPackageUnboxing,
                     size: 32,
                     color: theme.colorScheme.primary,
                   ),
