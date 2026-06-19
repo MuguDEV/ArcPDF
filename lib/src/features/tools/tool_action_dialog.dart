@@ -82,81 +82,91 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     final isError = !widget.isLoading && widget.outputPath == null;
 
-    return AlertDialog(
-      backgroundColor: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-      title: Row(
-        children: [
-          if (widget.isLoading)
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
+                color: isError ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer,
+                shape: BoxShape.circle,
               ),
-              child: const SizedBox(
-                width: 24,
-                height: 24,
-                child: ArcProgressIndicator(),
+              child: widget.isLoading
+                  ? const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: ArcProgressIndicator(),
+                    )
+                  : Icon(
+                      isSuccess ? HugeIcons.strokeRoundedCheckmarkBadge01 : HugeIcons.strokeRoundedAlert02,
+                      size: 32,
+                      color: isError ? theme.colorScheme.error : theme.colorScheme.primary,
+                    ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
               ),
             ),
-          if (isSuccess)
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(HugeIcons.strokeRoundedCheckmarkBadge01, color: theme.colorScheme.onPrimaryContainer, size: 24),
-            ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
-          if (isError)
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(HugeIcons.strokeRoundedAlert02, color: theme.colorScheme.error, size: 24),
-            ).animate().shake(duration: 300.ms),
-          const SizedBox(width: 16),
-          Expanded(child: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600))),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.message,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isSuccess) ...[
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      if (widget.outputPath != null) {
+                         Share.shareXFiles([XFile(widget.outputPath!)]);
+                      }
+                    },
+                    icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),
+                    label: const Text('Share'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: _openInApp,
+                    icon: const Icon(HugeIcons.strokeRoundedFolder01, size: 20),
+                    label: const Text('Open'),
+                  ),
+                ],
+                if (isError)
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Dismiss'),
+                  ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-      actions: [
-        if (isSuccess) ...[
-          OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (widget.outputPath != null) {
-                 Share.shareXFiles([XFile(widget.outputPath!)]);
-              }
-            },
-            child: const Text('Share'),
-          ),
-          FilledButton(
-            onPressed: _openInApp,
-            child: const Text('Open'),
-          ),
-        ],
-        if (isError)
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-      ],
     );
   }
 }

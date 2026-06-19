@@ -591,27 +591,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             }
           });
         },
-        child: Opacity(
-          opacity: isSelected ? 0.6 : 1.0,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: AbsorbPointer(
-              child: PdfCustomCard(
-                key: key,
-                item: item,
-                index: index,
-                scrollController: _scrollController,
-                onFavorite: () {},
-                onTap: () {},
+        child: Stack(
+          children: [
+            AbsorbPointer(
+              child: AnimatedScale(
+                scale: isSelected ? 0.95 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                child: PdfCustomCard(
+                  key: key,
+                  item: item,
+                  index: index,
+                  scrollController: _scrollController,
+                  onFavorite: () {},
+                  onTap: () {},
+                ),
               ),
             ),
-          ),
+            if (isSelected)
+              Positioned.fill(
+                bottom: 12, // match the bottom padding of PdfCustomCard
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.check_rounded,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                          size: 24,
+                        ),
+                      ).animate().scale(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.elasticOut,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     } else {

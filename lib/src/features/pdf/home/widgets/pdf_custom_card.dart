@@ -182,10 +182,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
         borderRadius: BorderRadius.circular(24),
         child: lowPowerMode ? Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
                 width: 1.0,
               ),
             ),
@@ -194,10 +194,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
                 width: 1.0,
               ),
             ),

@@ -47,16 +47,30 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
     final theme = Theme.of(context);
 
     return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(HugeIcons.strokeRoundedSecurityLock, size: 48, color: theme.colorScheme.primary).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                HugeIcons.strokeRoundedSecurityLock,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 16),
             Text(
               _isConfirming ? 'Confirm ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}' : 'Set new ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
 
@@ -95,9 +109,18 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
               ),
 
             const SizedBox(height: 24),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ],
             ),
           ],
         ),
@@ -133,14 +156,29 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
     final security = ref.read(securityControllerProvider);
 
     return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                HugeIcons.strokeRoundedSecurityValidation,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
+            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            const SizedBox(height: 16),
             Text(
               'Verify to Disable',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
             if (security.lockType == LockType.pin)
@@ -148,10 +186,19 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
             else
               PatternPad(onCompleted: _handleInput, errorText: _errorText),
             const SizedBox(height: 24),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
+              ],
+            ),
           ],
         ),
       ),
