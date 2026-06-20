@@ -367,9 +367,63 @@ main {
     text-align: center;
 }
 
-.changelog-content {
-    padding: 40px;
+.timeline-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.timeline-card {
+    padding: 32px;
     text-align: left;
+    position: relative;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}
+
+.timeline-version {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--md-sys-color-primary);
+    margin: 0;
+}
+
+.timeline-date {
+    font-size: 0.9rem;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 4px;
+}
+
+.timeline-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.timeline-download-btn:hover {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.timeline-download-btn .material-symbols-outlined {
+    font-size: 1.2rem;
 }
 
 .changelog-content ul {
@@ -391,6 +445,7 @@ main {
     margin-top: 24px;
     margin-bottom: 12px;
     color: var(--md-sys-color-on-surface);
+    font-size: 1.1rem;
 }
 
 .changelog-content p {

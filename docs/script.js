@@ -129,81 +129,122 @@ function initTheme() {
 async function fetchLatestRelease() {
     const downloadSection = document.getElementById('download-section');
     const versionBadge = document.getElementById('version-badge');
-    const changelogContent = document.getElementById('changelog-content');
+    const timelineContainer = document.getElementById('timeline-container');
 
     try {
-        const response = await fetch('https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest');
+        const response = await fetch('https://api.github.com/repos/MuguDEV/ArcPDF/releases');
 
         if (!response.ok) {
             throw new Error('Failed to fetch release data');
         }
 
-        const data = await response.json();
-        const version = data.tag_name || data.name;
-        const body = data.body || 'No changelog provided.';
-        const assets = data.assets || [];
+        const releases = await response.json();
+
+        if (!releases || releases.length === 0) {
+            throw new Error('No releases found');
+        }
+
+        const latestRelease = releases[0];
+        const latestVersion = latestRelease.tag_name || latestRelease.name;
 
         // Update Version Badge
-        versionBadge.textContent = `Latest Version: ${version}`;
+        versionBadge.textContent = `Latest Version: ${latestVersion}`;
 
-        // Update Changelog
+        // Find APKs for the hero download button
+        const latestAssets = latestRelease.assets || [];
+        const latestUniversalApk = latestAssets.find(a => a.name.includes('universal.apk') || a.name.endsWith('.apk') && !a.name.includes('arm') && !a.name.includes('x86'));
+        const latestAnyApk = latestAssets.find(a => a.name.endsWith('.apk'));
+        const latestDownloadUrl = latestUniversalApk ? latestUniversalApk.browser_download_url : (latestAnyApk ? latestAnyApk.browser_download_url : latestRelease.html_url);
 
-        // Clean up auto-generated GitHub release boilerplate
-        let cleanBody = body
-            // Remove "What's Changed" headers
-            .replace(/## What's Changed/gi, '')
-            .replace(/## What's New/gi, '')
-            // Remove full changelog links at the bottom
-            .replace(/\*\*Full Changelog\*\*: https:\/\/github.com\/[^\s]+/gi, '')
-            // Clean up "by @User in https://..." from PR merges to just keep the message
-            .replace(/ by @[^\s]+ in https:\/\/github.com\/[^\s]+/gi, '');
+        renderDownloadSection(downloadSection, latestDownloadUrl);
 
-        // Improved Markdown parsing
-        let formattedBody = cleanBody
-            // Headers
-            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-            // Links
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-            // URLs that aren't markdown links
-            .replace(/(^|[^"'])(https?:\/\/[^\s]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
-            // Bold
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            // Clean PR numbers like (#79) at the end of lists
-            .replace(/\s*\(\#[0-9]+\)/g, '')
-            // List items (* or -)
-            .replace(/^[\*-]\s+(.*)$/gim, '<li>$1</li>');
+        // Build Timeline
+        timelineContainer.innerHTML = ''; // Clear loading spinner
 
-        // Wrap consecutive <li> elements in <ul class="clean-list">
-        formattedBody = formattedBody.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul class="clean-list">$&</ul>');
+        releases.forEach((release, index) => {
+            const version = release.tag_name || release.name;
+            const date = new Date(release.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            const body = release.body || 'No changelog provided.';
+            const assets = release.assets || [];
 
-        // Clean up empty lines and wrap paragraphs
-        formattedBody = formattedBody
-            .split('\n')
-            .filter(line => line.trim() !== '')
-            .map(line => {
-                if (line.startsWith('<h') || line.startsWith('<ul') || line.startsWith('<li') || line.startsWith('</ul')) {
-                    return line;
-                }
-                return `<p>${line}</p>`;
-            })
-            .join('\n');
+            // Clean up auto-generated GitHub release boilerplate
+            let cleanBody = body
+                .replace(/## What's Changed/gi, '')
+                .replace(/## What's New/gi, '')
+                .replace(/\*\*Full Changelog\*\*: https:\/\/github.com\/[^\s]+/gi, '')
+                .replace(/ by @[^\s]+ in https:\/\/github.com\/[^\s]+/gi, '');
 
-        changelogContent.innerHTML = formattedBody || '<p>A brand new update with exciting features and improvements!</p>';
+            // Improved Markdown parsing
+            let formattedBody = cleanBody
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+                .replace(/(^|[^"'])(https?:\/\/[^\s]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\s*\(\#[0-9]+\)/g, '')
+                .replace(/^[\*-]\s+(.*)$/gim, '<li>$1</li>');
 
-        // Find APKs
-        const universalApk = assets.find(a => a.name.includes('universal.apk') || a.name.endsWith('.apk') && !a.name.includes('arm') && !a.name.includes('x86'));
-        // Fallback if universal is not found
-        const anyApk = assets.find(a => a.name.endsWith('.apk'));
-        const downloadUrl = universalApk ? universalApk.browser_download_url : (anyApk ? anyApk.browser_download_url : data.html_url);
+            formattedBody = formattedBody.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, '<ul class="clean-list">$&</ul>');
 
-        renderDownloadSection(downloadSection, downloadUrl);
+            formattedBody = formattedBody
+                .split('\n')
+                .filter(line => line.trim() !== '')
+                .map(line => {
+                    if (line.startsWith('<h') || line.startsWith('<ul') || line.startsWith('<li') || line.startsWith('</ul')) {
+                        return line;
+                    }
+                    return `<p>${line}</p>`;
+                })
+                .join('\n');
+
+            if (!formattedBody.trim()) {
+                formattedBody = '<p>Minor updates and improvements.</p>';
+            }
+
+            // Find APKs for this release
+            const universalApk = assets.find(a => a.name.includes('universal.apk') || a.name.endsWith('.apk') && !a.name.includes('arm') && !a.name.includes('x86'));
+            const anyApk = assets.find(a => a.name.endsWith('.apk'));
+            const downloadUrl = universalApk ? universalApk.browser_download_url : (anyApk ? anyApk.browser_download_url : release.html_url);
+
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const downloadLink = isAndroid
+                ? `<a href="${downloadUrl}" class="timeline-download-btn"><span class="material-symbols-outlined">download</span> Download APK</a>`
+                : `<a href="${release.html_url}" target="_blank" class="timeline-download-btn"><span class="material-symbols-outlined">open_in_new</span> View on GitHub</a>`;
+
+            const cardHtml = `
+                <div class="timeline-card liquid-glass pill-container">
+                    <div class="timeline-header">
+                        <div>
+                            <h3 class="timeline-version">${version}</h3>
+                            <div class="timeline-date">${date}</div>
+                        </div>
+                        <div>
+                            ${downloadLink}
+                        </div>
+                    </div>
+                    <div class="changelog-content">
+                        ${formattedBody}
+                    </div>
+                </div>
+            `;
+            timelineContainer.innerHTML += cardHtml;
+        });
 
     } catch (error) {
         console.error('Error fetching release:', error);
         versionBadge.textContent = 'Latest Version: Unknown';
-        changelogContent.innerHTML = '<p>Unable to load changelog at this time. Please visit GitHub directly.</p>';
+
+        if (timelineContainer) {
+            timelineContainer.innerHTML = `
+                <div class="timeline-card liquid-glass pill-container">
+                    <div class="changelog-content">
+                        <p>Unable to load release history at this time. Please visit GitHub directly.</p>
+                        <a href="https://github.com/MuguDEV/ArcPDF/releases" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">View All Releases</a>
+                    </div>
+                </div>
+            `;
+        }
 
         // Fallback to repo releases page
         renderDownloadSection(downloadSection, 'https://github.com/MuguDEV/ArcPDF/releases/latest');
