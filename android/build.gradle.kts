@@ -37,6 +37,17 @@ subprojects {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
+            if (project.name == "install_plugin") {
+                namespace = "com.example.installplugin"
+            }
+        }
+    }
+
+    if (project.name == "install_plugin") {
+        afterEvaluate {
+            project.extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
+                compileSdk = 34
+            }
         }
     }
 
