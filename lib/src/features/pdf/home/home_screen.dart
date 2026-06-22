@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +8,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:install_plugin/install_plugin.dart';
+import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import 'package:flutter/services.dart';
@@ -234,9 +234,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: RefreshIndicator.adaptive(
+        child: CustomRefreshIndicator(
           onRefresh: ctrl.refresh,
-          displacement: 120,
+          offsetToArmed: 80,
+          builder: (BuildContext context, Widget child, IndicatorController controller) {
+            return Stack(
+              children: [
+                child,
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedBuilder(
+                    animation: controller,
+                    builder: (BuildContext context, Widget? _) {
+                      final theme = Theme.of(context);
+                      final isRefreshing = controller.isLoading;
+                      final isSettling = controller.isSettling;
+
+                      if (controller.isIdle) return const SizedBox.shrink();
+
+                      final double value = controller.value;
+                      const double containerSize = 48.0;
+
+                      // Calculate positions and rotations
+                      const double maxTopPadding = 100.0;
+                      final double topPadding = value * maxTopPadding - containerSize;
+
+                      return Container(
+                        padding: EdgeInsets.only(top: topPadding > 0 ? topPadding : 0),
+                        alignment: Alignment.center,
+                        child: Container(
+                          width: containerSize,
+                          height: containerSize,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHigh,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.shadow.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: isRefreshing || isSettling
+                                ? SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  )
+                                : Transform.rotate(
+                                    angle: value * 2 * 3.14159,
+                                    child: Icon(
+                                      HugeIcons.strokeRoundedRefresh,
+                                      color: theme.colorScheme.primary.withValues(
+                                        alpha: (value * 2).clamp(0.0, 1.0),
+                                      ),
+                                      size: 24,
+                                    ),
+                                  ),
+                          ),
+                        ).animate(
+                          target: controller.isArmed ? 1 : 0,
+                        ).scale(
+                          begin: const Offset(0.5, 0.5),
+                          end: const Offset(1.0, 1.0),
+                          duration: 200.ms,
+                          curve: Curves.easeOutBack,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
           child: CustomScrollView(
             controller: _scrollController,
             cacheExtent: 500,
@@ -409,13 +486,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
           ],
-        ),
-
-        CupertinoSliverRefreshControl(
-          onRefresh: () async {
-            HapticFeedback.mediumImpact();
-            await ctrl.refresh();
-          },
         ),
 
         // Resume Session Banner
