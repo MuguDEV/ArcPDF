@@ -13,7 +13,9 @@ import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'peek_overlay.dart';
 import '../../../../shared/widgets/arc_bouncy_card.dart';
-import '../../../../shared/widgets/parallax_wrapper.dart';
+import '../../../../shared/widgets/particle_burst.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'dart:async';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
   const PdfCustomCard({
@@ -41,6 +43,62 @@ class PdfCustomCard extends ConsumerStatefulWidget {
 
 class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
   final GlobalKey _cardKey = GlobalKey();
+  final GlobalKey<ParticleBurstState> _burstKey = GlobalKey<ParticleBurstState>();
+
+  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
+  double _tiltX = 0;
+  double _tiltY = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initGyro();
+  }
+
+  void _initGyro() {
+    final settings = ref.read(settingsControllerProvider);
+    if (settings.enableGyroCards) {
+      _gyroSubscription = gyroscopeEventStream(samplingPeriod: SensorInterval.uiInterval).listen((event) {
+        if (mounted) {
+          setState(() {
+            // Apply smoothing and limit the tilt angles
+            _tiltX += event.y * 0.05;
+            _tiltY += event.x * 0.05;
+
+            // Decaying spring back to zero
+            _tiltX *= 0.95;
+            _tiltY *= 0.95;
+
+            // Clamp strictly
+            _tiltX = _tiltX.clamp(-0.15, 0.15);
+            _tiltY = _tiltY.clamp(-0.15, 0.15);
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PdfCustomCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final settings = ref.read(settingsControllerProvider);
+    if (settings.enableGyroCards && _gyroSubscription == null) {
+      _initGyro();
+    } else if (!settings.enableGyroCards && _gyroSubscription != null) {
+      _gyroSubscription?.cancel();
+      _gyroSubscription = null;
+      setState(() {
+        _tiltX = 0;
+        _tiltY = 0;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _gyroSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -209,20 +267,26 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     return Padding(
       key: _cardKey,
       padding: const EdgeInsets.only(bottom: 12),
-      child: Slidable(
-        key: ValueKey(widget.item.path),
-        closeOnScroll: true,
-        startActionPane: ActionPane(
-          motion: const BehindMotion(),
-          extentRatio: 0.25,
-          openThreshold: 0.1,
-          closeThreshold: 0.1,
-          children: [
-            CustomSlidableAction(
-              onPressed: (_) {
-                ref.read(hapticServiceProvider).selectionClick();
-                widget.onFavorite();
-              },
+      child: ParticleBurst(
+        burstKey: _burstKey,
+        burstColor: theme.colorScheme.primary,
+        child: Slidable(
+          key: ValueKey(widget.item.path),
+          closeOnScroll: true,
+          startActionPane: ActionPane(
+            motion: const BehindMotion(),
+            extentRatio: 0.25,
+            openThreshold: 0.1,
+            closeThreshold: 0.1,
+            children: [
+              CustomSlidableAction(
+                onPressed: (_) {
+                  ref.read(hapticServiceProvider).selectionClick();
+                  if (!isFav) {
+                    _burstKey.currentState?.triggerBurst();
+                  }
+                  widget.onFavorite();
+                },
               backgroundColor: Colors.transparent,
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -278,37 +342,49 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
             ),
           ],
         ) : null,
-        child: RepaintBoundary(
-          child: ArcBouncyCard(
-            onTap: () {
-              ref.read(hapticServiceProvider).selectionClick();
-              widget.onTap();
-            },
-            onLongPress: () {
-              // Custom injected long press (e.g., selection mode) wins over Peek
-              if (widget.onLongPress != null) {
-                widget.onLongPress!.call();
-                return;
-              }
-
-              // Peek overlay
-              ref.read(hapticServiceProvider).mediumImpact();
-              OverlayEntry? entry;
-              entry = OverlayEntry(
-                builder: (context) => PeekOverlay(
-                  item: widget.item,
-                  onDismiss: () {
-                    entry?.remove();
+        child: Consumer(
+          builder: (context, ref, _) {
+            final settings = ref.watch(settingsControllerProvider);
+            return Transform(
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateX(settings.enableGyroCards ? _tiltX : 0.0)
+                ..rotateY(settings.enableGyroCards ? _tiltY : 0.0),
+              alignment: Alignment.center,
+              child: RepaintBoundary(
+                child: ArcBouncyCard(
+                  onTap: () {
+                    ref.read(hapticServiceProvider).selectionClick();
+                    widget.onTap();
                   },
+                  onLongPress: () {
+                    // Custom injected long press (e.g., selection mode) wins over Peek
+                    if (widget.onLongPress != null) {
+                      widget.onLongPress!.call();
+                      return;
+                    }
+
+                    // Peek overlay
+                    ref.read(hapticServiceProvider).mediumImpact();
+                    OverlayEntry? entry;
+                    entry = OverlayEntry(
+                      builder: (context) => PeekOverlay(
+                        item: widget.item,
+                        onDismiss: () {
+                          entry?.remove();
+                        },
+                      ),
+                    );
+                    Overlay.of(context).insert(entry);
+                  },
+                  child: cardContent,
                 ),
-              );
-              Overlay.of(context).insert(entry);
-            },
-            child: cardContent,
-          ),
+              ),
+            );
+          },
         ),
       ),
-    );
+    ));
   }
 
   String _fileSize(int bytes) {

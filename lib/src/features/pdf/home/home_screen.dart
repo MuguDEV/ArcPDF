@@ -25,6 +25,9 @@ import 'widgets/pdf_custom_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
 import '../../vault/vault_screen.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
+import '../../../shared/widgets/dynamic_island_notification.dart';
+import '../../../shared/utils/glass_bottom_sheet.dart';
+import '../../../shared/widgets/animated_mesh_background.dart';
 import '../../updater/updater_service.dart';
 import '../../settings/settings_controller.dart';
 
@@ -83,12 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _isDownloadingUpdate = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Downloading update in background...'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    DynamicIslandNotification.show(context, 'Downloading update...', icon: HugeIcons.strokeRoundedCloudDownload);
 
     try {
       // Find universal or any apk
@@ -121,28 +119,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await file.writeAsBytes(dlResponse.bodyBytes);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Update downloaded!'),
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: 'Install',
-              onPressed: () {
-                InstallPlugin.install(file.path);
-              },
-            ),
-          ),
-        );
+        DynamicIslandNotification.show(context, 'Update downloaded!', icon: HugeIcons.strokeRoundedCheckmarkBadge01);
+        // We trigger the install plugin automatically or via a delayed action
+        Future.delayed(const Duration(seconds: 1), () {
+            InstallPlugin.install(file.path);
+        });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to download update: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        DynamicIslandNotification.show(context, 'Failed to download update', icon: HugeIcons.strokeRoundedAlert01);
       }
     } finally {
       if (mounted) {
@@ -198,6 +183,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final items = ctrl.filteredItems();
     final theme = Theme.of(context);
+    final settings = ref.watch(settingsControllerProvider);
 
 
     return Scaffold(
@@ -231,11 +217,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             )
           : null,
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: CustomRefreshIndicator(
-          onRefresh: ctrl.refresh,
+      body: Stack(
+        children: [
+          if (settings.enableMeshBackground)
+            const Positioned.fill(child: AnimatedMeshBackground()),
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: CustomRefreshIndicator(
+              onRefresh: ctrl.refresh,
           offsetToArmed: 80,
           builder: (BuildContext context, Widget child, IndicatorController controller) {
             return Stack(
@@ -401,88 +391,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
                 },
               ),
-            PopupMenuButton<String>(
+            IconButton(
               icon: const Icon(HugeIcons.strokeRoundedMoreVerticalCircle01),
               tooltip: 'Menu',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              elevation: 8,
-              offset: const Offset(0, 48),
-              onSelected: (value) {
-                switch (value) {
-                  case 'refresh':
-                    ctrl.refresh();
-                    break;
-                  case 'sort_name':
-                    ctrl.setSortField(PdfSortField.name);
-                    break;
-                  case 'sort_date':
-                    ctrl.setSortField(PdfSortField.date);
-                    break;
-                  case 'sort_size':
-                    ctrl.setSortField(PdfSortField.size);
-                    break;
-                  case 'sort_asc':
-                    ctrl.setSortDirection(PdfSortDirection.ascending);
-                    break;
-                  case 'sort_desc':
-                    ctrl.setSortDirection(PdfSortDirection.descending);
-                    break;
-                }
-              },
-              itemBuilder: (context) {
-                final state = ref.read(pdfLibraryControllerProvider);
-                return [
-                  const PopupMenuItem(
-                    value: 'refresh',
-                    child: Row(
-                      children: [
-                        Icon(HugeIcons.strokeRoundedRefresh),
-                        SizedBox(width: 12),
-                        Text('Refresh'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    enabled: false,
-                    child: Text('Sort By',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'sort_name',
-                    checked: state.sortField == PdfSortField.name,
-                    child: const Text('Name'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'sort_date',
-                    checked: state.sortField == PdfSortField.date,
-                    child: const Text('Date Modified'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'sort_size',
-                    checked: state.sortField == PdfSortField.size,
-                    child: const Text('Size'),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    enabled: false,
-                    child: Text('Order',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'sort_asc',
-                    checked: state.sortDirection == PdfSortDirection.ascending,
-                    child: const Text('Ascending'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'sort_desc',
-                    checked: state.sortDirection == PdfSortDirection.descending,
-                    child: const Text('Descending'),
-                  ),
-                ];
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _showGlassMenu(context, ref, ctrl);
               },
             ),
           ],
@@ -770,9 +684,97 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  void _showGlassMenu(BuildContext context, WidgetRef ref, PdfLibraryController ctrl) {
+    showGlassModalBottomSheet(
+      context: context,
+      builder: (context) {
+        final state = ref.watch(pdfLibraryControllerProvider);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                leading: const Icon(HugeIcons.strokeRoundedRefresh),
+                title: const Text('Refresh Library'),
+                onTap: () {
+                  Navigator.pop(context);
+                  ctrl.refresh();
+                },
+              ),
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Sort By', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              ),
+              RadioListTile<PdfSortField>(
+                value: PdfSortField.name,
+                groupValue: state.sortField,
+                onChanged: (val) {
+                  ctrl.setSortField(val!);
+                  Navigator.pop(context);
+                },
+                title: const Text('Name'),
+                dense: true,
+              ),
+              RadioListTile<PdfSortField>(
+                value: PdfSortField.date,
+                groupValue: state.sortField,
+                onChanged: (val) {
+                  ctrl.setSortField(val!);
+                  Navigator.pop(context);
+                },
+                title: const Text('Date Modified'),
+                dense: true,
+              ),
+              RadioListTile<PdfSortField>(
+                value: PdfSortField.size,
+                groupValue: state.sortField,
+                onChanged: (val) {
+                  ctrl.setSortField(val!);
+                  Navigator.pop(context);
+                },
+                title: const Text('Size'),
+                dense: true,
+              ),
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Order', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              ),
+              RadioListTile<PdfSortDirection>(
+                value: PdfSortDirection.ascending,
+                groupValue: state.sortDirection,
+                onChanged: (val) {
+                  ctrl.setSortDirection(val!);
+                  Navigator.pop(context);
+                },
+                title: const Text('Ascending'),
+                dense: true,
+              ),
+              RadioListTile<PdfSortDirection>(
+                value: PdfSortDirection.descending,
+                groupValue: state.sortDirection,
+                onChanged: (val) {
+                  ctrl.setSortDirection(val!);
+                  Navigator.pop(context);
+                },
+                title: const Text('Descending'),
+                dense: true,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -882,35 +884,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onVault: () async {
           final security = ref.read(securityControllerProvider);
           if (!security.isLockEnabled) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('App lock is not enabled. Enable it in Settings first.'),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                duration: const Duration(seconds: 3),
-              ),
-            );
+            DynamicIslandNotification.show(context, 'App lock is not enabled. Enable it in Settings first.', icon: HugeIcons.strokeRoundedAlert01);
             return;
           }
           final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
           if (success && context.mounted) {
             ref.read(pdfLibraryControllerProvider.notifier).refresh();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Moved to Vault'),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            DynamicIslandNotification.show(context, 'Moved to Vault', icon: HugeIcons.strokeRoundedFolderSecurity);
           }
         },
         onTap: () async {
           if (item.sizeBytes == 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Cannot open empty or corrupted file')),
-            );
+            DynamicIslandNotification.show(context, 'Cannot open empty or corrupted file', icon: HugeIcons.strokeRoundedAlert01);
             return;
           }
           await ctrl.markRecent(item);
