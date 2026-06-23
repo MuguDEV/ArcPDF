@@ -18,6 +18,7 @@ import 'pages/metadata_editor_page.dart';
 import 'widgets/in_app_pdf_selector.dart';
 import 'utils/tools_directory_util.dart';
 import '../../shared/widgets/glass_app_bar.dart';
+import '../../shared/widgets/dynamic_island_notification.dart';
 
 class ToolsScreen extends ConsumerWidget {
   const ToolsScreen({super.key});
@@ -34,85 +35,139 @@ class ToolsScreen extends ConsumerWidget {
           const GlassSliverAppBar(
             title: Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 20, top: 24, bottom: 12),
+              child: _buildSectionHeader('PDF Utilities', context).animate().fadeIn(duration: 300.ms),
+            ),
+          ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            sliver: SliverList.list(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid.extent(
+              maxCrossAxisExtent: 200,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.9,
               children: [
-                _buildSectionHeader('PDF Utilities', context).animate().fadeIn(duration: 300.ms),
-                const SizedBox(height: 12),
                 ToolCard(
                   title: 'Merge PDFs',
-                  subtitle: 'Combine and reorder multiple PDF files',
+                  subtitle: 'Combine and reorder files',
                   icon: HugeIcons.strokeRoundedLayers01,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MergePdfsPage()));
                   },
                 ).animate(delay: 50.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
                 ToolCard(
                   title: 'Split PDF',
-                  subtitle: 'Extract pages from a PDF and save as new files',
+                  subtitle: 'Extract pages as new files',
                   icon: HugeIcons.strokeRoundedScissor01,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SplitPdfPage()));
                   },
                 ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
                 ToolCard(
-                  title: 'Rearrange / Delete Pages',
-                  subtitle: 'Change page order or remove pages from a PDF',
+                  title: 'Organize Pages',
+                  subtitle: 'Reorder or delete pages',
                   icon: HugeIcons.strokeRoundedGridView,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
                   },
                 ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
                 ToolCard(
                   title: 'Compress PDF',
-                  subtitle: 'Reduce the file size of your PDF document',
+                  subtitle: 'Reduce the file size',
                   icon: HugeIcons.strokeRoundedFile01,
                   onTap: () => _handleCompress(context, ref),
                 ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
                 ToolCard(
                   title: 'Metadata Editor',
-                  subtitle: 'View and edit document properties',
+                  subtitle: 'Edit document properties',
                   icon: HugeIcons.strokeRoundedInformationCircle,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MetadataEditorPage()));
                   },
                 ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-
-                const SizedBox(height: 32),
-                _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
-                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 20, top: 32, bottom: 12),
+              child: _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid.extent(
+              maxCrossAxisExtent: 200,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.9,
+              children: [
+                ToolCard(
+                  title: 'Word to PDF',
+                  subtitle: 'Convert .docx to PDF',
+                  icon: HugeIcons.strokeRoundedDocumentAttachment,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    DynamicIslandNotification.show(context, 'Coming Soon: Offline Word to PDF conversion!', icon: HugeIcons.strokeRoundedTime01);
+                  },
+                ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ToolCard(
+                  title: 'PDF to Word',
+                  subtitle: 'Convert PDF to .docx',
+                  icon: HugeIcons.strokeRoundedFile02,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    DynamicIslandNotification.show(context, 'Coming Soon: ML-powered PDF to Word extraction!', icon: HugeIcons.strokeRoundedTime01);
+                  },
+                ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 ToolCard(
                   title: 'Images to PDF',
-                  subtitle: 'Convert, reorder, and combine images into a PDF',
+                  subtitle: 'Combine images into a PDF',
                   icon: HugeIcons.strokeRoundedImage01,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImagesToPdfPage()));
                   },
-                ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
+                ).animate(delay: 350.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 ToolCard(
                   title: 'PDF to Images',
-                  subtitle: 'Extract and save each page of a PDF as an image',
+                  subtitle: 'Save pages as images',
                   icon: HugeIcons.strokeRoundedImage02,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PdfToImagesPage()));
                   },
-                ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-
-                const SizedBox(height: 140), // Bottom padding for nav bar
+                ).animate(delay: 400.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ToolCard(
+                  title: 'HTML to PDF',
+                  subtitle: 'Render webpages into PDF',
+                  icon: HugeIcons.strokeRoundedGlobe02,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    DynamicIslandNotification.show(context, 'Coming Soon: Offline HTML rendering engine!', icon: HugeIcons.strokeRoundedTime01);
+                  },
+                ).animate(delay: 450.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ToolCard(
+                  title: 'Watermark PDF',
+                  subtitle: 'Add secure text or images',
+                  icon: HugeIcons.strokeRoundedStamp01,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    DynamicIslandNotification.show(context, 'Coming Soon: Batch watermarking tool!', icon: HugeIcons.strokeRoundedTime01);
+                  },
+                ).animate(delay: 500.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
               ],
             ),
+          ),
+          const SliverSafeArea(
+            minimum: EdgeInsets.only(bottom: 140),
+            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
         ],
       ),
