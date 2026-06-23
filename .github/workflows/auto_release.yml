@@ -7,10 +7,15 @@ on:
 
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release version (e.g. v1.0.3). Leave empty to use pubspec.yaml version.'
-        required: false
-        default: ''
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -53,20 +58,52 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Extract current version
-        id: get_version
+      - name: Bump Version
+        id: bump_version
         env:
-          INPUT_VERSION: ${{ github.event.inputs.version }}
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
         run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}' | tr -d '\r')
-          echo "Current pubspec version: $VERSION"
-          if [ -n "$INPUT_VERSION" ]; then
-            CLEAN_VERSION=$(echo "$INPUT_VERSION" | sed 's/^v//' | tr -d '\r')
-            echo "Using manual version: $CLEAN_VERSION"
-            echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+          # Only bump version if triggered manually (workflow_dispatch)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+            echo "Current version: $VERSION"
+
+            IFS='.' read -r major minor patch <<< "$VERSION"
+
+            if [ "$BUMP_TYPE" == "major" ]; then
+              major=$((major + 1))
+              minor=0
+              patch=0
+            elif [ "$BUMP_TYPE" == "minor" ]; then
+              minor=$((minor + 1))
+              patch=0
+            else
+              patch=$((patch + 1))
+            fi
+
+            NEW_VERSION="$major.$minor.$patch"
+            echo "New version: $NEW_VERSION"
+
+            # Update pubspec.yaml
+            sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
           else
+            # For pushes to main, just extract the current version
+            VERSION=$(grep '^version: ' pubspec.yaml | awk '{print $2}' | tr -d '\r')
+            echo "Current version: $VERSION"
             echo "VERSION=$VERSION" >> $GITHUB_ENV
           fi
+
+      - name: Commit Updated Version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to v${{ env.VERSION }} [skip ci]" || echo "No changes to commit"
+          git push origin HEAD:${{ github.ref }} || echo "Push failed"
 
       - name: Set Version Output
         id: set_output
@@ -112,13 +149,13 @@ jobs:
           name: android-artifacts
           path: release/*
 
-      - name: Create Git Tag (Pre-Bump)
+      - name: Create Git Tag
         if: env.SKIP_RELEASE == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ -n "$GITHUB_TOKEN" ]; then git remote set-url origin https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git; fi
           git tag "v${{ env.VERSION }}" || echo "Tag creation failed"
           git push origin "v${{ env.VERSION }}" || echo "Push tag failed"

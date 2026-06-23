@@ -53,6 +53,8 @@ dependencies:
   flutter_slidable: ^4.0.3
   flutter_markdown: ^0.7.7+1
   install_plugin: ^2.1.0
+  custom_refresh_indicator: ^4.0.1
+  sensors_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:

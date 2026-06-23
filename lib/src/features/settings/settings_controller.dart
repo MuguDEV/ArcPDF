@@ -43,6 +43,8 @@ class AppSettings {
     required this.keepScreenAwake,
     required this.compressionThreads,
     required this.lowPowerMode,
+    required this.enableGyroCards,
+    required this.enableMeshBackground,
     this.skippedUpdateVersion,
   });
 
@@ -57,6 +59,8 @@ class AppSettings {
   final bool keepScreenAwake;
   final int compressionThreads;
   final bool lowPowerMode;
+  final bool enableGyroCards;
+  final bool enableMeshBackground;
   final String? skippedUpdateVersion;
 
   AppSettings copyWith({
@@ -71,6 +75,8 @@ class AppSettings {
     bool? keepScreenAwake,
     int? compressionThreads,
     bool? lowPowerMode,
+    bool? enableGyroCards,
+    bool? enableMeshBackground,
     String? skippedUpdateVersion,
   }) {
     return AppSettings(
@@ -85,6 +91,8 @@ class AppSettings {
       keepScreenAwake: keepScreenAwake ?? this.keepScreenAwake,
       compressionThreads: compressionThreads ?? this.compressionThreads,
       lowPowerMode: lowPowerMode ?? this.lowPowerMode,
+      enableGyroCards: enableGyroCards ?? this.enableGyroCards,
+      enableMeshBackground: enableMeshBackground ?? this.enableMeshBackground,
       skippedUpdateVersion: skippedUpdateVersion ?? this.skippedUpdateVersion,
     );
   }
@@ -106,6 +114,8 @@ class SettingsController extends StateNotifier<AppSettings> {
           keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
           compressionThreads: ((_box.get('compressionThreads', defaultValue: 2) as num).toInt()).clamp(1, 5),
           lowPowerMode: _box.get('lowPowerMode', defaultValue: false) ?? false,
+          enableGyroCards: _box.get('enableGyroCards', defaultValue: false) ?? false,
+          enableMeshBackground: _box.get('enableMeshBackground', defaultValue: false) ?? false,
           skippedUpdateVersion: _box.get('skippedUpdateVersion') as String?,
         ));
 
@@ -165,6 +175,16 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setLowPowerMode(bool value) async {
     state = state.copyWith(lowPowerMode: value);
     await _box.put('lowPowerMode', value);
+  }
+
+  Future<void> setEnableGyroCards(bool value) async {
+    state = state.copyWith(enableGyroCards: value);
+    await _box.put('enableGyroCards', value);
+  }
+
+  Future<void> setEnableMeshBackground(bool value) async {
+    state = state.copyWith(enableMeshBackground: value);
+    await _box.put('enableMeshBackground', value);
   }
 
   Future<void> setSkippedUpdateVersion(String version) async {
