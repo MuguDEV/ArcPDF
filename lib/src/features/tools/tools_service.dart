@@ -21,6 +21,123 @@ class PdfMetadataInfo {
 }
 
 class ToolsService {
+  static Future<String?> protectPdf(String inputPath, String outputPath, String password) async {
+    return await Isolate.run(() async {
+      syncfusion.PdfDocument? document;
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+
+        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+
+        final syncfusion.PdfSecurity security = document.security;
+        security.userPassword = password;
+        security.encryptionOptions = syncfusion.PdfEncryptionOptions.encryptAllContents;
+        security.algorithm = syncfusion.PdfEncryptionAlgorithm.aesx256Bit;
+
+        final bytes = await document.save();
+        final outFile = File(outputPath);
+        await outFile.writeAsBytes(bytes);
+        return outputPath;
+      } catch (e) {
+        return null;
+      } finally {
+        document?.dispose();
+      }
+    });
+  }
+
+  static Future<String?> unlockPdf(String inputPath, String outputPath, String password) async {
+    return await Isolate.run(() async {
+      syncfusion.PdfDocument? document;
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+
+        // Passing the password directly handles decryption on read
+        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync(), password: password);
+
+        // This removes the security and saves it cleanly
+        document.security.algorithm = syncfusion.PdfEncryptionAlgorithm.rc4x40Bit; // Required reset step
+        document.security.userPassword = '';
+        document.security.ownerPassword = '';
+
+        final bytes = await document.save();
+        final outFile = File(outputPath);
+        await outFile.writeAsBytes(bytes);
+        return outputPath;
+      } catch (e) {
+        // usually Wrong Password exception
+        return null;
+      } finally {
+        document?.dispose();
+      }
+    });
+  }
+
+  static Future<String?> extractText(String inputPath) async {
+    return await Isolate.run(() async {
+      syncfusion.PdfDocument? document;
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+
+        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+        final extractor = syncfusion.PdfTextExtractor(document);
+        final text = extractor.extractText();
+        return text;
+      } catch (e) {
+        return null;
+      } finally {
+        document?.dispose();
+      }
+    });
+  }
+
+  static Future<String?> watermarkPdf(String inputPath, String outputPath, String watermarkText, Color color) async {
+    return await Isolate.run(() async {
+      syncfusion.PdfDocument? document;
+      try {
+        final file = File(inputPath);
+        if (!file.existsSync()) return null;
+
+        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
+
+        final font = syncfusion.PdfStandardFont(syncfusion.PdfFontFamily.helvetica, 40);
+        final brush = syncfusion.PdfSolidBrush(syncfusion.PdfColor((color.r * 255).toInt(), (color.g * 255).toInt(), (color.b * 255).toInt(), (color.a * 255).toInt()));
+
+        for (int i = 0; i < document.pages.count; i++) {
+          final page = document.pages[i];
+          final graphics = page.graphics;
+          final size = graphics.clientSize;
+
+          graphics.save();
+          graphics.translateTransform(size.width / 2, size.height / 2);
+          graphics.rotateTransform(-45);
+
+          final textSize = font.measureString(watermarkText);
+          graphics.drawString(
+            watermarkText,
+            font,
+            brush: brush,
+            bounds: Rect.fromLTWH(-textSize.width / 2, -textSize.height / 2, textSize.width, textSize.height),
+          );
+
+          graphics.restore();
+        }
+
+        final bytes = await document.save();
+        final outFile = File(outputPath);
+        await outFile.writeAsBytes(bytes);
+        return outputPath;
+      } catch (e) {
+        return null;
+      } finally {
+        document?.dispose();
+      }
+    });
+  }
+
   static Future<PdfMetadataInfo?> readPdfMetadata(String inputPath) async {
     return await Isolate.run(() async {
       try {

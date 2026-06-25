@@ -15,10 +15,13 @@ import 'pages/rearrange_pages_page.dart';
 import 'pages/images_to_pdf_page.dart';
 import 'pages/pdf_to_images_page.dart';
 import 'pages/metadata_editor_page.dart';
+import 'pages/extract_text_page.dart';
+import 'pages/protect_pdf_page.dart';
+import 'pages/unlock_pdf_page.dart';
+import 'pages/watermark_pdf_page.dart';
 import 'widgets/in_app_pdf_selector.dart';
 import 'utils/tools_directory_util.dart';
 import '../../shared/widgets/glass_app_bar.dart';
-import '../../shared/widgets/dynamic_island_notification.dart';
 
 class ToolsScreen extends ConsumerWidget {
   const ToolsScreen({super.key});
@@ -97,7 +100,7 @@ class ToolsScreen extends ConsumerWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.only(left: 20, top: 32, bottom: 12),
-              child: _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
+              child: _buildSectionHeader('Security & Data', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
             ),
           ),
           SliverPadding(
@@ -109,32 +112,50 @@ class ToolsScreen extends ConsumerWidget {
               childAspectRatio: 0.9,
               children: [
                 ToolCard(
-                  title: 'Word to PDF',
-                  subtitle: 'Convert .docx to PDF',
-                  icon: HugeIcons.strokeRoundedDocumentAttachment,
+                  title: 'Extract Text',
+                  subtitle: 'Pull text from a PDF',
+                  icon: HugeIcons.strokeRoundedFile01,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
-                    DynamicIslandNotification.show(context, 'Coming Soon: Offline Word to PDF conversion!', icon: HugeIcons.strokeRoundedTime01);
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExtractTextPage()));
                   },
                 ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 ToolCard(
-                  title: 'PDF to Word',
-                  subtitle: 'Convert PDF to .docx',
-                  icon: HugeIcons.strokeRoundedFile02,
+                  title: 'Protect PDF',
+                  subtitle: 'Add a password lock',
+                  icon: HugeIcons.strokeRoundedLockPassword,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
-                    DynamicIslandNotification.show(context, 'Coming Soon: ML-powered PDF to Word extraction!', icon: HugeIcons.strokeRoundedTime01);
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProtectPdfPage()));
                   },
                 ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 ToolCard(
+                  title: 'Unlock PDF',
+                  subtitle: 'Remove a password',
+                  icon: HugeIcons.strokeRoundedLockKey,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UnlockPdfPage()));
+                  },
+                ).animate(delay: 350.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ToolCard(
+                  title: 'Watermark',
+                  subtitle: 'Stamp text diagonally',
+                  icon: HugeIcons.strokeRoundedStamp01,
+                  onTap: () {
+                    ref.read(hapticServiceProvider).lightImpact();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WatermarkPdfPage()));
+                  },
+                ).animate(delay: 400.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ToolCard(
                   title: 'Images to PDF',
-                  subtitle: 'Combine images into a PDF',
+                  subtitle: 'Combine images to PDF',
                   icon: HugeIcons.strokeRoundedImage01,
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImagesToPdfPage()));
                   },
-                ).animate(delay: 350.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                ).animate(delay: 450.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
                 ToolCard(
                   title: 'PDF to Images',
                   subtitle: 'Save pages as images',
@@ -142,24 +163,6 @@ class ToolsScreen extends ConsumerWidget {
                   onTap: () {
                     ref.read(hapticServiceProvider).lightImpact();
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PdfToImagesPage()));
-                  },
-                ).animate(delay: 400.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                ToolCard(
-                  title: 'HTML to PDF',
-                  subtitle: 'Render webpages into PDF',
-                  icon: HugeIcons.strokeRoundedGlobe02,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    DynamicIslandNotification.show(context, 'Coming Soon: Offline HTML rendering engine!', icon: HugeIcons.strokeRoundedTime01);
-                  },
-                ).animate(delay: 450.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                ToolCard(
-                  title: 'Watermark PDF',
-                  subtitle: 'Add secure text or images',
-                  icon: HugeIcons.strokeRoundedStamp01,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    DynamicIslandNotification.show(context, 'Coming Soon: Batch watermarking tool!', icon: HugeIcons.strokeRoundedTime01);
                   },
                 ).animate(delay: 500.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
               ],
