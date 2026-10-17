@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 
 import 'package:collection/collection.dart';
 import 'package:external_path/external_path.dart';
@@ -56,8 +57,10 @@ class PdfScannerService {
     if (Platform.isAndroid) {
       try {
         final ext = await ExternalPath.getExternalStorageDirectories();
-        if (ext != null) roots.addAll(ext.where((e) => e.isNotEmpty));
-      } catch (_) {}
+        if (ext != null) roots.addAll(ext.where((e) => e.isNotEmpty).cast<String>());
+      } catch (e) {
+        if (kDebugMode) debugPrint('Failed to read external storage directories: $e');
+      }
     }
     final appExt = await getExternalStorageDirectories();
     if (appExt != null) roots.addAll(appExt.map((e) => e.path));

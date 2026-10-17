@@ -8,6 +8,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'dart:io';
 
 import 'features/settings/settings_controller.dart';
+import 'shared/utils/traced_page_transitions_builder.dart';
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
 import 'features/pdf/viewer/route_observer.dart';
@@ -148,7 +149,11 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
 
       return ThemeData(
         useMaterial3: true,
-        colorScheme: colorScheme,
+        colorScheme: colorScheme.copyWith(
+          primary: brightness == Brightness.light ? Colors.black : Colors.white,
+          onPrimary: brightness == Brightness.light ? Colors.white : Colors.black,
+          secondary: brightness == Brightness.light ? Colors.grey.shade800 : Colors.grey.shade300,
+        ),
         brightness: brightness,
         textTheme: textTheme,
         scaffoldBackgroundColor: colorScheme.surface,
@@ -156,7 +161,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         pageTransitionsTheme: const PageTransitionsTheme(builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(
+          TargetPlatform.android: TracedZoomPageTransitionsBuilder(
             allowEnterRouteSnapshotting: false,
           )
         }),

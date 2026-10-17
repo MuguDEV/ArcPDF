@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../application/pdf_error_handler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -118,7 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final dlResponse = await http.get(Uri.parse(apkUrl));
       await file.writeAsBytes(dlResponse.bodyBytes);
 
-      if (mounted) {
+      if (context.mounted) {
         DynamicIslandNotification.show(context, 'Update downloaded!', icon: HugeIcons.strokeRoundedCheckmarkBadge01);
         // We trigger the install plugin automatically or via a delayed action
         Future.delayed(const Duration(seconds: 1), () {
@@ -126,11 +127,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         DynamicIslandNotification.show(context, 'Failed to download update', icon: HugeIcons.strokeRoundedAlert01);
       }
     } finally {
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           _isDownloadingUpdate = false;
           _availableUpdate = null;
@@ -888,14 +889,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return;
           }
           final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
-          if (success && context.mounted) {
+          if (success && mounted) {
             ref.read(pdfLibraryControllerProvider.notifier).refresh();
             DynamicIslandNotification.show(context, 'Moved to Vault', icon: HugeIcons.strokeRoundedFolderSecurity);
           }
         },
         onTap: () async {
           if (item.sizeBytes == 0) {
-            DynamicIslandNotification.show(context, 'Cannot open empty or corrupted file', icon: HugeIcons.strokeRoundedAlert01);
+            PdfErrorHandler.show(context, 'corrupt', contextMessage: 'Cannot open empty or corrupted file');
             return;
           }
           await ctrl.markRecent(item);

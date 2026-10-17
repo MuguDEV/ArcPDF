@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../application/pdf_error_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -197,7 +198,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           _showToolbar = false;
           _isToolbarExpanded = false;
@@ -545,7 +546,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   if (val == 'info') {
                                     await _showPdfInfo();
                                   } else if (val == 'share') {
-                                    Share.shareXFiles([XFile(widget.item.path)]);
+
+                                    SharePlus.instance.share(<XFile>(widget.item.path)]);
                                   } else if (val == 'print') {
                                     final file = File(widget.item.path);
                                     final bytes = await file.readAsBytes();
@@ -779,7 +781,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
   Future<void> _shareCurrentPage() async {
     try {
-      final doc = _pdfViewerController.document; // ignore: deprecated_member_use
+      final doc = _pdfViewerController.document;
       final page = doc.pages[_page - 1];
 
       final pdfImage = await page.render(
@@ -799,10 +801,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       final tempFile = File(p.join(tempDir.path, 'page_$_page.png'));
       await tempFile.writeAsBytes(byteData.buffer.asUint8List());
 
-      await Share.shareXFiles([XFile(tempFile.path)], text: 'Page $_page from ${widget.item.name}');
+      await
+      SharePlus.instance.share(<XFile>(tempFile.path)], text: 'Page $_page from ${widget.item.name}');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to extract and share page')));
+      if (context.mounted) {
+        PdfErrorHandler.show(context, e, contextMessage: 'Failed to extract and share page');
       }
     }
   }
@@ -947,7 +950,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                               children: [
                                 if (_pdfViewerController.isReady)
                                   PdfPageView(
-                                    document: _pdfViewerController.document, // ignore: deprecated_member_use
+                                    document: _pdfViewerController.document,
                                   pageNumber: pageNum,
                                 ),
                                 Positioned(
@@ -1049,8 +1052,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showDocumentOutline() async {
-    final outline = await _pdfViewerController.document.loadOutline(); // ignore: deprecated_member_use
-    if (!mounted) return;
+    final outline = await _pdfViewerController.document.loadOutline();
+    if (!context.mounted) return;
 
     if (outline.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(

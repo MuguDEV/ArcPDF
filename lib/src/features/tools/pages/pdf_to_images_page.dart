@@ -89,10 +89,10 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
 
       document.dispose();
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       showDialog(
         context: context,
         builder: (context) => ToolActionDialog(
@@ -102,7 +102,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
             outputPath: outputDir.path),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.of(context).pop();
       showDialog(
         context: context,

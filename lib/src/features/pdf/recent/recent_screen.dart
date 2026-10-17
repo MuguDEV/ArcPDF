@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../application/pdf_error_handler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +11,6 @@ import '../application/open_tabs_provider.dart';
 import '../../vault/vault_controller.dart';
 import '../../security/security_controller.dart';
 import '../domain/pdf_file_item.dart';
-import '../viewer/pdf_viewer_screen.dart';
 import '../viewer/multi_tab_viewer_screen.dart';
 import '../home/widgets/pdf_custom_card.dart';
 import '../../../shared/widgets/glass_app_bar.dart';

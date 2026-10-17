@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../pdf/application/pdf_error_handler.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
@@ -41,7 +42,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
 
   Future<void> _mergeFiles() async {
     if (_selectedFiles.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select at least 2 PDFs to merge.')));
+      PdfErrorHandler.show(context, 'invalid input', contextMessage: 'Please select at least 2 PDFs to merge.');
       return;
     }
 
@@ -56,7 +57,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
 
     final successPath = await ToolsService.mergePdfs(_selectedFiles, outputPath);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).pop();
 
     if (successPath != null) {

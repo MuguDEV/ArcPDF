@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../data/local_boxes.dart';
 import '../domain/pdf_file_item.dart';
-import 'pdf_library_controller.dart';
 
 class OpenTabsState {
   final List<PdfFileItem> tabs;

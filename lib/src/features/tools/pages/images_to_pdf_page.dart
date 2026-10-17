@@ -48,7 +48,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
 
     final successPath = await ToolsService.imagesToPdf(_selectedFiles, outputPath);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).pop();
 
     if (successPath != null) {

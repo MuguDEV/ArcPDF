@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../pdf/application/pdf_error_handler.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -81,7 +82,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
 
     final pagesToExtract = _parsePages(_pagesController.text);
     if (pagesToExtract.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter valid page numbers to split.')));
+      PdfErrorHandler.show(context, 'invalid input', contextMessage: 'Please enter valid page numbers to split.');
       return;
     }
 
@@ -94,7 +95,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
     final successPath = await ToolsService.splitPdf(_selectedFile!, dir, pagesToExtract);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).pop();
 
     if (successPath != null) {
