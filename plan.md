@@ -1,22 +1,58 @@
-1. **Fix layout clipping and overlapping caused by the bottom bar (ArcNavBar)**
-   - The screenshot shows that the bottom list items and their bottom paddings are clipped or obscured. The ArcNavBar is floating, so the `home_screen.dart` needs enough bottom padding to ensure the last item is fully visible and not blocked by the floating bar.
-   - Adjust `SliverSafeArea` or the bottom `SliverToBoxAdapter` in `home_screen.dart` to provide appropriate bottom padding (e.g. `120`).
+# Phase 0: Audit Report
+## Vault initialization race condition
+- File: `lib/src/features/vault/vault_controller.dart`
+- `_initVault()` is called synchronously in the constructor, meaning `_encrypter` and `_iv` might not be initialized when a method like `loadVaultFiles()` is called. Also handled initialization without throwing.
 
-2. **Fix Thumbnail and Status Bar alignment (`GlassSliverAppBar`)**
-   - The thumbnail and badges within the `PdfCustomCard` need minor adjustments to look polished. The "not nice" feedback might be related to how the card content is padded or how the app bar looks.
-   - Improve `GlassSliverAppBar` padding and layout so the "ArcPDF" title and the "workspace" subtitle are correctly aligned and don't look cramped or incorrectly spaced.
-   - Adjust `pdf_custom_card.dart` layout, ensuring `ParallaxWrapper` doesn't cause clipping, and padding around thumbnails/text is well-balanced.
+## BuildContext across async gaps
+- Many occurrences. E.g. `lib/src/features/vault/vault_screen.dart`, `lib/src/features/pdf/home/home_screen.dart`, `lib/src/features/tools/tools_screen.dart`, `lib/src/features/tools/pages/merge_pdfs_page.dart`, `lib/src/features/tools/pages/split_pdf_page.dart`, `lib/src/features/pdf/recent/recent_screen.dart`.
+- Need to insert `if (!context.mounted) return;` before `Navigator.of(context)` or `ScaffoldMessenger.of(context)` or similar usages after `await`.
 
-3. **Improve the App Transitions (Opening/Closing animations)**
-   - The user complained about the opening/closing animation being "choppier" and not smooth.
-   - Use `ZoomPageTransitionsBuilder` globally instead of `FadeUpwardsPageTransitionsBuilder` for a smoother, standard Android 14+ style zoom transition.
-   - Ensure the ghost transition logic in `pdf_viewer_screen.dart` provides an immediate surface while `pdfrx` loads, avoiding the black screen or choppy start.
+## Late/null-assertion audit
+- Need to check `vault_controller.dart` specifically for `late enc.Encrypter _encrypter;` and `late enc.IV _iv;`.
 
-4. **Enhance PDF Viewer Rendering smoothness**
-   - Make sure `pdfrx` viewer isn't causing jitters.
+## Monochrome design tokens
+- Will create `lib/src/shared/theme/arc_colors.dart` providing standard monochrome colors.
+- Will update usages in `DynamicIslandNotification`, `GlassSliverAppBar`, `ArcNavBar`, etc. to use tokens instead of direct theme color scheme colors.
 
-5. **Pre-commit checks**
-   - Complete pre-commit checks to verify the code passes linting and testing.
+## Glass contrast
+- In `lib/src/shared/widgets/glass_app_bar.dart`, remove hardcoded 0.7 alpha. Apply adaptive contrast logic and disable blur entirely in eco mode (falling back to opaque surface color).
 
-6. **Submit**
-   - Submit the changes using the existing branch.
+## Eco mode theming
+- Update `lib/src/shared/widgets/glass_app_bar.dart` and `lib/src/features/tools/widgets/in_app_pdf_selector.dart` and others to respect low power mode.
+
+## Responsive layout
+- Validate grid and lists in `lib/src/features/tools/tools_screen.dart` to not overflow on tablets. Use `SliverGrid.extent` or similar layout adaptiveness.
+
+## Robustness: Shared PdfErrorHandler
+- Create `lib/src/shared/utils/pdf_error_handler.dart`
+- Use it to show standard dialogs on error in viewer and tools.
+
+## Robustness: Android document provider hardening
+- Improve `lib/src/features/pdf/data/pdf_scanner_service.dart` and `lib/src/features/tools/utils/tools_directory_util.dart` to handle null paths/unauthorized access gracefully without throwing.
+
+## Tests
+- Need to generate and run vault tests, UI tests, regression tests.
+
+## Performance instrumentation
+- Add `Timeline.startSync` / `Timeline.finishSync` in `pdf_thumbnail_cache.dart` and transition builders.
+
+# Plan
+1. *Fix Critical Correctness issues (Phase 1).*
+   - Refactor `vault_controller.dart` to use a lazy initializer.
+   - Fix all missing `if (!mounted) return;` across async gaps.
+   - Fix unsafe `late` modifiers.
+2. *Fix UI consistency (Phase 2).*
+   - Create `ArcColors`.
+   - Update `GlassSliverAppBar`.
+   - Update Eco Mode theming.
+   - Check responsive layout.
+3. *Improve Robustness (Phase 3).*
+   - Create and integrate `PdfErrorHandler`.
+   - Harden Android directory paths in `pdf_scanner_service.dart` and `tools_directory_util.dart`.
+4. *Write Tests (Phase 4).*
+   - Create tests for Vault, UI tokens, and Regression.
+5. *Add Performance instrumentation (Phase 5).*
+   - Add Timeline tracing in hot paths.
+6. *Complete pre commit steps.*
+   - Follow `pre_commit_instructions` tool to run checks.
+7. *Submit.*

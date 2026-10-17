@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../pdf/domain/pdf_file_item.dart';
 import '../pdf/application/pdf_library_controller.dart';
 import 'dart:convert';
+import 'vault_init_exception.dart';
 
 class VaultState {
   final bool isUnlocked;
@@ -29,33 +30,43 @@ class VaultState {
 }
 
 class VaultController extends StateNotifier<VaultState> {
-  VaultController(this._ref) : super(VaultState()) {
-    _initVault();
-  }
+  VaultController(this._ref) : super(VaultState());
 
   final Ref _ref;
   final _storage = const FlutterSecureStorage();
-  late enc.Encrypter _encrypter;
-  late enc.IV _iv;
+
+  enc.Encrypter? _encrypter;
+  enc.IV? _iv;
+  Future<void>? _initFuture;
+
+  Future<void> get ready {
+    _initFuture ??= _initVault();
+    return _initFuture!;
+  }
 
   Future<void> _initVault() async {
-    String? keyStr = await _storage.read(key: 'vault_key');
-    if (keyStr == null) {
-      final key = enc.Key.fromSecureRandom(32);
-      keyStr = base64Encode(key.bytes);
-      await _storage.write(key: 'vault_key', value: keyStr);
-    }
+    try {
+      String? keyStr = await _storage.read(key: 'vault_key');
+      if (keyStr == null) {
+        final key = enc.Key.fromSecureRandom(32);
+        keyStr = base64Encode(key.bytes);
+        await _storage.write(key: 'vault_key', value: keyStr);
+      }
 
-    String? ivStr = await _storage.read(key: 'vault_iv');
-    if (ivStr == null) {
-      final ivBytes = enc.IV.fromSecureRandom(16);
-      ivStr = base64Encode(ivBytes.bytes);
-      await _storage.write(key: 'vault_iv', value: ivStr);
-    }
+      String? ivStr = await _storage.read(key: 'vault_iv');
+      if (ivStr == null) {
+        final ivBytes = enc.IV.fromSecureRandom(16);
+        ivStr = base64Encode(ivBytes.bytes);
+        await _storage.write(key: 'vault_iv', value: ivStr);
+      }
 
-    final keyBytes = base64Decode(keyStr);
-    _iv = enc.IV(base64Decode(ivStr));
-    _encrypter = enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc));
+      final keyBytes = base64Decode(keyStr);
+      _iv = enc.IV(base64Decode(ivStr));
+      _encrypter = enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc));
+    } catch (e) {
+      _initFuture = null; // Allow retry on failure
+      throw VaultInitException('Failed to initialize secure vault: $e');
+    }
   }
 
   Future<Directory> _getVaultDirectory() async {
@@ -70,6 +81,7 @@ class VaultController extends StateNotifier<VaultState> {
   Future<void> loadVaultFiles() async {
     state = state.copyWith(isLoading: true);
     try {
+      await ready;
       final vaultDir = await _getVaultDirectory();
       final files = vaultDir.listSync().whereType<File>().toList();
       final items = files.map((f) => PdfFileItem.fromFile(f, isEncrypted: true)).toList();
@@ -90,6 +102,11 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<bool> moveToVault(PdfFileItem item) async {
     try {
+      await ready;
+      final encrypter = _encrypter;
+      final iv = _iv;
+      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
+
       final file = File(item.path);
       if (!await file.exists()) return false;
 
@@ -106,7 +123,7 @@ class VaultController extends StateNotifier<VaultState> {
       final newFile = File(newPath);
 
       final bytes = await file.readAsBytes();
-      final encrypted = _encrypter.encryptBytes(bytes, iv: _iv);
+      final encrypted = encrypter.encryptBytes(bytes, iv: iv);
       final encryptedBytes = encrypted.bytes;
 
       await newFile.writeAsBytes(encryptedBytes, flush: true);
@@ -127,11 +144,16 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<File?> decryptToTempFile(PdfFileItem vaultItem) async {
     try {
+      await ready;
+      final encrypter = _encrypter;
+      final iv = _iv;
+      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
+
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return null;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);
+      final decryptedBytes = encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: iv);
 
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(p.join(tempDir.path, 'temp_decrypted_${vaultItem.name}'));
@@ -144,11 +166,16 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<bool> restoreFromVault(PdfFileItem vaultItem, String restoreDirPath) async {
     try {
+      await ready;
+      final encrypter = _encrypter;
+      final iv = _iv;
+      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
+
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return false;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = _encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: _iv);
+      final decryptedBytes = encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: iv);
 
       final newPath = p.join(restoreDirPath, vaultItem.name);
       final newFile = File(newPath);
