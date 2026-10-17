@@ -64,7 +64,7 @@ class VaultController extends StateNotifier<VaultState> {
       _iv = enc.IV(base64Decode(ivStr));
       _encrypter = enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc));
     } catch (e) {
-      _initFuture = null; // Allow retry on failure
+      _initFuture = null;
       throw VaultInitException('Failed to initialize secure vault: $e');
     }
   }
@@ -138,6 +138,8 @@ class VaultController extends StateNotifier<VaultState> {
       loadVaultFiles();
       return true;
     } catch (e) {
+      // In tests we want to expose VaultInitException instead of returning false
+      if (e is VaultInitException) rethrow;
       return false;
     }
   }
@@ -160,6 +162,7 @@ class VaultController extends StateNotifier<VaultState> {
       await tempFile.writeAsBytes(decryptedBytes, flush: true);
       return tempFile;
     } catch (e) {
+      if (e is VaultInitException) rethrow;
       return null;
     }
   }
@@ -191,6 +194,7 @@ class VaultController extends StateNotifier<VaultState> {
       loadVaultFiles();
       return true;
     } catch (e) {
+      if (e is VaultInitException) rethrow;
       return false;
     }
   }
