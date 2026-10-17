@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../pdf/application/pdf_error_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -53,7 +54,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     if (success) {
       ref.read(vaultControllerProvider.notifier).setUnlocked(true);
     } else {
-      if (mounted) Navigator.pop(context);
+      if (context.mounted) Navigator.pop(context);
     }
   }
 
@@ -191,7 +192,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                 if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
                              } else if (!success && context.mounted) {
                                 HapticFeedback.heavyImpact();
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to restore file')));
+                                PdfErrorHandler.show(context, 'restore_failed', contextMessage: 'Failed to restore file');
                              }
                            }
                         },

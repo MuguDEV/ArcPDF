@@ -34,7 +34,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
-    if (mounted) {
+    if (context.mounted) {
       setState(() {
         _version = 'v${info.version} (${info.buildNumber})';
       });
@@ -50,7 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final release = await UpdaterService.checkForUpdates();
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).pop(); // dismiss loading
 
     if (release != null) {

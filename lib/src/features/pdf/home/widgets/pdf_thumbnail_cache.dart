@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'dart:developer';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -102,6 +103,7 @@ class PdfThumbnailCache {
     }
 
     try {
+      if (kDebugMode) Timeline.startSync('PdfThumbnailCache.decode');
       final doc = await PdfDocument.openFile(pdfPath);
       if (doc.pages.isEmpty) {
         doc.dispose();
@@ -121,6 +123,7 @@ class PdfThumbnailCache {
       );
       
       doc.dispose();
+      if (kDebugMode) Timeline.finishSync();
 
       if (pdfImage != null) {
         final image = await pdfImage.createImage();

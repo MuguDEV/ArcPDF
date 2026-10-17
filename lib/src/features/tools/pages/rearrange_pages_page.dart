@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../pdf/application/pdf_error_handler.dart';
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -58,8 +59,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
         _pageOrder = List.generate(doc.pages.length, (i) => i);
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load PDF.')));
+      if (context.mounted) {
+        PdfErrorHandler.show(context, e, contextMessage: 'Failed to load PDF.');
       }
     }
   }
@@ -80,7 +81,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
     final pagesToExtract = _pageOrder.map((e) => e + 1).toList();
     final successPath = await ToolsService.rearrangePdf(_selectedFile!, outputPath, pagesToExtract);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).pop(); // pop loading
 
     if (successPath != null) {

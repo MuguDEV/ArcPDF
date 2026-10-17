@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../pdf/application/pdf_error_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -36,81 +37,103 @@ class ToolsScreen extends ConsumerWidget {
           ),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            sliver: SliverList.list(
-              children: [
-                _buildSectionHeader('PDF Utilities', context).animate().fadeIn(duration: 300.ms),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Merge PDFs',
-                  subtitle: 'Combine and reorder multiple PDF files',
-                  icon: HugeIcons.strokeRoundedLayers01,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MergePdfsPage()));
-                  },
-                ).animate(delay: 50.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Split PDF',
-                  subtitle: 'Extract pages from a PDF and save as new files',
-                  icon: HugeIcons.strokeRoundedScissor01,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SplitPdfPage()));
-                  },
-                ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Rearrange / Delete Pages',
-                  subtitle: 'Change page order or remove pages from a PDF',
-                  icon: HugeIcons.strokeRoundedGridView,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
-                  },
-                ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Compress PDF',
-                  subtitle: 'Reduce the file size of your PDF document',
-                  icon: HugeIcons.strokeRoundedFile01,
-                  onTap: () => _handleCompress(context, ref),
-                ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Metadata Editor',
-                  subtitle: 'View and edit document properties',
-                  icon: HugeIcons.strokeRoundedInformationCircle,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MetadataEditorPage()));
-                  },
-                ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-
-                const SizedBox(height: 32),
-                _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'Images to PDF',
-                  subtitle: 'Convert, reorder, and combine images into a PDF',
-                  icon: HugeIcons.strokeRoundedImage01,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImagesToPdfPage()));
-                  },
-                ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-                const SizedBox(height: 12),
-                ToolCard(
-                  title: 'PDF to Images',
-                  subtitle: 'Extract and save each page of a PDF as an image',
-                  icon: HugeIcons.strokeRoundedImage02,
-                  onTap: () {
-                    ref.read(hapticServiceProvider).lightImpact();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PdfToImagesPage()));
-                  },
-                ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
-
-                const SizedBox(height: 140), // Bottom padding for nav bar
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildSectionHeader('PDF Utilities', context).animate().fadeIn(duration: 300.ms),
+                  ),
+                ),
+                SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 500,
+                    mainAxisExtent: 104,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildListDelegate([
+                    ToolCard(
+                      title: 'Merge PDFs',
+                      subtitle: 'Combine and reorder multiple PDF files',
+                      icon: HugeIcons.strokeRoundedLayers01,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MergePdfsPage()));
+                      },
+                    ).animate(delay: 50.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    ToolCard(
+                      title: 'Split PDF',
+                      subtitle: 'Extract pages from a PDF and save as new files',
+                      icon: HugeIcons.strokeRoundedScissor01,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SplitPdfPage()));
+                      },
+                    ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    ToolCard(
+                      title: 'Rearrange / Delete Pages',
+                      subtitle: 'Change page order or remove pages from a PDF',
+                      icon: HugeIcons.strokeRoundedGridView,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+                      },
+                    ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    ToolCard(
+                      title: 'Compress PDF',
+                      subtitle: 'Reduce the file size of your PDF document',
+                      icon: HugeIcons.strokeRoundedFile01,
+                      onTap: () => _handleCompress(context, ref),
+                    ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    ToolCard(
+                      title: 'Metadata Editor',
+                      subtitle: 'View and edit document properties',
+                      icon: HugeIcons.strokeRoundedInformationCircle,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MetadataEditorPage()));
+                      },
+                    ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                  ]),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 32, bottom: 12),
+                    child: _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
+                  ),
+                ),
+                SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 500,
+                    mainAxisExtent: 104,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildListDelegate([
+                    ToolCard(
+                      title: 'Images to PDF',
+                      subtitle: 'Convert, reorder, and combine images into a PDF',
+                      icon: HugeIcons.strokeRoundedImage01,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImagesToPdfPage()));
+                      },
+                    ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    ToolCard(
+                      title: 'PDF to Images',
+                      subtitle: 'Extract and save each page of a PDF as an image',
+                      icon: HugeIcons.strokeRoundedImage02,
+                      onTap: () {
+                        ref.read(hapticServiceProvider).lightImpact();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PdfToImagesPage()));
+                      },
+                    ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                  ]),
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 140),
+                ),
               ],
             ),
           ),
@@ -244,7 +267,7 @@ class ToolsScreen extends ConsumerWidget {
         } else {
           showDialog(
             context: context,
-            builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to compress PDF.', isLoading: false),
+            builder: (context) => PdfErrorHandler.show(context, 'compression failed', contextMessage: 'Failed to compress PDF.');
           );
         }
       } else {

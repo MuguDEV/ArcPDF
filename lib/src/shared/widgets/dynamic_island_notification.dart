@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/arc_colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 
@@ -90,7 +91,7 @@ class _DynamicIslandNotificationState extends State<DynamicIslandNotification> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.icon != null) ...[
-                        Icon(widget.icon, color: theme.colorScheme.primary, size: 20),
+                        Icon(widget.icon, color: ArcColors.primary(context), size: 20),
                         const SizedBox(width: 12),
                       ],
                       Flexible(

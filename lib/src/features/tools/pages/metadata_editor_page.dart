@@ -64,7 +64,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
 
     if (files.length == 1) {
       final info = await ToolsService.readPdfMetadata(files.first.path);
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           _isLoadingInfo = false;
           if (info != null) {
@@ -77,7 +77,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       }
     } else {
       // For batch processing, we don't prefill metadata since files likely differ.
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           _isLoadingInfo = false;
         });
@@ -153,7 +153,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       // Refresh library to show changes
       ref.read(pdfLibraryControllerProvider.notifier).refresh();
 
-      if (mounted) {
+      if (context.mounted) {
          showDialog(
           context: context,
           barrierDismissible: false,
@@ -168,7 +168,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
         );
       }
     } finally {
-      if (mounted) {
+      if (context.mounted) {
         setState(() {
           _isProcessing = false;
         });

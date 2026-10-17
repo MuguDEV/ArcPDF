@@ -31,7 +31,7 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
         // Success
         await ref.read(securityControllerProvider.notifier).setLockType(_selectedType);
         await ref.read(securityControllerProvider.notifier).setLockEnabled(true, pinOrPattern: input);
-        if (mounted) Navigator.pop(context);
+        if (context.mounted) Navigator.pop(context);
       } else {
         setState(() {
           _errorText = "Inputs don't match. Try again.";
@@ -142,7 +142,7 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
   void _handleInput(String input) async {
     final success = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(input);
     if (success) {
-      if (mounted) Navigator.pop(context, true);
+      if (context.mounted) Navigator.pop(context, true);
     } else {
       setState(() {
         _errorText = 'Incorrect';

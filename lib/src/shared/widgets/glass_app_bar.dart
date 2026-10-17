@@ -26,10 +26,11 @@ class GlassSliverAppBar extends ConsumerWidget {
     final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
     final double sigma = isLiquid ? 48.0 : 16.0;
 
-    // Refined premium liquid glass effect
-    final Color bgColor = isLiquid
-        ? (isDark ? const Color(0x33000000) : const Color(0x66FFFFFF)) // More subtle tint to let blur shine
-        : theme.colorScheme.surface.withValues(alpha: isBlur ? 0.7 : 1.0);
+    final Color bgColor = isBlur
+        ? (isLiquid
+            ? (isDark ? const Color(0x33000000) : const Color(0x66FFFFFF))
+            : theme.colorScheme.surface.withValues(alpha: isDark ? 0.75 : 0.85))
+        : theme.colorScheme.surface;
 
     return SliverAppBar(
       pinned: pinned,

@@ -136,7 +136,8 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                     onPressed: () {
                       Navigator.of(context).pop();
                       if (widget.outputPath != null) {
-                         Share.shareXFiles([XFile(widget.outputPath!)]);
+
+                    SharePlus.instance.share([XFile(widget.outputPath!)]);
                       }
                     },
                     icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),

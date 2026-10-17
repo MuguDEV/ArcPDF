@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../application/pdf_error_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -327,7 +328,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   } catch (e) {
                     HapticFeedback.heavyImpact();
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete file')));
+                      PdfErrorHandler.show(context, e, contextMessage: 'Failed to delete file');
                       Navigator.pop(context);
                     }
                   }
