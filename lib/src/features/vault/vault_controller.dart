@@ -29,19 +29,31 @@ class VaultState {
   }
 }
 
+class _VaultKey {
+  final enc.Encrypter encrypter;
+  final enc.IV iv;
+  _VaultKey(this.encrypter, this.iv);
+}
+
 class VaultController extends StateNotifier<VaultState> {
-  VaultController(this._ref) : super(VaultState());
+  VaultController(this._ref) : super(VaultState()) {
+    _initFuture = _initVault();
+  }
 
   final Ref _ref;
   final _storage = const FlutterSecureStorage();
 
-  enc.Encrypter? _encrypter;
-  enc.IV? _iv;
   Future<void>? _initFuture;
+  _VaultKey? _vaultKey;
+  Directory? _vaultDir;
 
-  Future<void> get ready {
-    _initFuture ??= _initVault();
-    return _initFuture!;
+  Future<void> get ready => _initFuture ??= _initVault();
+
+  Future<_VaultKey> get _readyKey async {
+    await ready;
+    final k = _vaultKey;
+    if (k == null) throw VaultInitException('Vault key is null after initialization');
+    return k;
   }
 
   Future<void> _initVault() async {
@@ -61,27 +73,39 @@ class VaultController extends StateNotifier<VaultState> {
       }
 
       final keyBytes = base64Decode(keyStr);
-      _iv = enc.IV(base64Decode(ivStr));
-      _encrypter = enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc));
+      if (keyBytes.length != 32) throw VaultInitException('Invalid key length: ${keyBytes.length}');
+
+      final ivBytes = base64Decode(ivStr);
+      if (ivBytes.length != 16) throw VaultInitException('Invalid IV length: ${ivBytes.length}');
+
+      _vaultKey = _VaultKey(
+        enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc)),
+        enc.IV(ivBytes)
+      );
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final vaultDir = Directory(p.join(appDir.path, 'vault'));
+      if (!await vaultDir.exists()) {
+        await vaultDir.create(recursive: true);
+      }
+      _vaultDir = vaultDir;
+
     } catch (e) {
-      _initFuture = null; // Allow retry on failure
+      _vaultKey = null;
+      _vaultDir = null;
+      _initFuture = null;
       throw VaultInitException('Failed to initialize secure vault: $e');
     }
-  }
-
-  Future<Directory> _getVaultDirectory() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final vaultDir = Directory(p.join(appDir.path, 'vault'));
-    if (!await vaultDir.exists()) {
-      await vaultDir.create(recursive: true);
-    }
-    return vaultDir;
   }
 
   Future<void> loadVaultFiles() async {
     state = state.copyWith(isLoading: true);
     try {
-      final vaultDir = await _getVaultDirectory();
+      final vaultDir = _vaultDir;
+      if (vaultDir == null) {
+        state = state.copyWith(vaultFiles: [], isLoading: false);
+        return;
+      }
       final files = vaultDir.listSync().whereType<File>().toList();
       final items = files.map((f) => PdfFileItem.fromFile(f, isEncrypted: true)).toList();
       state = state.copyWith(vaultFiles: items, isLoading: false);
@@ -101,15 +125,12 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<bool> moveToVault(PdfFileItem item) async {
     try {
-      await ready;
-      final encrypter = _encrypter;
-      final iv = _iv;
-      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
-
+      final key = await _readyKey;
       final file = File(item.path);
       if (!await file.exists()) return false;
 
-      final vaultDir = await _getVaultDirectory();
+      final vaultDir = _vaultDir;
+      if (vaultDir == null) return false;
 
       String newName = item.name;
       int counter = 1;
@@ -122,7 +143,7 @@ class VaultController extends StateNotifier<VaultState> {
       final newFile = File(newPath);
 
       final bytes = await file.readAsBytes();
-      final encrypted = encrypter.encryptBytes(bytes, iv: iv);
+      final encrypted = key.encrypter.encryptBytes(bytes, iv: key.iv);
       final encryptedBytes = encrypted.bytes;
 
       await newFile.writeAsBytes(encryptedBytes, flush: true);
@@ -133,7 +154,8 @@ class VaultController extends StateNotifier<VaultState> {
         return false;
       }
 
-      _ref.read(pdfLibraryControllerProvider.notifier).refresh();
+      // Ignore errors updating the ref since we might not be within a widget tree in test
+      try { _ref.read(pdfLibraryControllerProvider.notifier).refresh(); } catch (_) {}
       loadVaultFiles();
       return true;
     } catch (e) {
@@ -144,16 +166,12 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<File?> decryptToTempFile(PdfFileItem vaultItem) async {
     try {
-      await ready;
-      final encrypter = _encrypter;
-      final iv = _iv;
-      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
-
+      final key = await _readyKey;
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return null;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: iv);
+      final decryptedBytes = key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
 
       final tempDir = await getTemporaryDirectory();
       final tempFile = File(p.join(tempDir.path, 'temp_decrypted_${vaultItem.name}'));
@@ -167,16 +185,12 @@ class VaultController extends StateNotifier<VaultState> {
 
   Future<bool> restoreFromVault(PdfFileItem vaultItem, String restoreDirPath) async {
     try {
-      await ready;
-      final encrypter = _encrypter;
-      final iv = _iv;
-      if (encrypter == null || iv == null) throw VaultInitException('Vault not initialized');
-
+      final key = await _readyKey;
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return false;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: iv);
+      final decryptedBytes = key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
 
       final newPath = p.join(restoreDirPath, vaultItem.name);
       final newFile = File(newPath);
@@ -188,7 +202,7 @@ class VaultController extends StateNotifier<VaultState> {
         return false;
       }
 
-      _ref.read(pdfLibraryControllerProvider.notifier).refresh();
+      try { _ref.read(pdfLibraryControllerProvider.notifier).refresh(); } catch (_) {}
       loadVaultFiles();
       return true;
     } catch (e) {

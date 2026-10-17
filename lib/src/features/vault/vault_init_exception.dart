@@ -1,7 +1,6 @@
 class VaultInitException implements Exception {
   final String message;
-  VaultInitException(this.message);
-
+  const VaultInitException(this.message);
   @override
   String toString() => 'VaultInitException: $message';
 }
