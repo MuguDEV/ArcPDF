@@ -64,7 +64,7 @@ class VaultController extends StateNotifier<VaultState> {
       _iv = enc.IV(base64Decode(ivStr));
       _encrypter = enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc));
     } catch (e) {
-      _initFuture = null;
+      _initFuture = null; // Allow retry on failure
       throw VaultInitException('Failed to initialize secure vault: $e');
     }
   }
@@ -81,7 +81,6 @@ class VaultController extends StateNotifier<VaultState> {
   Future<void> loadVaultFiles() async {
     state = state.copyWith(isLoading: true);
     try {
-      await ready;
       final vaultDir = await _getVaultDirectory();
       final files = vaultDir.listSync().whereType<File>().toList();
       final items = files.map((f) => PdfFileItem.fromFile(f, isEncrypted: true)).toList();
@@ -138,7 +137,6 @@ class VaultController extends StateNotifier<VaultState> {
       loadVaultFiles();
       return true;
     } catch (e) {
-      // In tests we want to expose VaultInitException instead of returning false
       if (e is VaultInitException) rethrow;
       return false;
     }

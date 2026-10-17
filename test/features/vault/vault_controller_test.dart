@@ -6,8 +6,8 @@ import 'package:arcpdf/src/features/vault/vault_controller.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:arcpdf/src/features/vault/vault_init_exception.dart';
 
-// Dummy Path Provider for tests
 class FakePathProviderPlatform extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
   final Directory tempDir = Directory.systemTemp.createTempSync('arcpdf_test');
   @override
@@ -41,7 +41,6 @@ void main() {
   test('cold start with no key initializes successfully', () async {
     final controller = container.read(vaultControllerProvider.notifier);
 
-    await Future.delayed(const Duration(milliseconds: 100));
     await controller.loadVaultFiles();
     expect(controller.state.vaultFiles, isEmpty);
   });
@@ -56,8 +55,7 @@ void main() {
     try {
       await controller.moveToVault(item);
     } catch (e) {
-      expect(e.toString(), contains('LateInitializationError'));
-      rethrow; // So the test fails naturally for pre-fix code as requested
+      fail('Should NOT throw LateInitializationError. Caught: $e');
     }
   });
 
@@ -68,35 +66,27 @@ void main() {
     dummyFile.writeAsBytesSync([1, 2, 3, 4]);
     final item = PdfFileItem.fromFile(dummyFile);
 
-    try {
-      final results = await Future.wait([
-        controller.moveToVault(item),
-        controller.restoreFromVault(item, fakePathProvider.tempDir.path),
-      ]);
-      expect(results, isNotNull);
-    } catch (e) {
-      // Catching it so pre-fix code might fail due to LateInitError here as well.
-      rethrow;
-    }
+    final results = await Future.wait([
+      controller.moveToVault(item),
+      controller.restoreFromVault(item, fakePathProvider.tempDir.path),
+    ]);
+    expect(results, isNotNull);
   });
 
   test('corrupt/null secure storage -> VaultInitException', () async {
     FlutterSecureStorage.setMockInitialValues({'vault_key': 'invalid'});
 
+    final controller = container.read(vaultControllerProvider.notifier);
+
+    final dummyFile = File('${fakePathProvider.tempDir.path}/dummy3.pdf');
+    dummyFile.writeAsBytesSync([1, 2, 3, 4]);
+    final item = PdfFileItem.fromFile(dummyFile);
+
     try {
-      final controller = container.read(vaultControllerProvider.notifier);
-
-      final dummyFile = File('${fakePathProvider.tempDir.path}/dummy3.pdf');
-      dummyFile.writeAsBytesSync([1, 2, 3, 4]);
-      final item = PdfFileItem.fromFile(dummyFile);
-
       await controller.moveToVault(item);
       fail('Should have thrown an exception');
     } catch (e) {
-      // Depending on if it's pre-fix or post fix, we expect different types
-      // For pre-fix it might crash with FormatException during init in constructor.
-      // For post-fix it throws VaultInitException.
-      expect(e.toString(), anyOf(contains('VaultInitException'), contains('FormatException')));
+      expect(e, isA<VaultInitException>());
     }
   });
 }
