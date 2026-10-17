@@ -277,175 +277,103 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: ArcProgressIndicator(),
             )
           else
-            RepaintBoundary(
-              child: RotatedBox(
-                  quarterTurns: _rotationQuarterTurns,
-                  child: _pdfDarkMode ? ColorFiltered(
-                  colorFilter: const ColorFilter.matrix([
-                    -0.333, -0.333, -0.333, 0, 255,
-                    -0.333, -0.333, -0.333, 0, 255,
-                    -0.333, -0.333, -0.333, 0, 255,
-                    0,      0,      0,      1, 0,
-                  ]),
-                  child: PdfViewer.file(
-                      widget.item.path,
-                      initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
-                      controller: _pdfViewerController,
-                      passwordProvider: () async => _showPasswordPrompt(context),
-                      params: PdfViewerParams(
-                          onViewerReady: (document, controller) {
-                            final lastZoom = repo.getLastZoom(widget.item.path);
-                            if (lastZoom != null) {
-                              controller.setZoom(controller.centerPosition, lastZoom);
-                            }
-                          },
-                        errorBannerBuilder: (context, error, stackTrace, documentRef) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.error_outline_rounded,
-                                    size: 48,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Failed to load PDF',
-                                    style: theme.textTheme.headlineSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    error.toString(),
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        backgroundColor: theme.colorScheme.surface,
-                        pageDropShadow: const BoxShadow(color: Colors.transparent),
-                        enableTextSelection: true,
-                        margin: 4.0,
-                        maxScale: 8.0,
-                        layoutPages: _isHorizontalScroll ? (pages, params) {
-                          final height = pages.fold(
-                            0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
-                          final pageLayouts = <Rect>[];
-                          double x = params.margin;
-                          for (final page in pages) {
-                            pageLayouts.add(Rect.fromLTWH(
-                              x, (height - page.height) / 2, page.width, page.height,
-                            ));
-                            x += page.width + params.margin;
-                          }
-                          return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
-                        } : null,
-                        pagePaintCallbacks: [
-                          _textSearcher.pageTextMatchPaintCallback
-                        ],
-                          viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                            GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTapUp: (details) {
-                                if (!handleLinkTap(details.localPosition)) {
-                                  _toggleToolbar();
-                                }
-                              },
-                              child: SizedBox(width: size.width, height: size.height),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ) : PdfViewer.file(
-                    widget.item.path,
+            Builder(
+              builder: (context) {
+                final viewer = PdfViewer.file(
+                  widget.item.path,
                   initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
-                controller: _pdfViewerController,
-              passwordProvider: () async => _showPasswordPrompt(context),
-              params: PdfViewerParams(
-                  onViewerReady: (document, controller) {
-                    final lastZoom = repo.getLastZoom(widget.item.path);
-                    if (lastZoom != null) {
-                      controller.setZoom(controller.centerPosition, lastZoom);
-                    }
-                  },
-                errorBannerBuilder: (context, error, stackTrace, documentRef) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            size: 48,
-                            color: theme.colorScheme.onSurface,
+                  controller: _pdfViewerController,
+                  passwordProvider: () async => _showPasswordPrompt(context),
+                  params: PdfViewerParams(
+                    onViewerReady: (document, controller) {
+                      final lastZoom = repo.getLastZoom(widget.item.path);
+                      if (lastZoom != null) {
+                        controller.setZoom(controller.centerPosition, lastZoom);
+                      }
+                    },
+                    errorBannerBuilder: (context, error, stackTrace, documentRef) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                size: 48,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Failed to load PDF',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                error.toString(),
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Failed to load PDF',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            error.toString(),
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
+                      );
+                    },
+                    backgroundColor: theme.colorScheme.surface,
+                    pageDropShadow: const BoxShadow(color: Colors.transparent),
+                    enableTextSelection: true,
+                    margin: 4.0,
+                    maxScale: 8.0,
+                    layoutPages: _isHorizontalScroll ? (pages, params) {
+                      final height = pages.fold(
+                        0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
+                      final pageLayouts = <Rect>[];
+                      double x = params.margin;
+                      for (final page in pages) {
+                        pageLayouts.add(Rect.fromLTWH(
+                          x, (height - page.height) / 2, page.width, page.height,
+                        ));
+                        x += page.width + params.margin;
+                      }
+                      return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
+                    } : null,
+                    pagePaintCallbacks: [
+                      _textSearcher.pageTextMatchPaintCallback
+                    ],
+                    viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTapUp: (details) {
+                          if (!handleLinkTap(details.localPosition)) {
+                            _toggleToolbar();
+                          }
+                        },
+                        child: SizedBox(width: size.width, height: size.height),
                       ),
-                    ),
-                  );
-                },
-                backgroundColor: theme.colorScheme.surface,
-                pageDropShadow: const BoxShadow(color: Colors.transparent),
-                enableTextSelection: true,
-                margin: 4.0,
-                maxScale: 8.0,
-                layoutPages: _isHorizontalScroll ? (pages, params) {
-                  final height = pages.fold(
-                    0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
-                  final pageLayouts = <Rect>[];
-                  double x = params.margin;
-                  for (final page in pages) {
-                    pageLayouts.add(Rect.fromLTWH(
-                      x, (height - page.height) / 2, page.width, page.height,
-                    ));
-                    x += page.width + params.margin;
-                  }
-                  return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
-                } : null,
-                pagePaintCallbacks: [
-                  _textSearcher.pageTextMatchPaintCallback
-                ],
-                  viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                    GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: (details) {
-                        if (!handleLinkTap(details.localPosition)) {
-                          _toggleToolbar();
-                        }
-                      },
-                      child: SizedBox(width: size.width, height: size.height),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                    ],
+                  ),
+                );
+
+                return RepaintBoundary(
+                  child: RotatedBox(
+                    quarterTurns: _rotationQuarterTurns,
+                    child: _pdfDarkMode ? ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        -0.333, -0.333, -0.333, 0, 255,
+                        -0.333, -0.333, -0.333, 0, 255,
+                        -0.333, -0.333, -0.333, 0, 255,
+                        0,      0,      0,      1, 0,
+                      ]),
+                      child: viewer,
+                    ) : viewer,
+                  ),
+                );
+              },
             ),
 
           // 2. Top App Bar / Search Bar

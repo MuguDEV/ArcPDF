@@ -29,6 +29,7 @@ void main() {
       when(() => mockTagsBox.keys).thenReturn([]);
       when(() => mockFavBox.values).thenReturn([]);
       when(() => mockRecentsBox.values).thenReturn([]);
+      when(() => mockTimestampsBox.toMap()).thenReturn({});
 
       controller = PdfLibraryController(
         mockScanner,
