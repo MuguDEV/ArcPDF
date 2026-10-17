@@ -103,8 +103,9 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 
     final recents = <String, DateTime>{};
     final now = DateTime.now();
+    final timestamps = _timestampsBox.toMap();
     for (final path in _recentsBox.values) {
-      final ms = _timestampsBox.get(path);
+      final ms = timestamps[path];
       recents[path] = ms != null
           ? DateTime.fromMillisecondsSinceEpoch(ms)
           : now.subtract(const Duration(days: 30));

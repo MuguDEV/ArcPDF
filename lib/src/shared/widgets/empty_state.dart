@@ -96,18 +96,3 @@ class ArcEmptyState extends StatelessWidget {
   }
 }
 
-// Legacy shim so old code referencing EmptyState still compiles
-class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.title, required this.subtitle});
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return ArcEmptyState(
-      icon: Icons.insert_drive_file_outlined,
-      title: title,
-      subtitle: subtitle,
-    );
-  }
-}

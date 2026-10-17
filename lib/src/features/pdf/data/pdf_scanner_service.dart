@@ -104,12 +104,13 @@ List<PdfFileItem> _walkRoots(List<String> roots) {
         if (seen.contains(entity.path)) continue;
         seen.add(entity.path);
         try {
-          if (entity.lengthSync() == 0) continue;
+          final stat = entity.statSync();
+          if (stat.size == 0) continue;
 
-          final isValid = _isValidPdf(entity);
+          final isValid = _isValidPdf(entity, stat.size);
           if (!isValid) continue;
 
-          final isEncrypted = _isEncrypted(entity);
+          final isEncrypted = _isEncrypted(entity, stat.size);
           out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted, isCorrupted: false));
         } catch (e, stack) {
           final redactedName = _redactPath(entity.path);
@@ -132,9 +133,9 @@ String _redactPath(String path) {
   return '${name.substring(0, 2)}...${name.substring(name.length - 2)}';
 }
 
-bool _isValidPdf(File file) {
+bool _isValidPdf(File file, int size) {
   try {
-    if (file.lengthSync() < 5) return false;
+    if (size < 5) return false;
     final raf = file.openSync();
     final bytes = raf.readSync(5);
     raf.closeSync();
@@ -147,7 +148,7 @@ bool _isValidPdf(File file) {
   }
 }
 
-bool _isEncrypted(File file) {
+bool _isEncrypted(File file, int size) {
   try {
     final raf = file.openSync();
     final bytes = raf.readSync(4096);
@@ -155,7 +156,6 @@ bool _isEncrypted(File file) {
     final str = String.fromCharCodes(bytes);
     if (str.contains('/Encrypt')) return true;
     
-    final size = file.lengthSync();
     if (size > 4096) {
       final raf2 = file.openSync();
       raf2.setPositionSync(size - 4096);

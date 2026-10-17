@@ -28,10 +28,14 @@ int _min3(int a, int b, int c) {
 
 bool isFuzzyMatch(String text, String query) {
   if (query.isEmpty) return true;
-  if (text.contains(query)) return true;
 
-  final textWords = text.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
-  final queryWords = query.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
+  final lowerText = text.toLowerCase();
+  final lowerQuery = query.toLowerCase();
+
+  if (lowerText.contains(lowerQuery)) return true;
+
+  final textWords = lowerText.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
+  final queryWords = lowerQuery.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
 
   for (final qw in queryWords) {
     bool wordMatched = false;
