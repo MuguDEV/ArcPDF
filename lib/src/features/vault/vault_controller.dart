@@ -14,7 +14,7 @@ class VaultState {
   final List<PdfFileItem> vaultFiles;
   final bool isLoading;
 
-  VaultState({
+  const VaultState({
     this.isUnlocked = false,
     this.vaultFiles = const [],
     this.isLoading = false,
@@ -36,7 +36,7 @@ class _VaultKey {
 }
 
 class VaultController extends StateNotifier<VaultState> {
-  VaultController(this._ref) : super(VaultState()) {
+  VaultController(this._ref) : super(const VaultState()) {
     _initFuture = _initVault();
   }
 
@@ -52,7 +52,7 @@ class VaultController extends StateNotifier<VaultState> {
   Future<_VaultKey> get _readyKey async {
     await ready;
     final k = _vaultKey;
-    if (k == null) throw VaultInitException('Vault key is null after initialization');
+    if (k == null) throw const VaultInitException('Vault key is null after initialization');
     return k;
   }
 

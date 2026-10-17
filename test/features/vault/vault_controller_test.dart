@@ -10,29 +10,16 @@ import 'package:arcpdf/src/features/vault/vault_init_exception.dart';
 
 class FakePathProviderPlatform extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
   final Directory tempDir = Directory.systemTemp.createTempSync('arcpdf_test');
+  int getAppDocPathCallCount = 0;
+
   @override
-  Future<String?> getApplicationDocumentsPath() async => tempDir.path;
+  Future<String?> getApplicationDocumentsPath() async {
+    getAppDocPathCallCount++;
+    return tempDir.path;
+  }
+
   @override
   Future<String?> getTemporaryPath() async => tempDir.path;
-}
-
-// Track flutter_secure_storage reads
-class MockFlutterSecureStorage extends FlutterSecureStorage {
-  static int readCount = 0;
-  static Map<String, String> mockValues = {};
-
-  const MockFlutterSecureStorage();
-
-  @override
-  Future<String?> read({required String key, AppleOptions? iOptions, AndroidOptions? aOptions, LinuxOptions? lOptions, WebOptions? webOptions, AppleOptions? mOptions, WindowsOptions? wOptions}) async {
-    readCount++;
-    return mockValues[key];
-  }
-
-  @override
-  Future<void> write({required String key, required String? value, AppleOptions? iOptions, AndroidOptions? aOptions, LinuxOptions? lOptions, WebOptions? webOptions, AppleOptions? mOptions, WindowsOptions? wOptions}) async {
-    if (value != null) mockValues[key] = value;
-  }
 }
 
 void main() {
@@ -44,8 +31,6 @@ void main() {
   });
 
   setUp(() {
-    MockFlutterSecureStorage.mockValues = {};
-    MockFlutterSecureStorage.readCount = 0;
     FlutterSecureStorage.setMockInitialValues({});
     fakePathProvider = FakePathProviderPlatform();
     PathProviderPlatform.instance = fakePathProvider;
@@ -83,6 +68,11 @@ void main() {
     ]);
 
     expect(results, isNotNull);
+
+    // _initVault calls getApplicationDocumentsDirectory() exactly once.
+    // By tracking how many times the path provider was queried, we assert init only ran once
+    // despite two concurrent entries into `ready`.
+    expect(fakePathProvider.getAppDocPathCallCount, 1);
   });
 
   test('corrupt/null secure storage -> VaultInitException', () async {
