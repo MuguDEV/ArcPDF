@@ -18,7 +18,8 @@ Future<T?> showGlassModalBottomSheet<T>({
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
+            color:
+                theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             border: Border(
               top: BorderSide(
@@ -37,7 +38,8 @@ Future<T?> showGlassModalBottomSheet<T>({
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),

@@ -98,8 +98,11 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     final favKeysToDelete = _favBox.keys.where((k) => k is! String).toList();
     if (favKeysToDelete.isNotEmpty) _favBox.deleteAll(favKeysToDelete);
 
-    final recentKeysToDelete = _recentsBox.keys.where((k) => k is! String).toList();
-    if (recentKeysToDelete.isNotEmpty) _recentsBox.deleteAll(recentKeysToDelete);
+    final recentKeysToDelete =
+        _recentsBox.keys.where((k) => k is! String).toList();
+    if (recentKeysToDelete.isNotEmpty) {
+      _recentsBox.deleteAll(recentKeysToDelete);
+    }
 
     final recents = <String, DateTime>{};
     final now = DateTime.now();
@@ -236,7 +239,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       if (!await oldFile.exists()) return false;
 
       // Sanitize newName to prevent path traversal
-      final sanitizedName = newName.replaceAll(RegExp(r'[/\\]|\.\.'), '').trim();
+      final sanitizedName =
+          newName.replaceAll(RegExp(r'[/\\]|\.\.'), '').trim();
       if (sanitizedName.isEmpty) return false;
 
       final dir = oldFile.parent.path;
@@ -306,7 +310,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 
     if (state.sortField == PdfSortField.name) {
       final nameCache = <String, String>{};
-      String getLowerName(String name) => nameCache.putIfAbsent(name, () => name.toLowerCase());
+      String getLowerName(String name) =>
+          nameCache.putIfAbsent(name, () => name.toLowerCase());
 
       filtered.sort((a, b) {
         final nameA = getLowerName(a.name);
@@ -366,11 +371,18 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 
       final item = e.copyWith(openedAt: openedAt);
 
-      if (openedAt.year == today.year && openedAt.month == today.month && openedAt.day == today.day) {
+      if (openedAt.year == today.year &&
+          openedAt.month == today.month &&
+          openedAt.day == today.day) {
         groups['Today']!.add(item);
-      } else if (openedAt.year == yesterday.year && openedAt.month == yesterday.month && openedAt.day == yesterday.day) {
+      } else if (openedAt.year == yesterday.year &&
+          openedAt.month == yesterday.month &&
+          openedAt.day == yesterday.day) {
         groups['Yesterday']!.add(item);
-      } else if (openedAt.isAfter(weekAgo) || (openedAt.year == weekAgo.year && openedAt.month == weekAgo.month && openedAt.day == weekAgo.day)) {
+      } else if (openedAt.isAfter(weekAgo) ||
+          (openedAt.year == weekAgo.year &&
+              openedAt.month == weekAgo.month &&
+              openedAt.day == weekAgo.day)) {
         groups['This Week']!.add(item);
       } else {
         groups['Older']!.add(item);
@@ -379,7 +391,8 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 
     groups.removeWhere((_, list) {
       if (list.isEmpty) return true;
-      list.sort((a, b) => (b.openedAt ?? fallbackDate).compareTo(a.openedAt ?? fallbackDate));
+      list.sort((a, b) =>
+          (b.openedAt ?? fallbackDate).compareTo(a.openedAt ?? fallbackDate));
       return false;
     });
 

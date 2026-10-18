@@ -43,11 +43,16 @@ class SecurityState {
 class SecurityController extends StateNotifier<SecurityState> {
   SecurityController(this._settingsBox)
       : super(SecurityState(
-          isLockEnabled: _settingsBox.get('isLockEnabled', defaultValue: false) as bool,
-          lockType: LockType.values[_settingsBox.get('lockType', defaultValue: 0) as int],
-          isBiometricEnabled: _settingsBox.get('isBiometricEnabled', defaultValue: false) as bool,
-          isLocked: _settingsBox.get('isLockEnabled', defaultValue: false) as bool,
-          requireLockOnResume: _settingsBox.get('requireLockOnResume', defaultValue: true) as bool,
+          isLockEnabled:
+              _settingsBox.get('isLockEnabled', defaultValue: false) as bool,
+          lockType: LockType
+              .values[_settingsBox.get('lockType', defaultValue: 0) as int],
+          isBiometricEnabled: _settingsBox.get('isBiometricEnabled',
+              defaultValue: false) as bool,
+          isLocked:
+              _settingsBox.get('isLockEnabled', defaultValue: false) as bool,
+          requireLockOnResume: _settingsBox.get('requireLockOnResume',
+              defaultValue: true) as bool,
         ));
 
   final Box _settingsBox;
@@ -98,7 +103,8 @@ class SecurityController extends StateNotifier<SecurityState> {
   Future<bool> authenticateBiometric() async {
     try {
       final canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      final canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      final canAuthenticate =
+          canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
       if (!canAuthenticate) return false;
 
       final didAuthenticate = await _auth.authenticate(
@@ -135,6 +141,7 @@ class SecurityController extends StateNotifier<SecurityState> {
   }
 }
 
-final securityControllerProvider = StateNotifierProvider<SecurityController, SecurityState>((ref) {
+final securityControllerProvider =
+    StateNotifierProvider<SecurityController, SecurityState>((ref) {
   return SecurityController(Hive.box(LocalBoxes.settings));
 });

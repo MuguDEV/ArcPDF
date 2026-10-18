@@ -34,15 +34,17 @@ bool isFuzzyMatch(String text, String query) {
 
   if (lowerText.contains(lowerQuery)) return true;
 
-  final textWords = lowerText.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
-  final queryWords = lowerQuery.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
+  final textWords =
+      lowerText.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
+  final queryWords =
+      lowerQuery.split(RegExp(r'\W+')).where((w) => w.isNotEmpty).toList();
 
   for (final qw in queryWords) {
     bool wordMatched = false;
     for (final tw in textWords) {
       if (tw.contains(qw)) {
-         wordMatched = true;
-         break;
+        wordMatched = true;
+        break;
       }
       final dist = levenshteinDistance(qw, tw);
       // Allow 1 typo for short words (3-5 chars), 2 for long (>5 chars)

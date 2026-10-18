@@ -25,19 +25,19 @@ class ArcProgressIndicator extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
           )
-          .animate(onPlay: (controller) => controller.repeat(reverse: true))
-          .scale(
-            begin: const Offset(0.5, 0.5),
-            end: const Offset(1.5, 1.5),
-            duration: 600.ms,
-            curve: Curves.easeInOutCubicEmphasized,
-          )
-          .fade(
-            begin: 0.5,
-            end: 1.0,
-            duration: 600.ms,
-            curve: Curves.easeInOutCubic,
-          ),
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .scale(
+                begin: const Offset(0.5, 0.5),
+                end: const Offset(1.5, 1.5),
+                duration: 600.ms,
+                curve: Curves.easeInOutCubicEmphasized,
+              )
+              .fade(
+                begin: 0.5,
+                end: 1.0,
+                duration: 600.ms,
+                curve: Curves.easeInOutCubic,
+              ),
         ),
       ),
     );

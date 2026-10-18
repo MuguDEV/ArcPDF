@@ -12,17 +12,29 @@ void main() {
 
     setUp(() {
       mockBox = MockBox();
-      when(() => mockBox.get('themeMode', defaultValue: any(named: 'defaultValue'))).thenReturn(0);
-      when(() => mockBox.get('grid', defaultValue: any(named: 'defaultValue'))).thenReturn(false);
-      when(() => mockBox.get('useBlurEffect', defaultValue: any(named: 'defaultValue'))).thenReturn(true);
-      when(() => mockBox.get('useLiquidGlass', defaultValue: any(named: 'defaultValue'))).thenReturn(false);
-      when(() => mockBox.get('anim', defaultValue: any(named: 'defaultValue'))).thenReturn(1.0);
-      when(() => mockBox.get('animSpeed', defaultValue: any(named: 'defaultValue'))).thenReturn(1.0);
-      when(() => mockBox.get('thumbQ', defaultValue: any(named: 'defaultValue'))).thenReturn(0.8);
-      when(() => mockBox.get('fontFamily', defaultValue: any(named: 'defaultValue'))).thenReturn(1);
-      when(() => mockBox.get('useHaptics', defaultValue: any(named: 'defaultValue'))).thenReturn(true);
-      when(() => mockBox.get('keepScreenAwake', defaultValue: any(named: 'defaultValue'))).thenReturn(false);
-      when(() => mockBox.get('compressionThreads', defaultValue: any(named: 'defaultValue'))).thenReturn(2);
+      when(() => mockBox.get('themeMode',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(0);
+      when(() => mockBox.get('grid', defaultValue: any(named: 'defaultValue')))
+          .thenReturn(false);
+      when(() => mockBox.get('useBlurEffect',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(true);
+      when(() => mockBox.get('useLiquidGlass',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(false);
+      when(() => mockBox.get('anim', defaultValue: any(named: 'defaultValue')))
+          .thenReturn(1.0);
+      when(() => mockBox.get('animSpeed',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(1.0);
+      when(() =>
+              mockBox.get('thumbQ', defaultValue: any(named: 'defaultValue')))
+          .thenReturn(0.8);
+      when(() => mockBox.get('fontFamily',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(1);
+      when(() => mockBox.get('useHaptics',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(true);
+      when(() => mockBox.get('keepScreenAwake',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(false);
+      when(() => mockBox.get('compressionThreads',
+          defaultValue: any(named: 'defaultValue'))).thenReturn(2);
     });
 
     test('initial state reads from box', () {
@@ -46,6 +58,5 @@ void main() {
       expect(controller.state.themeMode, ThemeMode.dark);
       verify(() => mockBox.put('themeMode', ThemeMode.dark.index)).called(1);
     });
-
   });
 }

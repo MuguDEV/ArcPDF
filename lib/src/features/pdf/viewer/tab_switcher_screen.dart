@@ -16,7 +16,8 @@ class TabSwitcherScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Open Tabs', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Open Tabs',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(HugeIcons.strokeRoundedCancel01),
@@ -25,21 +26,16 @@ class TabSwitcherScreen extends ConsumerWidget {
       ),
       body: tabsState.tabs.isEmpty
           ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                   const Text('No open tabs'),
-                   const SizedBox(height: 16),
-                   FilledButton(
-                     onPressed: () {
-                        // Pop back to home (assuming MultiTab is the only route stacked)
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                     },
-                     child: const Text('Go Home')
-                   )
-                ]
-              )
-            )
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('No open tabs'),
+              const SizedBox(height: 16),
+              FilledButton(
+                  onPressed: () {
+                    // Pop back to home (assuming MultiTab is the only route stacked)
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  child: const Text('Go Home'))
+            ]))
           : GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -60,27 +56,30 @@ class TabSwitcherScreen extends ConsumerWidget {
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isActive ? theme.colorScheme.primary : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                        width: isActive ? 2 : 1,
-                      ),
-                      boxShadow: [
-                        if (isActive)
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          )
-                        else
-                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                      ]
-                    ),
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isActive
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.5),
+                          width: isActive ? 2 : 1,
+                        ),
+                        boxShadow: [
+                          if (isActive)
+                            BoxShadow(
+                              color: theme.colorScheme.primary
+                                  .withValues(alpha: 0.2),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            )
+                          else
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                        ]),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -88,29 +87,42 @@ class TabSwitcherScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
                           decoration: BoxDecoration(
-                            color: isActive ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                            color: isActive
+                                ? theme.colorScheme.primaryContainer
+                                    .withValues(alpha: 0.5)
+                                : Colors.transparent,
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(22)),
                           ),
                           child: Row(
                             children: [
                               Expanded(
                                 child: Text(
-                                  item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+                                  item.name.replaceAll(
+                                      RegExp(r'\.pdf$', caseSensitive: false),
+                                      ''),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14,
-                                    color: isActive ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                                    color: isActive
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurface,
                                   ),
                                 ),
                               ),
                               GestureDetector(
                                 onTap: () {
-                                  final isLast = ref.read(openTabsProvider).tabs.length == 1;
-                                  ref.read(openTabsProvider.notifier).closeTab(index);
+                                  final isLast =
+                                      ref.read(openTabsProvider).tabs.length ==
+                                          1;
+                                  ref
+                                      .read(openTabsProvider.notifier)
+                                      .closeTab(index);
                                   if (isLast) {
-                                    Navigator.of(context).popUntil((route) => route.isFirst);
+                                    Navigator.of(context)
+                                        .popUntil((route) => route.isFirst);
                                   }
                                 },
                                 child: Padding(
@@ -126,11 +138,15 @@ class TabSwitcherScreen extends ConsumerWidget {
                           ),
                         ),
                         // Divider
-                        Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                        Divider(
+                            height: 1,
+                            color: theme.colorScheme.outlineVariant
+                                .withValues(alpha: 0.5)),
                         // Thumbnail Body
                         Expanded(
                           child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(23)),
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(23)),
                             child: PdfThumbnail(
                               path: item.path,
                               isEncrypted: item.isEncrypted,
@@ -140,12 +156,15 @@ class TabSwitcherScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                  ).animate().scale(
+                  )
+                      .animate()
+                      .scale(
                         duration: 300.ms,
                         curve: Curves.easeOutBack,
                         begin: const Offset(0.8, 0.8),
                         delay: (index * 50).ms,
-                      ).fadeIn(duration: 200.ms),
+                      )
+                      .fadeIn(duration: 200.ms),
                 );
               },
             ),

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'dart:developer';
 
 class TracedZoomPageTransitionsBuilder extends ZoomPageTransitionsBuilder {
-  const TracedZoomPageTransitionsBuilder({super.allowEnterRouteSnapshotting = false});
+  const TracedZoomPageTransitionsBuilder(
+      {super.allowEnterRouteSnapshotting = false});
 
   @override
   Widget buildTransitions<T>(
@@ -13,8 +14,11 @@ class TracedZoomPageTransitionsBuilder extends ZoomPageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    if (kDebugMode && animation.status == AnimationStatus.forward && animation.value == 0.0) {
-      Timeline.startSync('RouteTransition: ${route.settings.name ?? 'unknown'}');
+    if (kDebugMode &&
+        animation.status == AnimationStatus.forward &&
+        animation.value == 0.0) {
+      Timeline.startSync(
+          'RouteTransition: ${route.settings.name ?? 'unknown'}');
     }
     if (kDebugMode && animation.isCompleted) {
       Timeline.finishSync();
@@ -23,6 +27,7 @@ class TracedZoomPageTransitionsBuilder extends ZoomPageTransitionsBuilder {
     // Add status listener to cleanly finish sync if it completes normally, but this is simple enough.
     // The BouncingScrollPhysics uses pure math.
 
-    return super.buildTransitions(route, context, animation, secondaryAnimation, child);
+    return super
+        .buildTransitions(route, context, animation, secondaryAnimation, child);
   }
 }

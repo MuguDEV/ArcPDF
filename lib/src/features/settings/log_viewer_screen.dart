@@ -37,7 +37,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Diagnostics & Logs', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Diagnostics & Logs',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep_rounded),
@@ -47,7 +48,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Clear Logs?'),
-                  content: const Text('This will permanently delete all diagnostic logs.'),
+                  content: const Text(
+                      'This will permanently delete all diagnostic logs.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
@@ -71,7 +73,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ? Center(
               child: Text(
                 'No logs available.',
-                style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodyLarge
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             )
           : ListView.separated(
@@ -100,7 +103,9 @@ class _LogEntryCard extends StatelessWidget {
 
     final borderColor = isError
         ? theme.colorScheme.error
-        : (isWarning ? Colors.orange : theme.colorScheme.outlineVariant.withValues(alpha: 0.5));
+        : (isWarning
+            ? Colors.orange
+            : theme.colorScheme.outlineVariant.withValues(alpha: 0.5));
 
     final iconColor = isError
         ? theme.colorScheme.error
@@ -108,7 +113,9 @@ class _LogEntryCard extends StatelessWidget {
 
     final icon = isError
         ? Icons.error_outline_rounded
-        : (isWarning ? Icons.warning_amber_rounded : Icons.info_outline_rounded);
+        : (isWarning
+            ? Icons.warning_amber_rounded
+            : Icons.info_outline_rounded);
 
     final timeStr = DateFormat('MMM d, y HH:mm:ss').format(log.timestamp);
 

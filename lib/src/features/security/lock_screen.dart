@@ -12,7 +12,8 @@ class LockScreenWrapper extends ConsumerStatefulWidget {
   ConsumerState<LockScreenWrapper> createState() => _LockScreenWrapperState();
 }
 
-class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with WidgetsBindingObserver {
+class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper>
+    with WidgetsBindingObserver {
   bool _isAuthenticating = false;
 
   @override
@@ -35,7 +36,8 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final security = ref.read(securityControllerProvider);
     // Ignore inactive state because it's triggered by system dialogs, file pickers, etc.
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       if (security.requireLockOnResume) {
         ref.read(securityControllerProvider.notifier).lockApp();
       }
@@ -47,9 +49,13 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper> with Widg
   void _checkBiometrics() async {
     if (_isAuthenticating) return;
     final security = ref.read(securityControllerProvider);
-    if (security.isLockEnabled && security.isLocked && security.isBiometricEnabled) {
+    if (security.isLockEnabled &&
+        security.isLocked &&
+        security.isBiometricEnabled) {
       _isAuthenticating = true;
-      await ref.read(securityControllerProvider.notifier).authenticateBiometric();
+      await ref
+          .read(securityControllerProvider.notifier)
+          .authenticateBiometric();
       _isAuthenticating = false;
     }
   }
@@ -74,8 +80,11 @@ class _LockOverlay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SharedLockOverlay(
       title: 'App Locked',
-      onVerify: (input) => ref.read(securityControllerProvider.notifier).verifyPinOrPattern(input),
-      onBiometricAuth: () => ref.read(securityControllerProvider.notifier).authenticateBiometric(),
+      onVerify: (input) => ref
+          .read(securityControllerProvider.notifier)
+          .verifyPinOrPattern(input),
+      onBiometricAuth: () =>
+          ref.read(securityControllerProvider.notifier).authenticateBiometric(),
     );
   }
 }

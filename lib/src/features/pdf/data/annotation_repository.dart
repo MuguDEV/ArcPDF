@@ -5,7 +5,9 @@ import '../domain/pdf_annotation.dart';
 
 import 'package:flutter/foundation.dart';
 
-final annotationRepositoryProvider = ChangeNotifierProvider<AnnotationRepository>((ref) => AnnotationRepository());
+final annotationRepositoryProvider =
+    ChangeNotifierProvider<AnnotationRepository>(
+        (ref) => AnnotationRepository());
 
 class AnnotationRepository extends ChangeNotifier {
   Box<PdfAnnotation> get _box => Hive.box<PdfAnnotation>('pdf_annotations');
@@ -15,7 +17,9 @@ class AnnotationRepository extends ChangeNotifier {
   }
 
   List<PdfAnnotation> getAnnotationsForPage(String pdfPath, int pageNumber) {
-    return _box.values.where((a) => a.pdfPath == pdfPath && a.pageNumber == pageNumber).toList();
+    return _box.values
+        .where((a) => a.pdfPath == pdfPath && a.pageNumber == pageNumber)
+        .toList();
   }
 
   Future<void> addAnnotation(PdfAnnotation annotation) async {
@@ -34,7 +38,10 @@ class AnnotationRepository extends ChangeNotifier {
   }
 
   Future<void> deleteAllAnnotationsForPdf(String pdfPath) async {
-    final toDelete = _box.values.where((a) => a.pdfPath == pdfPath).map((a) => a.id).toList();
+    final toDelete = _box.values
+        .where((a) => a.pdfPath == pdfPath)
+        .map((a) => a.id)
+        .toList();
     if (toDelete.isNotEmpty) {
       await _box.deleteAll(toDelete);
       notifyListeners();

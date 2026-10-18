@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../application/pdf_error_handler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,7 +24,8 @@ class FavoritesScreen extends ConsumerWidget {
     final items = ctrl.filteredItems(favoritesOnly: true);
 
     return CustomScrollView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
           onRefresh: () async {
@@ -34,115 +34,126 @@ class FavoritesScreen extends ConsumerWidget {
           },
         ),
         const GlassSliverAppBar(
-            title: Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
+          title:
+              Text('Favorites', style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        if (lib.loading)
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList.builder(
+              itemCount: 6,
+              itemBuilder: (_, __) => const PdfCardShimmer(),
+            ),
+          )
+        else if (items.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: ArcEmptyState(
+              icon: Icons.favorite_border_rounded,
+              title: 'No favorites yet',
+              subtitle:
+                  'Long-press any PDF in the Home tab to add it to your favorites.',
+              iconColor: Colors.grey.shade400,
+              animated: true,
+            ),
+          )
+        else ...[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                '${items.length} saved PDF${items.length == 1 ? '' : 's'}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ).animate().fadeIn(duration: 300.ms),
+            ),
           ),
-
-          if (lib.loading)
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList.builder(
-                itemCount: 6,
-                itemBuilder: (_, __) => const PdfCardShimmer(),
-              ),
-            )
-          else if (items.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: ArcEmptyState(
-                icon: Icons.favorite_border_rounded,
-                title: 'No favorites yet',
-                subtitle: 'Long-press any PDF in the Home tab to add it to your favorites.',
-                iconColor: Colors.grey.shade400,
-                animated: true,
-              ),
-            )
-          else ...[
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  '${items.length} saved PDF${items.length == 1 ? '' : 's'}',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ).animate().fadeIn(duration: 300.ms),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList.builder(
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10.0),
-                    child: PdfCustomCard(
-                      item: item,
-                      index: index,
-                      onFavorite: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(item),
-                      onVault: () async {
-                        final security = ref.read(securityControllerProvider);
-                        if (!security.isLockEnabled) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('App lock is not enabled. Enable it in Settings first.'),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                          return;
-                        }
-                        final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
-                        if (success && context.mounted) {
-                          ref.read(pdfLibraryControllerProvider.notifier).refresh();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Moved to Vault'),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      onTap: () async {
-                        await ctrl.markRecent(item);
-                        if (!context.mounted) return;
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => PdfViewerScreen(item: item)),
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10.0),
+                  child: PdfCustomCard(
+                    item: item,
+                    index: index,
+                    onFavorite: () => ref
+                        .read(pdfLibraryControllerProvider.notifier)
+                        .toggleFavorite(item),
+                    onVault: () async {
+                      final security = ref.read(securityControllerProvider);
+                      if (!security.isLockEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                                'App lock is not enabled. Enable it in Settings first.'),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            duration: const Duration(seconds: 3),
+                          ),
                         );
-                      },
-                    ).animate(key: ValueKey('fav_${item.path}'))
-                     .fadeIn(
-                       duration: 400.ms,
-                       delay: (index > 20 ? 0 : index * 20).ms,
-                       curve: Curves.easeOut,
-                     )
-                     .slideY(
-                       begin: 0.15,
-                       duration: 400.ms,
-                       delay: (index > 20 ? 0 : index * 20).ms,
-                       curve: Curves.easeOutCubic,
-                     )
-                     .scaleXY(
-                       begin: 0.92,
-                       end: 1.0,
-                       duration: 400.ms,
-                       delay: (index > 20 ? 0 : index * 20).ms,
-                       curve: Curves.easeOutBack,
-                     ),
-                  );
-                },
-              ),
+                        return;
+                      }
+                      final success = await ref
+                          .read(vaultControllerProvider.notifier)
+                          .moveToVault(item);
+                      if (success && context.mounted) {
+                        ref
+                            .read(pdfLibraryControllerProvider.notifier)
+                            .refresh();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Moved to Vault'),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    onTap: () async {
+                      await ctrl.markRecent(item);
+                      if (!context.mounted) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => PdfViewerScreen(item: item)),
+                      );
+                    },
+                  )
+                      .animate(key: ValueKey('fav_${item.path}'))
+                      .fadeIn(
+                        duration: 400.ms,
+                        delay: (index > 20 ? 0 : index * 20).ms,
+                        curve: Curves.easeOut,
+                      )
+                      .slideY(
+                        begin: 0.15,
+                        duration: 400.ms,
+                        delay: (index > 20 ? 0 : index * 20).ms,
+                        curve: Curves.easeOutCubic,
+                      )
+                      .scaleXY(
+                        begin: 0.92,
+                        end: 1.0,
+                        duration: 400.ms,
+                        delay: (index > 20 ? 0 : index * 20).ms,
+                        curve: Curves.easeOutBack,
+                      ),
+                );
+              },
             ),
-          ],
-
-          const SliverSafeArea(
-            minimum: EdgeInsets.only(bottom: 140),
-            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
         ],
-      );
+        const SliverSafeArea(
+          minimum: EdgeInsets.only(bottom: 140),
+          sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+        ),
+      ],
+    );
   }
 }

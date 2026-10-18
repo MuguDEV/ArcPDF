@@ -28,7 +28,8 @@ class ToolCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
           ),
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -67,7 +68,8 @@ class ToolCard extends StatelessWidget {
               const SizedBox(width: 12),
               Icon(
                 Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ],
           ),

@@ -62,13 +62,14 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
 
     // Check if it's a PDF before opening in viewer
     if (p.extension(widget.outputPath!).toLowerCase() == '.pdf') {
-       final file = File(widget.outputPath!);
-       if (file.existsSync()) {
-          final tempItem = PdfFileItem.fromFile(file);
-          Navigator.of(context).pop();
-          Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
-          return;
-       }
+      final file = File(widget.outputPath!);
+      if (file.existsSync()) {
+        final tempItem = PdfFileItem.fromFile(file);
+        Navigator.of(context).pop();
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
+        return;
+      }
     }
 
     // Fallback for directories or non-PDFs (like PDF to Images output dir)
@@ -93,7 +94,9 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isError ? theme.colorScheme.errorContainer : theme.colorScheme.primaryContainer,
+                color: isError
+                    ? theme.colorScheme.errorContainer
+                    : theme.colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
               child: widget.isLoading
@@ -103,16 +106,23 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                       child: ArcProgressIndicator(),
                     )
                   : Icon(
-                      isSuccess ? HugeIcons.strokeRoundedCheckmarkBadge01 : HugeIcons.strokeRoundedAlert02,
+                      isSuccess
+                          ? HugeIcons.strokeRoundedCheckmarkBadge01
+                          : HugeIcons.strokeRoundedAlert02,
                       size: 32,
-                      color: isError ? theme.colorScheme.error : theme.colorScheme.primary,
-                    ).animate().scale(duration: 300.ms, curve: Curves.easeOutBack),
+                      color: isError
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
+                    )
+                      .animate()
+                      .scale(duration: 300.ms, curve: Curves.easeOutBack),
             ),
             const SizedBox(height: 16),
             Text(
               widget.title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -130,14 +140,17 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                 if (isSuccess) ...[
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: () {
                       Navigator.of(context).pop();
                       if (widget.outputPath != null) {
-
-                    SharePlus.instance.share([XFile(widget.outputPath!)]);
+                        SharePlus.instance.share(
+                          ShareParams(files: [XFile(widget.outputPath!)]),
+                        );
                       }
                     },
                     icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),
@@ -146,8 +159,10 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: _openInApp,
                     icon: const Icon(HugeIcons.strokeRoundedFolder01, size: 20),
@@ -157,8 +172,10 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
                 if (isError)
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Dismiss'),

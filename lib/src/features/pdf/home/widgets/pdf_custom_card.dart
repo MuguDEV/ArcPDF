@@ -43,7 +43,8 @@ class PdfCustomCard extends ConsumerStatefulWidget {
 
 class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
   final GlobalKey _cardKey = GlobalKey();
-  final GlobalKey<ParticleBurstState> _burstKey = GlobalKey<ParticleBurstState>();
+  final GlobalKey<ParticleBurstState> _burstKey =
+      GlobalKey<ParticleBurstState>();
 
   StreamSubscription<GyroscopeEvent>? _gyroSubscription;
   double _tiltX = 0;
@@ -58,7 +59,9 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
   void _initGyro() {
     final settings = ref.read(settingsControllerProvider);
     if (settings.enableGyroCards) {
-      _gyroSubscription = gyroscopeEventStream(samplingPeriod: SensorInterval.uiInterval).listen((event) {
+      _gyroSubscription =
+          gyroscopeEventStream(samplingPeriod: SensorInterval.uiInterval)
+              .listen((event) {
         if (mounted) {
           setState(() {
             // Apply smoothing and limit the tilt angles
@@ -102,289 +105,347 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isFav = ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)));
-    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
+    final isFav = ref.watch(pdfLibraryControllerProvider
+        .select((s) => s.favorites.contains(widget.item.path)));
+    final tags = ref.watch(pdfLibraryControllerProvider
+        .select((s) => s.tags[widget.item.path] ?? []));
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
     final time = DateFormat.jm().format(widget.item.lastModified);
     final isDark = theme.brightness == Brightness.dark;
-    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final lowPowerMode =
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     Widget innerContent = Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Thumbnail
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 52,
-                      height: 72,
-                      child: PdfThumbnail(path: widget.item.path, isEncrypted: widget.item.isEncrypted, isCorrupted: widget.item.isCorrupted),
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 52,
+              height: 72,
+              child: PdfThumbnail(
+                  path: widget.item.path,
+                  isEncrypted: widget.item.isEncrypted,
+                  isCorrupted: widget.item.isCorrupted),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Info Section
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.item.name.replaceAll(
+                            RegExp(r'\.pdf$', caseSensitive: false), ''),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          height: 1.2,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 8),
+                    // Favorite Button integrated in the top right with spring micro-interaction
+                    GestureDetector(
+                      onTap: () {
+                        ref.read(hapticServiceProvider).selectionClick();
+                        widget.onFavorite();
+                      },
+                      child: Icon(
+                        isFav
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: isFav
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5),
+                        size: 22,
+                      ).animate(key: ValueKey(isFav)).scale(
+                            begin: const Offset(0.5, 0.5),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.elasticOut,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
 
-                  // Info Section
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                // Location label
+                Row(
+                  children: [
+                    Icon(HugeIcons.strokeRoundedFolder01,
+                        size: 12,
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.7)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        widget.item.locationLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Badges perfectly aligned + date
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _Badge(
+                              label: _fileSize(widget.item.sizeBytes),
+                              icon: HugeIcons.strokeRoundedHardDrive,
+                              theme: theme),
+                          if (widget.item.pageCount != null)
+                            _Badge(
+                                label: '${widget.item.pageCount}p',
+                                icon: HugeIcons.strokeRoundedFile01,
+                                theme: theme),
+                          if (widget.item.isEncrypted)
+                            _Badge(
+                                label: 'Locked',
+                                icon: HugeIcons.strokeRoundedLockPassword,
+                                theme: theme),
+                          if (widget.item.isCorrupted)
+                            _Badge(
+                                label: 'Corrupt',
+                                icon: HugeIcons.strokeRoundedAlert02,
+                                theme: theme,
+                                isError: true),
+                          ...tags.map((t) => _Badge(
+                              label: t,
+                              icon: HugeIcons.strokeRoundedTag01,
+                              theme: theme)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Favorite Button integrated in the top right with spring micro-interaction
-                            GestureDetector(
-                              onTap: () {
-                                ref.read(hapticServiceProvider).selectionClick();
-                                widget.onFavorite();
-                              },
-                              child: Icon(
-                                isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                color: isFav ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                size: 22,
-                              ).animate(key: ValueKey(isFav)).scale(
-                                begin: const Offset(0.5, 0.5),
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.elasticOut,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          date,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-
-                        // Location label
-                        Row(
-                          children: [
-                            Icon(HugeIcons.strokeRoundedFolder01, size: 12, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                widget.item.locationLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Badges perfectly aligned + date
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  _Badge(label: _fileSize(widget.item.sizeBytes), icon: HugeIcons.strokeRoundedHardDrive, theme: theme),
-                                  if (widget.item.pageCount != null)
-                                    _Badge(label: '${widget.item.pageCount}p', icon: HugeIcons.strokeRoundedFile01, theme: theme),
-                                  if (widget.item.isEncrypted)
-                                    _Badge(label: 'Locked', icon: HugeIcons.strokeRoundedLockPassword, theme: theme),
-                                  if (widget.item.isCorrupted)
-                                    _Badge(label: 'Corrupt', icon: HugeIcons.strokeRoundedAlert02, theme: theme, isError: true),
-                                  ...tags.map((t) => _Badge(label: t, icon: HugeIcons.strokeRoundedTag01, theme: theme)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  date,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  time,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        Text(
+                          time,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
 
     Widget cardContent = ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: lowPowerMode ? Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
-                width: 1.0,
+      borderRadius: BorderRadius.circular(24),
+      child: lowPowerMode
+          ? Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color:
+                      theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
+                  width: 1.0,
+                ),
+              ),
+              child: innerContent,
+            )
+          : BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
+                    width: 1.0,
+                  ),
+                ),
+                child: innerContent,
               ),
             ),
-            child: innerContent,
-        ) : BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
-                width: 1.0,
-              ),
-            ),
-            child: innerContent,
-          ),
-        ),
     );
 
     return Padding(
-      key: _cardKey,
-      padding: const EdgeInsets.only(bottom: 12),
-      child: ParticleBurst(
-        burstKey: _burstKey,
-        burstColor: theme.colorScheme.primary,
-        child: Slidable(
-          key: ValueKey(widget.item.path),
-          closeOnScroll: true,
-          startActionPane: ActionPane(
-            motion: const BehindMotion(),
-            extentRatio: 0.25,
-            openThreshold: 0.1,
-            closeThreshold: 0.1,
-            children: [
-              CustomSlidableAction(
-                onPressed: (_) {
-                  ref.read(hapticServiceProvider).selectionClick();
-                  if (!isFav) {
-                    _burstKey.currentState?.triggerBurst();
-                  }
-                  widget.onFavorite();
-                },
-              backgroundColor: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: isFav ? theme.colorScheme.surfaceContainerHigh : theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isFav ? theme.colorScheme.outlineVariant : theme.colorScheme.primary.withValues(alpha: 0.5), width: 1),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  isFav ? HugeIcons.strokeRoundedFavourite : Icons.favorite_rounded,
-                  color: isFav ? theme.colorScheme.onSurface : theme.colorScheme.primary,
-                  size: 28,
-                ).animate(key: ValueKey(isFav)).scale(
-                  begin: const Offset(0.5, 0.5),
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.elasticOut,
-                ),
-              ),
-            ),
-          ],
-        ),
-        endActionPane: widget.onVault != null ? ActionPane(
-          motion: const BehindMotion(),
-          extentRatio: 0.25,
-          openThreshold: 0.1,
-          closeThreshold: 0.1,
-          children: [
-            CustomSlidableAction(
-              onPressed: (_) {
-                ref.read(hapticServiceProvider).mediumImpact();
-                widget.onVault?.call();
-              },
-              backgroundColor: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  HugeIcons.strokeRoundedSafe,
-                  color: theme.colorScheme.onSurface,
-                  size: 28,
-                ).animate().scale(
-                  begin: const Offset(0.5, 0.5),
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.elasticOut,
-                ),
-              ),
-            ),
-          ],
-        ) : null,
-        child: Consumer(
-          builder: (context, ref, _) {
-            final settings = ref.watch(settingsControllerProvider);
-            return Transform(
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.001)
-                ..rotateX(settings.enableGyroCards ? _tiltX : 0.0)
-                ..rotateY(settings.enableGyroCards ? _tiltY : 0.0),
-              alignment: Alignment.center,
-              child: RepaintBoundary(
-                child: ArcBouncyCard(
-                  onTap: () {
+        key: _cardKey,
+        padding: const EdgeInsets.only(bottom: 12),
+        child: ParticleBurst(
+          burstKey: _burstKey,
+          burstColor: theme.colorScheme.primary,
+          child: Slidable(
+            key: ValueKey(widget.item.path),
+            closeOnScroll: true,
+            startActionPane: ActionPane(
+              motion: const BehindMotion(),
+              extentRatio: 0.25,
+              openThreshold: 0.1,
+              closeThreshold: 0.1,
+              children: [
+                CustomSlidableAction(
+                  onPressed: (_) {
                     ref.read(hapticServiceProvider).selectionClick();
-                    widget.onTap();
-                  },
-                  onLongPress: () {
-                    // Custom injected long press (e.g., selection mode) wins over Peek
-                    if (widget.onLongPress != null) {
-                      widget.onLongPress!.call();
-                      return;
+                    if (!isFav) {
+                      _burstKey.currentState?.triggerBurst();
                     }
-
-                    // Peek overlay
-                    ref.read(hapticServiceProvider).mediumImpact();
-                    OverlayEntry? entry;
-                    entry = OverlayEntry(
-                      builder: (context) => PeekOverlay(
-                        item: widget.item,
-                        onDismiss: () {
-                          entry?.remove();
-                        },
-                      ),
-                    );
-                    Overlay.of(context).insert(entry);
+                    widget.onFavorite();
                   },
-                  child: cardContent,
+                  backgroundColor: Colors.transparent,
+                  child: Container(
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isFav
+                          ? theme.colorScheme.surfaceContainerHigh
+                          : theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: isFav
+                              ? theme.colorScheme.outlineVariant
+                              : theme.colorScheme.primary
+                                  .withValues(alpha: 0.5),
+                          width: 1),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      isFav
+                          ? HugeIcons.strokeRoundedFavourite
+                          : Icons.favorite_rounded,
+                      color: isFav
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.primary,
+                      size: 28,
+                    ).animate(key: ValueKey(isFav)).scale(
+                          begin: const Offset(0.5, 0.5),
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.elasticOut,
+                        ),
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-      ),
-    ));
+              ],
+            ),
+            endActionPane: widget.onVault != null
+                ? ActionPane(
+                    motion: const BehindMotion(),
+                    extentRatio: 0.25,
+                    openThreshold: 0.1,
+                    closeThreshold: 0.1,
+                    children: [
+                      CustomSlidableAction(
+                        onPressed: (_) {
+                          ref.read(hapticServiceProvider).mediumImpact();
+                          widget.onVault?.call();
+                        },
+                        backgroundColor: Colors.transparent,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                              vertical: 4, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF2A2A2A)
+                                : const Color(0xFFEEEEEE),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: theme.colorScheme.outlineVariant,
+                                width: 1),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            HugeIcons.strokeRoundedSafe,
+                            color: theme.colorScheme.onSurface,
+                            size: 28,
+                          ).animate().scale(
+                                begin: const Offset(0.5, 0.5),
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.elasticOut,
+                              ),
+                        ),
+                      ),
+                    ],
+                  )
+                : null,
+            child: Consumer(
+              builder: (context, ref, _) {
+                final settings = ref.watch(settingsControllerProvider);
+                return Transform(
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.001)
+                    ..rotateX(settings.enableGyroCards ? _tiltX : 0.0)
+                    ..rotateY(settings.enableGyroCards ? _tiltY : 0.0),
+                  alignment: Alignment.center,
+                  child: RepaintBoundary(
+                    child: ArcBouncyCard(
+                      onTap: () {
+                        ref.read(hapticServiceProvider).selectionClick();
+                        widget.onTap();
+                      },
+                      onLongPress: () {
+                        // Custom injected long press (e.g., selection mode) wins over Peek
+                        if (widget.onLongPress != null) {
+                          widget.onLongPress!.call();
+                          return;
+                        }
+
+                        // Peek overlay
+                        ref.read(hapticServiceProvider).mediumImpact();
+                        OverlayEntry? entry;
+                        entry = OverlayEntry(
+                          builder: (context) => PeekOverlay(
+                            item: widget.item,
+                            onDismiss: () {
+                              entry?.remove();
+                            },
+                          ),
+                        );
+                        Overlay.of(context).insert(entry);
+                      },
+                      child: cardContent,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ));
   }
 
   String _fileSize(int bytes) {
@@ -394,7 +455,11 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.icon, required this.theme, this.isError = false});
+  const _Badge(
+      {required this.label,
+      required this.icon,
+      required this.theme,
+      this.isError = false});
   final String label;
   final IconData icon;
   final ThemeData theme;
@@ -405,7 +470,9 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isError ? theme.colorScheme.errorContainer : theme.colorScheme.surfaceContainerHigh,
+        color: isError
+            ? theme.colorScheme.errorContainer
+            : theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -414,13 +481,17 @@ class _Badge extends StatelessWidget {
           Icon(
             icon,
             size: 12,
-            color: isError ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSurfaceVariant,
+            color: isError
+                ? theme.colorScheme.onErrorContainer
+                : theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 4),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: isError ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSurfaceVariant,
+              color: isError
+                  ? theme.colorScheme.onErrorContainer
+                  : theme.colorScheme.onSurfaceVariant,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),

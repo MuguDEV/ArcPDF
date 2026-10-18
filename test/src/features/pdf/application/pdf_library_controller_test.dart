@@ -6,6 +6,7 @@ import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
 
 class MockPdfScannerService extends Mock implements PdfScannerService {}
+
 class MockBox<T> extends Mock implements Box<T> {}
 
 void main() {

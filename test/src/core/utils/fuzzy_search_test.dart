@@ -63,7 +63,8 @@ void main() {
     });
 
     test('symmetry (distance(a, b) == distance(b, a))', () {
-      expect(levenshteinDistance('kitten', 'sitting'), levenshteinDistance('sitting', 'kitten'));
+      expect(levenshteinDistance('kitten', 'sitting'),
+          levenshteinDistance('sitting', 'kitten'));
     });
   });
 }

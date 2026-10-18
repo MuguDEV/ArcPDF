@@ -8,7 +8,9 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:arcpdf/src/features/vault/vault_init_exception.dart';
 
-class FakePathProviderPlatform extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
+class FakePathProviderPlatform extends Fake
+    with MockPlatformInterfaceMixin
+    implements PathProviderPlatform {
   final Directory tempDir = Directory.systemTemp.createTempSync('arcpdf_test');
   int getAppDocPathCallCount = 0;
 
@@ -44,7 +46,8 @@ void main() {
     }
   });
 
-  test('moveToVault called immediately after construction (the race)', () async {
+  test('moveToVault called immediately after construction (the race)',
+      () async {
     final controller = container.read(vaultControllerProvider.notifier);
 
     final dummyFile = File('${fakePathProvider.tempDir.path}/dummy.pdf');
@@ -84,7 +87,8 @@ void main() {
     dummyFile.writeAsBytesSync([1, 2, 3, 4]);
     final item = PdfFileItem.fromFile(dummyFile);
 
-    await expectLater(controller.moveToVault(item), throwsA(isA<VaultInitException>()));
+    await expectLater(
+        controller.moveToVault(item), throwsA(isA<VaultInitException>()));
 
     FlutterSecureStorage.setMockInitialValues({});
 

@@ -25,7 +25,8 @@ class ScanResult {
 class PdfScannerService {
   const PdfScannerService();
 
-  Future<StoragePermissionStatus> requestPermission({bool request = true}) async {
+  Future<StoragePermissionStatus> requestPermission(
+      {bool request = true}) async {
     if (!Platform.isAndroid) return StoragePermissionStatus.granted;
 
     // Try MANAGE_EXTERNAL_STORAGE first (full access, works Android 6+)
@@ -57,9 +58,13 @@ class PdfScannerService {
     if (Platform.isAndroid) {
       try {
         final ext = await ExternalPath.getExternalStorageDirectories();
-        if (ext != null) roots.addAll(ext.where((e) => e.isNotEmpty).cast<String>());
+        if (ext != null) {
+          roots.addAll(ext.where((e) => e.isNotEmpty).cast<String>());
+        }
       } catch (e) {
-        if (kDebugMode) debugPrint('Failed to read external storage directories: $e');
+        if (kDebugMode) {
+          debugPrint('Failed to read external storage directories: $e');
+        }
       }
     }
     final appExt = await getExternalStorageDirectories();
@@ -114,7 +119,8 @@ List<PdfFileItem> _walkRoots(List<String> roots) {
           if (!isValid) continue;
 
           final isEncrypted = _isEncrypted(entity, stat.size);
-          out.add(PdfFileItem.fromFile(entity, isEncrypted: isEncrypted, isCorrupted: false));
+          out.add(PdfFileItem.fromFile(entity,
+              isEncrypted: isEncrypted, isCorrupted: false));
         } catch (e, stack) {
           final redactedName = _redactPath(entity.path);
           AppLogger.error('Error processing file: $redactedName', e, stack);
@@ -158,7 +164,7 @@ bool _isEncrypted(File file, int size) {
     raf.closeSync();
     final str = String.fromCharCodes(bytes);
     if (str.contains('/Encrypt')) return true;
-    
+
     if (size > 4096) {
       final raf2 = file.openSync();
       raf2.setPositionSync(size - 4096);
@@ -169,7 +175,8 @@ bool _isEncrypted(File file, int size) {
     }
   } catch (e, stack) {
     final redactedName = _redactPath(file.path);
-    AppLogger.error('Error checking if PDF is encrypted: $redactedName', e, stack);
+    AppLogger.error(
+        'Error checking if PDF is encrypted: $redactedName', e, stack);
   }
   return false;
 }

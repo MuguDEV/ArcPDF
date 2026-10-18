@@ -99,7 +99,8 @@ class ToolsService {
 
             final syncfusion.PdfPage newPage = document.pages.add();
             // Draw the loaded page content onto the new page
-            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+            newPage.graphics.drawPdfTemplate(
+                loadedPage.createTemplate(), const Offset(0, 0));
           }
           loadedDocument.dispose();
         }
@@ -113,7 +114,8 @@ class ToolsService {
     });
   }
 
-  static Future<String?> rearrangePdf(String inputPath, String outputPath, List<int> pagesToExtract) async {
+  static Future<String?> rearrangePdf(
+      String inputPath, String outputPath, List<int> pagesToExtract) async {
     return await Isolate.run(() async {
       try {
         final file = File(inputPath);
@@ -132,14 +134,15 @@ class ToolsService {
             newDocument.pageSettings.rotate = loadedPage.rotation;
 
             final syncfusion.PdfPage newPage = newDocument.pages.add();
-            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+            newPage.graphics.drawPdfTemplate(
+                loadedPage.createTemplate(), const Offset(0, 0));
           }
         }
 
         if (newDocument.pages.count == 0) {
-           loadedDocument.dispose();
-           newDocument.dispose();
-           return null;
+          loadedDocument.dispose();
+          newDocument.dispose();
+          return null;
         }
 
         final bytes = newDocument.saveSync();
@@ -154,8 +157,8 @@ class ToolsService {
     });
   }
 
-  static Future<String?> splitPdf(String inputPath, String outputDirPath,
-      List<int> pagesToExtract) async {
+  static Future<String?> splitPdf(
+      String inputPath, String outputDirPath, List<int> pagesToExtract) async {
     return await Isolate.run(() async {
       try {
         final file = File(inputPath);
@@ -176,14 +179,15 @@ class ToolsService {
 
             final syncfusion.PdfPage newPage = newDocument.pages.add();
             // Draw the loaded page content onto the new page
-            newPage.graphics.drawPdfTemplate(loadedPage.createTemplate(), const Offset(0, 0));
+            newPage.graphics.drawPdfTemplate(
+                loadedPage.createTemplate(), const Offset(0, 0));
           }
         }
 
         if (newDocument.pages.count == 0) {
-           loadedDocument.dispose();
-           newDocument.dispose();
-           return null;
+          loadedDocument.dispose();
+          newDocument.dispose();
+          return null;
         }
 
         final bytes = newDocument.saveSync();
@@ -200,8 +204,8 @@ class ToolsService {
     });
   }
 
-  static Future<String?> compressPdf(
-      String inputPath, String outputPath, {int quality = 40, int maxThreads = 2}) async {
+  static Future<String?> compressPdf(String inputPath, String outputPath,
+      {int quality = 40, int maxThreads = 2}) async {
     try {
       final file = File(inputPath);
       if (!file.existsSync()) return null;
@@ -210,10 +214,13 @@ class ToolsService {
 
       // We will store the resulting JPEG bytes and the original page physical dimensions.
       // Pre-allocate to maintain perfect page order safely.
-      List<Map<String, dynamic>?> processedPages = List.filled(pdfDocument.pages.length, null);
+      List<Map<String, dynamic>?> processedPages =
+          List.filled(pdfDocument.pages.length, null);
 
       for (int i = 0; i < pdfDocument.pages.length; i += maxThreads) {
-        final batchEnd = (i + maxThreads < pdfDocument.pages.length) ? i + maxThreads : pdfDocument.pages.length;
+        final batchEnd = (i + maxThreads < pdfDocument.pages.length)
+            ? i + maxThreads
+            : pdfDocument.pages.length;
 
         // We render all pages in the current batch sequentially to avoid native PDFium concurrency limits
         final List<Future<void>> batchFutures = [];
@@ -239,7 +246,6 @@ class ToolsService {
             final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
             final int imgW = pdfImage.width;
             final int imgH = pdfImage.height;
-            final bool isBgra = pdfImage.format == PixelFormat.bgra8888;
             final double origW = page.width;
             final double origH = page.height;
 
@@ -253,7 +259,7 @@ class ToolsService {
                 height: imgH,
                 bytes: pixelsCopy.buffer,
                 numChannels: 4,
-                order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
+                order: img.ChannelOrder.bgra,
               );
               return img.encodeJpg(imgObject, quality: quality);
             }).then((jpegBytes) {
@@ -297,8 +303,7 @@ class ToolsService {
             final newPage = newPdf.pages.add();
 
             newPage.graphics.drawImage(
-                syncfusionImage,
-                Rect.fromLTWH(0, 0, originalW, originalH));
+                syncfusionImage, Rect.fromLTWH(0, 0, originalW, originalH));
           }
 
           final bytes = newPdf.saveSync();
@@ -338,9 +343,8 @@ class ToolsService {
           final page = document.pages.add();
 
           // Draw image explicitly to the exact image bounds to prevent any cropping
-          page.graphics.drawImage(
-              image,
-              Rect.fromLTWH(0, 0, imgWidth, imgHeight));
+          page.graphics
+              .drawImage(image, Rect.fromLTWH(0, 0, imgWidth, imgHeight));
         }
 
         final bytes = document.saveSync();

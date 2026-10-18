@@ -42,20 +42,24 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
 
   Future<void> _mergeFiles() async {
     if (_selectedFiles.length < 2) {
-      PdfErrorHandler.show(context, 'invalid input', contextMessage: 'Please select at least 2 PDFs to merge.');
+      PdfErrorHandler.show(context, 'invalid input',
+          contextMessage: 'Please select at least 2 PDFs to merge.');
       return;
     }
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(title: 'Merging PDFs', message: 'Please wait...', isLoading: true),
+      builder: (context) => const ToolActionDialog(
+          title: 'Merging PDFs', message: 'Please wait...', isLoading: true),
     );
 
     final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final outputPath = p.join(dir, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final outputPath =
+        p.join(dir, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
-    final successPath = await ToolsService.mergePdfs(_selectedFiles, outputPath);
+    final successPath =
+        await ToolsService.mergePdfs(_selectedFiles, outputPath);
 
     if (!context.mounted) return;
     Navigator.of(context).pop();
@@ -63,14 +67,19 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
+        builder: (context) => ToolActionDialog(
+            title: 'Success',
+            message: 'Saved to:\n$successPath',
+            isLoading: false,
+            outputPath: successPath),
       ).then((_) {
         // Handled internally by dialog actions
       });
     } else {
       showDialog(
         context: context,
-        builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to merge.', isLoading: false),
+        builder: (context) => const ToolActionDialog(
+            title: 'Error', message: 'Failed to merge.', isLoading: false),
       );
     }
   }
@@ -88,13 +97,17 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedFile02, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        Icon(HugeIcons.strokeRoundedFile02,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
                           'No PDFs selected yet.\nTap "Add Files" to begin.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -102,7 +115,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                   )
                 : ReorderableListView.builder(
                     buildDefaultDragHandles: false,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
                     onReorder: (oldIndex, newIndex) {
                       setState(() {
@@ -115,7 +129,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                       return AnimatedBuilder(
                         animation: animation,
                         builder: (BuildContext context, Widget? child) {
-                          final double animValue = Curves.easeInOut.transform(animation.value);
+                          final double animValue =
+                              Curves.easeInOut.transform(animation.value);
                           final double elevation = lerpDouble(0, 8, animValue)!;
                           return Material(
                             elevation: elevation,
@@ -131,7 +146,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     itemBuilder: (context, index) {
                       final path = _selectedFiles[index];
                       final file = File(path);
-                      final sizeBytes = file.existsSync() ? file.lengthSync() : 0;
+                      final sizeBytes =
+                          file.existsSync() ? file.lengthSync() : 0;
                       final sizeStr = sizeBytes < 1024 * 1024
                           ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
                           : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -143,90 +159,114 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                           color: theme.colorScheme.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                            color: theme.colorScheme.outlineVariant
+                                .withValues(alpha: 0.5),
                             width: 1.0,
                           ),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: SizedBox(
+                                  width: 56,
+                                  height: 72,
+                                  child: PdfThumbnail(
+                                      path: path,
+                                      isEncrypted: false,
+                                      isCorrupted: false),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: SizedBox(
-                                        width: 56,
-                                        height: 72,
-                                        child: PdfThumbnail(path: path, isEncrypted: false, isCorrupted: false),
+                                    Text(
+                                      p.basename(path).replaceAll(
+                                          RegExp(r'\.pdf$',
+                                              caseSensitive: false),
+                                          ''),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.2,
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          Icon(HugeIcons.strokeRoundedHardDrive,
+                                              size: 12,
+                                              color: theme.colorScheme
+                                                  .onSurfaceVariant),
+                                          const SizedBox(width: 4),
                                           Text(
-                                            p.basename(path).replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: theme.textTheme.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              height: 1.2,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme.surfaceContainerHighest,
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(HugeIcons.strokeRoundedHardDrive, size: 12, color: theme.colorScheme.onSurfaceVariant),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  sizeStr,
-                                                  style: theme.textTheme.labelSmall?.copyWith(
-                                                    color: theme.colorScheme.onSurfaceVariant,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
+                                            sizeStr,
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: Icon(HugeIcons.strokeRoundedView, color: theme.colorScheme.primary, size: 22),
-                                              onPressed: () => OpenFile.open(path),
-                                              visualDensity: VisualDensity.compact,
-                                            ),
-                                            IconButton(
-                                              icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 22),
-                                              onPressed: () => setState(() => _selectedFiles.removeAt(index)),
-                                              visualDensity: VisualDensity.compact,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        ReorderableDragStartListener(
-                                          index: index,
-                                          child: MouseRegion(
-                                            cursor: SystemMouseCursors.grab,
-                                            child: Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                                          ),
-                                        ),
-                                      ],
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(HugeIcons.strokeRoundedView,
+                                            color: theme.colorScheme.primary,
+                                            size: 22),
+                                        onPressed: () => OpenFile.open(path),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                            HugeIcons.strokeRoundedDelete01,
+                                            color: theme.colorScheme.error,
+                                            size: 22),
+                                        onPressed: () => setState(() =>
+                                            _selectedFiles.removeAt(index)),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  ReorderableDragStartListener(
+                                    index: index,
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.grab,
+                                      child: Icon(Icons.drag_indicator_rounded,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5)),
                                     ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -248,7 +288,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _selectedFiles.length >= 2 ? _mergeFiles : null,
+                      onPressed:
+                          _selectedFiles.length >= 2 ? _mergeFiles : null,
                       child: const Text('Merge'),
                     ),
                   ),

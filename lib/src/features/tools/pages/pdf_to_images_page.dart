@@ -58,12 +58,12 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
             width: page.width.toInt(), height: page.height.toInt());
         if (image != null) {
           // Offload heavy image encoding and saving to an Isolate
-          final isBgra = image.format.name.toLowerCase().contains('bgra');
           final width = image.width;
           final height = image.height;
 
           // Copy pixel data to avoid FFI constraints and Use-After-Free crashes across Isolates
-          final pixelsCopy = image.pixels.buffer.asUint8List().toList(growable: false);
+          final pixelsCopy =
+              image.pixels.buffer.asUint8List().toList(growable: false);
 
           final futureTask = Isolate.run(() async {
             final imgLib = img.Image.fromBytes(
@@ -71,7 +71,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
               height: height,
               bytes: Uint8List.fromList(pixelsCopy).buffer,
               numChannels: 4,
-              order: isBgra ? img.ChannelOrder.bgra : img.ChannelOrder.rgba,
+              order: img.ChannelOrder.bgra,
             );
             // Use JPEG instead of PNG for much faster encoding and smaller file size
             final jpgBytes = img.encodeJpg(imgLib, quality: 90);
@@ -127,13 +127,17 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedImage02, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        Icon(HugeIcons.strokeRoundedImage02,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
                           'No PDF selected yet.\nTap "Select PDF" to begin.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -151,10 +155,12 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+                                color: theme.colorScheme.surfaceContainerLow
+                                    .withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
-                                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                  color: theme.colorScheme.outlineVariant
+                                      .withValues(alpha: 0.5),
                                   width: 1.0,
                                 ),
                               ),
@@ -165,7 +171,10 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                                     child: SizedBox(
                                       width: 120,
                                       height: 160,
-                                      child: PdfThumbnail(path: _selectedFile!, isEncrypted: false, isCorrupted: false),
+                                      child: PdfThumbnail(
+                                          path: _selectedFile!,
+                                          isEncrypted: false,
+                                          isCorrupted: false),
                                     ),
                                   ),
                                   const SizedBox(height: 16),
@@ -174,14 +183,16 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                                     maxLines: 2,
                                     textAlign: TextAlign.center,
                                     overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     '${(File(_selectedFile!).lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
-                                    style: theme.textTheme.labelMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.labelMedium?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
@@ -194,12 +205,14 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                              Icon(HugeIcons.strokeRoundedInformationCircle, color: theme.colorScheme.primary),
+                              Icon(HugeIcons.strokeRoundedInformationCircle,
+                                  color: theme.colorScheme.primary),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -224,7 +237,8 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFile,
-                      child: Text(_selectedFile == null ? 'Select PDF' : 'Change PDF'),
+                      child: Text(
+                          _selectedFile == null ? 'Select PDF' : 'Change PDF'),
                     ),
                   ),
                   const SizedBox(width: 16),

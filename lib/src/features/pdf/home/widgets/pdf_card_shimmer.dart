@@ -22,11 +22,11 @@ class PdfCardShimmer extends StatelessWidget {
           ),
         ),
       ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(
-        begin: 1.0,
-        end: 0.98,
-        duration: 1.5.seconds,
-        curve: Curves.easeInOutSine,
-      ),
+            begin: 1.0,
+            end: 0.98,
+            duration: 1.5.seconds,
+            curve: Curves.easeInOutSine,
+          ),
     );
   }
 }

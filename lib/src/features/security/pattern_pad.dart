@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pattern_lock/pattern_lock.dart';
 
-
 import '../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,7 +21,9 @@ class PatternPad extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (errorText != null) ...[
-          Text(errorText!, style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.w500)),
+          Text(errorText!,
+              style: TextStyle(
+                  color: theme.colorScheme.error, fontWeight: FontWeight.w500)),
           const SizedBox(height: 16),
         ],
         SizedBox(

@@ -7,12 +7,20 @@ enum PdfErrorCategory { userError, broken, unexpected }
 class PdfErrorHandler {
   static PdfErrorCategory _classify(Object error) {
     final str = error.toString().toLowerCase();
-    if (str.contains('password') || str.contains('invalid page')) return PdfErrorCategory.userError;
-    if (str.contains('corrupt') || str.contains('format') || str.contains('invalid pdf') || str.contains('failed to load')) return PdfErrorCategory.broken;
+    if (str.contains('password') || str.contains('invalid page')) {
+      return PdfErrorCategory.userError;
+    }
+    if (str.contains('corrupt') ||
+        str.contains('format') ||
+        str.contains('invalid pdf') ||
+        str.contains('failed to load')) {
+      return PdfErrorCategory.broken;
+    }
     return PdfErrorCategory.unexpected;
   }
 
-  static void show(BuildContext context, Object error, {String? contextMessage}) {
+  static void show(BuildContext context, Object error,
+      {String? contextMessage}) {
     final category = _classify(error);
     final String title;
     final String message;
@@ -45,7 +53,8 @@ class PdfErrorHandler {
       builder: (context) {
         final theme = Theme.of(context);
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           backgroundColor: theme.colorScheme.surfaceContainerHigh,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -56,13 +65,15 @@ class PdfErrorHandler {
                 const SizedBox(height: 16),
                 Text(
                   title,
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   message,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),

@@ -44,7 +44,8 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ctrl = ref.watch(pdfLibraryControllerProvider.notifier);
-    final tags = ref.watch(pdfLibraryControllerProvider.select((s) => s.tags[widget.item.path] ?? []));
+    final tags = ref.watch(pdfLibraryControllerProvider
+        .select((s) => s.tags[widget.item.path] ?? []));
 
     return Padding(
       padding: EdgeInsets.only(
@@ -64,7 +65,8 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               width: 48,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -92,7 +94,8 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                       children: [
                         Text(
                           widget.item.name,
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -157,14 +160,16 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                       decoration: InputDecoration(
                         hintText: 'Add new tag...',
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
                         fillColor: theme.colorScheme.surfaceContainerHighest,
-                        prefixIcon: const Icon(HugeIcons.strokeRoundedTag01, size: 20),
+                        prefixIcon:
+                            const Icon(HugeIcons.strokeRoundedTag01, size: 20),
                       ),
                       onSubmitted: (val) {
                         if (val.trim().isNotEmpty) {
@@ -193,7 +198,9 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             const SizedBox(height: 8),
             _ActionTile(
               icon: HugeIcons.strokeRoundedGridView,
@@ -224,23 +231,25 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               title: 'Move to Secure Vault',
               color: theme.colorScheme.primary,
               onTap: () async {
-              HapticFeedback.mediumImpact();
-              final success = await ref.read(vaultControllerProvider.notifier).moveToVault(widget.item);
-              if (success && context.mounted) {
-                HapticFeedback.selectionClick();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('File moved to Secure Vault')),
-                );
-                Navigator.pop(context);
-              } else if (context.mounted) {
-                HapticFeedback.heavyImpact();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to move to vault')),
-                );
-                Navigator.pop(context);
-              }
-            },
-          ),
+                HapticFeedback.mediumImpact();
+                final success = await ref
+                    .read(vaultControllerProvider.notifier)
+                    .moveToVault(widget.item);
+                if (success && context.mounted) {
+                  HapticFeedback.selectionClick();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('File moved to Secure Vault')),
+                  );
+                  Navigator.pop(context);
+                } else if (context.mounted) {
+                  HapticFeedback.heavyImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to move to vault')),
+                  );
+                  Navigator.pop(context);
+                }
+              },
+            ),
             _ActionTile(
               icon: HugeIcons.strokeRoundedDelete01,
               title: 'Delete File',
@@ -248,70 +257,80 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
               onTap: () async {
                 HapticFeedback.mediumImpact();
                 final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) {
-                  return Dialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                    backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.errorContainer,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              HugeIcons.strokeRoundedDelete01,
-                              size: 32,
-                              color: theme.colorScheme.error,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Delete File',
-                            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Are you sure you want to delete "${widget.item.name}"? This action cannot be undone.',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
+                  context: context,
+                  builder: (context) {
+                    return Dialog(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28)),
+                      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.errorContainer,
+                                shape: BoxShape.circle,
                               ),
-                              const SizedBox(width: 8),
-                              FilledButton(
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  backgroundColor: theme.colorScheme.error,
-                                  foregroundColor: theme.colorScheme.onError,
-                                ),
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Delete'),
+                              child: Icon(
+                                HugeIcons.strokeRoundedDelete01,
+                                size: 32,
+                                color: theme.colorScheme.error,
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Delete File',
+                              style: theme.textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Are you sure you want to delete "${widget.item.name}"? This action cannot be undone.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                  ),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                    backgroundColor: theme.colorScheme.error,
+                                    foregroundColor: theme.colorScheme.onError,
+                                  ),
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              );
+                    );
+                  },
+                );
 
                 if (confirm == true) {
                   try {
@@ -321,14 +340,16 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                       ref.read(pdfLibraryControllerProvider.notifier).refresh();
                       HapticFeedback.selectionClick();
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File deleted')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('File deleted')));
                         Navigator.pop(context);
                       }
                     }
                   } catch (e) {
                     HapticFeedback.heavyImpact();
                     if (context.mounted) {
-                      PdfErrorHandler.show(context, e, contextMessage: 'Failed to delete file');
+                      PdfErrorHandler.show(context, e,
+                          contextMessage: 'Failed to delete file');
                       Navigator.pop(context);
                     }
                   }
@@ -339,7 +360,10 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
           ],
         ),
       ),
-    ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.1, duration: 250.ms, curve: Curves.easeOutQuad);
+    )
+        .animate()
+        .fadeIn(duration: 250.ms)
+        .slideY(begin: 0.1, duration: 250.ms, curve: Curves.easeOutQuad);
   }
 
   String _fileSize(int bytes) {

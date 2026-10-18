@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../application/pdf_error_handler.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +34,8 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final loading = ref.watch(pdfLibraryControllerProvider.select((s) => s.loading));
+    final loading =
+        ref.watch(pdfLibraryControllerProvider.select((s) => s.loading));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.recents));
     final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
@@ -42,9 +43,11 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
     final isEmpty = groups.isEmpty;
 
     return CustomScrollView(
-      controller: _scrollController,
-      cacheExtent: 500, // Optimize cache extent for smoother scroll memory allocation
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      controller:
+          _scrollController, // Optimize cache extent for smoother scroll memory allocation
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         CupertinoSliverRefreshControl(
           onRefresh: () async {
@@ -53,116 +56,128 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
           },
         ),
         GlassSliverAppBar(
-            title: const Text('Recent', style: TextStyle(fontWeight: FontWeight.w700)),
-            actions: [
-              if (!isEmpty)
-                IconButton(
-                  icon: const Icon(Icons.delete_sweep_rounded),
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (c) {
-                        final theme = Theme.of(context);
-                        return Dialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                          backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.errorContainer,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.delete_sweep_rounded,
-                                    size: 32,
-                                    color: theme.colorScheme.error,
-                                  ),
+          title: const Text('Recent',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          actions: [
+            if (!isEmpty)
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_rounded),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (c) {
+                      final theme = Theme.of(context);
+                      return Dialog(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28)),
+                        backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.errorContainer,
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Clear Recent History',
-                                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
+                                child: Icon(
+                                  Icons.delete_sweep_rounded,
+                                  size: 32,
+                                  color: theme.colorScheme.error,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Are you sure you want to clear your recent history? This cannot be undone.',
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                                ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton(
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                      ),
-                                      onPressed: () => Navigator.pop(c, false),
-                                      child: const Text('Cancel'),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Clear Recent History',
+                                style: theme.textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Are you sure you want to clear your recent history? This cannot be undone.',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
                                     ),
-                                    const SizedBox(width: 8),
-                                    FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        backgroundColor: theme.colorScheme.error,
-                                        foregroundColor: theme.colorScheme.onError,
-                                      ),
-                                      onPressed: () => Navigator.pop(c, true),
-                                      child: const Text('Clear'),
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(16)),
+                                      backgroundColor: theme.colorScheme.error,
+                                      foregroundColor:
+                                          theme.colorScheme.onError,
                                     ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text('Clear'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                    );
-                    if (confirm == true) {
-                      await ctrl.clearRecents();
-                    }
-                  },
-                ),
-            ],
-          ),
-
-          if (loading)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: ArcProgressIndicator()),
-            )
-          else if (isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: ArcEmptyState(
-                icon: Icons.history_rounded,
-                title: 'Nothing opened yet',
-                subtitle: 'Files you open will appear here, grouped by when you last read them.',
-                animated: true,
+                        ),
+                      );
+                    },
+                  );
+                  if (confirm == true) {
+                    await ctrl.clearRecents();
+                  }
+                },
               ),
-            )
-          else
-            _RecentGroupsList(groups: groups, ctrl: ctrl, scrollController: _scrollController),
-
-          const SliverSafeArea(
-            minimum: EdgeInsets.only(bottom: 140),
-            sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
-          ),
-        ],
-      );
+          ],
+        ),
+        if (loading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: ArcProgressIndicator()),
+          )
+        else if (isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: ArcEmptyState(
+              icon: Icons.history_rounded,
+              title: 'Nothing opened yet',
+              subtitle:
+                  'Files you open will appear here, grouped by when you last read them.',
+              animated: true,
+            ),
+          )
+        else
+          _RecentGroupsList(
+              groups: groups, ctrl: ctrl, scrollController: _scrollController),
+        const SliverSafeArea(
+          minimum: EdgeInsets.only(bottom: 140),
+          sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+        ),
+      ],
+    );
   }
 }
 
 class _RecentGroupsList extends ConsumerWidget {
-  const _RecentGroupsList({required this.groups, required this.ctrl, this.scrollController});
+  const _RecentGroupsList(
+      {required this.groups, required this.ctrl, this.scrollController});
   final Map<String, List<PdfFileItem>> groups;
   final PdfLibraryController ctrl;
   final ScrollController? scrollController;
@@ -189,7 +204,8 @@ class _RecentGroupsList extends ConsumerWidget {
                   height: 16,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -204,7 +220,8 @@ class _RecentGroupsList extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Divider(
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -228,28 +245,35 @@ class _RecentGroupsList extends ConsumerWidget {
                   item: item,
                   index: idx,
                   scrollController: scrollController,
-                  onFavorite: () => ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(item),
+                  onFavorite: () => ref
+                      .read(pdfLibraryControllerProvider.notifier)
+                      .toggleFavorite(item),
                   onVault: () async {
                     final security = ref.read(securityControllerProvider);
                     if (!security.isLockEnabled) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: const Text('App lock is not enabled. Enable it in Settings first.'),
+                          content: const Text(
+                              'App lock is not enabled. Enable it in Settings first.'),
                           behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           duration: const Duration(seconds: 3),
                         ),
                       );
                       return;
                     }
-                    final success = await ref.read(vaultControllerProvider.notifier).moveToVault(item);
+                    final success = await ref
+                        .read(vaultControllerProvider.notifier)
+                        .moveToVault(item);
                     if (success && context.mounted) {
                       ref.read(pdfLibraryControllerProvider.notifier).refresh();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: const Text('Moved to Vault'),
                           behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           duration: const Duration(seconds: 2),
                         ),
                       );
@@ -260,29 +284,30 @@ class _RecentGroupsList extends ConsumerWidget {
                     if (!context.mounted) return;
                     ref.read(openTabsProvider.notifier).openTab(item);
                     await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MultiTabViewerScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const MultiTabViewerScreen()),
                     );
                   },
                 )
-                .animate()
-                .fadeIn(
-                  delay: (idx > 20 ? 0 : idx * 20).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOut,
-                )
-                .slideY(
-                  begin: 0.15,
-                  delay: (idx > 20 ? 0 : idx * 20).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOutCubic,
-                )
-                .scaleXY(
-                  begin: 0.92,
-                  end: 1.0,
-                  delay: (idx > 20 ? 0 : idx * 20).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOutBack,
-                ),
+                    .animate()
+                    .fadeIn(
+                      delay: (idx > 20 ? 0 : idx * 20).ms,
+                      duration: 400.ms,
+                      curve: Curves.easeOut,
+                    )
+                    .slideY(
+                      begin: 0.15,
+                      delay: (idx > 20 ? 0 : idx * 20).ms,
+                      duration: 400.ms,
+                      curve: Curves.easeOutCubic,
+                    )
+                    .scaleXY(
+                      begin: 0.92,
+                      end: 1.0,
+                      delay: (idx > 20 ? 0 : idx * 20).ms,
+                      duration: 400.ms,
+                      curve: Curves.easeOutBack,
+                    ),
               );
             },
           ),

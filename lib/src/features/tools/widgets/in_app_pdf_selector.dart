@@ -15,7 +15,8 @@ class InAppPdfSelector extends ConsumerStatefulWidget {
 
   final bool allowMultiple;
 
-  static Future<List<String>?> show(BuildContext context, {bool allowMultiple = true}) async {
+  static Future<List<String>?> show(BuildContext context,
+      {bool allowMultiple = true}) async {
     return showModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
@@ -79,7 +80,8 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                 width: 48,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color:
+                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -88,11 +90,14 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
-                  Text('Select PDF', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  Text('Select PDF',
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
                   const Spacer(),
                   if (_selectedPaths.isNotEmpty)
                     FilledButton(
-                      onPressed: () => Navigator.of(context).pop(_selectedPaths),
+                      onPressed: () =>
+                          Navigator.of(context).pop(_selectedPaths),
                       child: Text('Done (${_selectedPaths.length})'),
                     )
                   else
@@ -108,7 +113,8 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                   ? Center(
                       child: Text(
                         'No PDFs found.',
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant),
                       ),
                     )
                   : ListView.builder(
@@ -128,13 +134,15 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                                    ? theme.colorScheme.primaryContainer
+                                        .withValues(alpha: 0.5)
                                     : theme.colorScheme.surfaceContainerHigh,
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: isSelected
                                       ? theme.colorScheme.primary
-                                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                      : theme.colorScheme.outlineVariant
+                                          .withValues(alpha: 0.5),
                                   width: isSelected ? 2.0 : 1.0,
                                 ),
                               ),
@@ -156,13 +164,18 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+                                          item.name.replaceAll(
+                                              RegExp(r'\.pdf$',
+                                                  caseSensitive: false),
+                                              ''),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
-                                          style: theme.textTheme.titleMedium?.copyWith(
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
                                             fontWeight: FontWeight.w600,
                                             height: 1.2,
                                           ),
@@ -170,10 +183,15 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                                         const SizedBox(height: 6),
                                         Row(
                                           children: [
-                                            _Badge(label: '${(item.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB', theme: theme),
+                                            _Badge(
+                                                label:
+                                                    '${(item.sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                                theme: theme),
                                             const SizedBox(width: 6),
                                             if (item.pageCount != null)
-                                              _Badge(label: '${item.pageCount}p', theme: theme),
+                                              _Badge(
+                                                  label: '${item.pageCount}p',
+                                                  theme: theme),
                                           ],
                                         ),
                                       ],
@@ -186,24 +204,41 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                                       height: 28,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                                        color: isSelected
+                                            ? theme.colorScheme.primary
+                                            : Colors.transparent,
                                         border: Border.all(
-                                          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline,
+                                          color: isSelected
+                                              ? theme.colorScheme.primary
+                                              : theme.colorScheme.outline,
                                           width: 2,
                                         ),
                                       ),
                                       child: isSelected
-                                          ? Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)
+                                          ? Icon(Icons.check,
+                                              size: 16,
+                                              color:
+                                                  theme.colorScheme.onPrimary)
                                           : null,
                                     )
                                   else if (isSelected)
-                                    Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary, size: 28)
-                                        .animate().scale(duration: 200.ms, curve: Curves.easeOutBack),
+                                    Icon(Icons.check_circle_rounded,
+                                            color: theme.colorScheme.primary,
+                                            size: 28)
+                                        .animate()
+                                        .scale(
+                                            duration: 200.ms,
+                                            curve: Curves.easeOutBack),
                                 ],
                               ),
                             ),
                           ),
-                        ).animate(key: ValueKey('sel_${item.path}')).fadeIn(delay: (index > 20 ? 0 : index * 20).ms, duration: 300.ms).slideY(begin: 0.1);
+                        )
+                            .animate(key: ValueKey('sel_${item.path}'))
+                            .fadeIn(
+                                delay: (index > 20 ? 0 : index * 20).ms,
+                                duration: 300.ms)
+                            .slideY(begin: 0.1);
                       },
                     ),
             ),
@@ -225,7 +260,8 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                     Expanded(
                       child: FilledButton.tonalIcon(
                         icon: const Icon(HugeIcons.strokeRoundedFolder01),
-                        label: const Text('Browse Device Files', style: TextStyle(fontWeight: FontWeight.w600)),
+                        label: const Text('Browse Device Files',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),

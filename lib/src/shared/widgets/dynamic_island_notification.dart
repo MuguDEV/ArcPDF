@@ -17,7 +17,8 @@ class DynamicIslandNotification extends StatefulWidget {
     required this.onDismissed,
   });
 
-  static void show(BuildContext context, String message, {IconData? icon, Duration duration = const Duration(seconds: 3)}) {
+  static void show(BuildContext context, String message,
+      {IconData? icon, Duration duration = const Duration(seconds: 3)}) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
 
@@ -36,7 +37,8 @@ class DynamicIslandNotification extends StatefulWidget {
   }
 
   @override
-  State<DynamicIslandNotification> createState() => _DynamicIslandNotificationState();
+  State<DynamicIslandNotification> createState() =>
+      _DynamicIslandNotificationState();
 }
 
 class _DynamicIslandNotificationState extends State<DynamicIslandNotification> {
@@ -71,12 +73,15 @@ class _DynamicIslandNotificationState extends State<DynamicIslandNotification> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
+                    color: theme.colorScheme.surfaceContainerHigh
+                        .withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -91,7 +96,8 @@ class _DynamicIslandNotificationState extends State<DynamicIslandNotification> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.icon != null) ...[
-                        Icon(widget.icon, color: ArcColors.primary(context), size: 20),
+                        Icon(widget.icon,
+                            color: ArcColors.primary(context), size: 20),
                         const SizedBox(width: 12),
                       ],
                       Flexible(
@@ -114,9 +120,22 @@ class _DynamicIslandNotificationState extends State<DynamicIslandNotification> {
     );
 
     if (_isDismissing) {
-      return content.animate().slideY(begin: 0, end: -2.0, duration: 350.ms, curve: Curves.easeInBack).scale(end: const Offset(0.8, 0.8), duration: 350.ms).fadeOut(duration: 200.ms);
+      return content
+          .animate()
+          .slideY(
+              begin: 0, end: -2.0, duration: 350.ms, curve: Curves.easeInBack)
+          .scale(end: const Offset(0.8, 0.8), duration: 350.ms)
+          .fadeOut(duration: 200.ms);
     }
 
-    return content.animate().slideY(begin: -2.0, end: 0, duration: 600.ms, curve: Curves.elasticOut).scale(begin: const Offset(0.5, 0.5), end: const Offset(1.0, 1.0), duration: 600.ms, curve: Curves.elasticOut).fadeIn(duration: 300.ms);
+    return content
+        .animate()
+        .slideY(begin: -2.0, end: 0, duration: 600.ms, curve: Curves.elasticOut)
+        .scale(
+            begin: const Offset(0.5, 0.5),
+            end: const Offset(1.0, 1.0),
+            duration: 600.ms,
+            curve: Curves.elasticOut)
+        .fadeIn(duration: 300.ms);
   }
 }

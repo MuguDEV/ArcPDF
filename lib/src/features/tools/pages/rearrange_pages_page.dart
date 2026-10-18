@@ -71,15 +71,18 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(title: 'Processing', message: 'Saving new PDF...', isLoading: true),
+      builder: (context) => const ToolActionDialog(
+          title: 'Processing', message: 'Saving new PDF...', isLoading: true),
     );
 
     final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final outputPath = p.join(dir, 'Rearranged_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final outputPath =
+        p.join(dir, 'Rearranged_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
     // pages in pageOrder are 0-based, our rearrangePdf uses 1-based lists
     final pagesToExtract = _pageOrder.map((e) => e + 1).toList();
-    final successPath = await ToolsService.rearrangePdf(_selectedFile!, outputPath, pagesToExtract);
+    final successPath = await ToolsService.rearrangePdf(
+        _selectedFile!, outputPath, pagesToExtract);
 
     if (!context.mounted) return;
     Navigator.of(context).pop(); // pop loading
@@ -87,12 +90,17 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
+        builder: (context) => ToolActionDialog(
+            title: 'Success',
+            message: 'Saved to:\n$successPath',
+            isLoading: false,
+            outputPath: successPath),
       );
     } else {
       showDialog(
         context: context,
-        builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to save PDF.', isLoading: false),
+        builder: (context) => const ToolActionDialog(
+            title: 'Error', message: 'Failed to save PDF.', isLoading: false),
       );
     }
   }
@@ -111,13 +119,17 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedLayers01, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        Icon(HugeIcons.strokeRoundedLayers01,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
                           'No PDF selected yet.\nTap below to choose a file.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -127,7 +139,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                     ? const Center(child: CircularProgressIndicator())
                     : ReorderableListView.builder(
                         buildDefaultDragHandles: false,
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16, horizontal: 16),
                         itemCount: _pageOrder.length,
                         onReorder: (oldIndex, newIndex) {
                           setState(() {
@@ -140,8 +153,10 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                           return AnimatedBuilder(
                             animation: animation,
                             builder: (BuildContext context, Widget? child) {
-                              final double animValue = Curves.easeInOut.transform(animation.value);
-                              final double elevation = lerpDouble(0, 8, animValue)!;
+                              final double animValue =
+                                  Curves.easeInOut.transform(animation.value);
+                              final double elevation =
+                                  lerpDouble(0, 8, animValue)!;
                               return Material(
                                 elevation: elevation,
                                 color: Colors.transparent,
@@ -162,7 +177,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                               color: theme.colorScheme.surfaceContainerLow,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                color: theme.colorScheme.outlineVariant
+                                    .withValues(alpha: 0.5),
                                 width: 1.0,
                               ),
                             ),
@@ -176,11 +192,15 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: theme.colorScheme.surfaceContainerHighest,
+                                      color: theme
+                                          .colorScheme.surfaceContainerHighest,
                                     ),
                                     child: Text(
                                       '${index + 1}',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurfaceVariant),
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -200,7 +220,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                   Expanded(
                                     child: Text(
                                       'Original Page ${originalIndex + 1}',
-                                      style: theme.textTheme.titleMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -209,8 +230,12 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       IconButton(
-                                        icon: Icon(HugeIcons.strokeRoundedDelete01, color: theme.colorScheme.error, size: 22),
-                                        onPressed: () => setState(() => _pageOrder.removeAt(index)),
+                                        icon: Icon(
+                                            HugeIcons.strokeRoundedDelete01,
+                                            color: theme.colorScheme.error,
+                                            size: 22),
+                                        onPressed: () => setState(
+                                            () => _pageOrder.removeAt(index)),
                                         visualDensity: VisualDensity.compact,
                                       ),
                                       const SizedBox(height: 4),
@@ -218,7 +243,11 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                         index: index,
                                         child: MouseRegion(
                                           cursor: SystemMouseCursors.grab,
-                                          child: Icon(Icons.drag_indicator_rounded, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                                          child: Icon(
+                                              Icons.drag_indicator_rounded,
+                                              color: theme
+                                                  .colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.5)),
                                         ),
                                       ),
                                     ],
@@ -238,7 +267,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFile,
-                      child: Text(_selectedFile == null ? 'Select PDF' : 'Change PDF'),
+                      child: Text(
+                          _selectedFile == null ? 'Select PDF' : 'Change PDF'),
                     ),
                   ),
                   const SizedBox(width: 16),

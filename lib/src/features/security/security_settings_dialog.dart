@@ -10,10 +10,12 @@ class SecuritySettingsDialog extends ConsumerStatefulWidget {
   const SecuritySettingsDialog({super.key});
 
   @override
-  ConsumerState<SecuritySettingsDialog> createState() => _SecuritySettingsDialogState();
+  ConsumerState<SecuritySettingsDialog> createState() =>
+      _SecuritySettingsDialogState();
 }
 
-class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog> {
+class _SecuritySettingsDialogState
+    extends ConsumerState<SecuritySettingsDialog> {
   LockType _selectedType = LockType.pin;
   String? _firstInput;
   String? _errorText;
@@ -29,8 +31,12 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
     } else {
       if (_firstInput == input) {
         // Success
-        await ref.read(securityControllerProvider.notifier).setLockType(_selectedType);
-        await ref.read(securityControllerProvider.notifier).setLockEnabled(true, pinOrPattern: input);
+        await ref
+            .read(securityControllerProvider.notifier)
+            .setLockType(_selectedType);
+        await ref
+            .read(securityControllerProvider.notifier)
+            .setLockEnabled(true, pinOrPattern: input);
         if (context.mounted) Navigator.pop(context);
       } else {
         setState(() {
@@ -65,20 +71,34 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
                 size: 32,
                 color: theme.colorScheme.primary,
               ),
-            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            )
+                .animate()
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 16),
             Text(
-              _isConfirming ? 'Confirm ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}' : 'Set new ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              _isConfirming
+                  ? 'Confirm ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}'
+                  : 'Set new ${_selectedType == LockType.pin ? 'PIN' : 'Pattern'}',
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
-            ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            )
+                .animate()
+                .fadeIn(duration: 400.ms, delay: 50.ms)
+                .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
-
             if (!_isConfirming)
               SegmentedButton<LockType>(
                 segments: const [
-                  ButtonSegment(value: LockType.pin, label: Text('PIN'), icon: Icon(HugeIcons.strokeRoundedPasswordValidation)),
-                  ButtonSegment(value: LockType.pattern, label: Text('Pattern'), icon: Icon(HugeIcons.strokeRoundedGrid)),
+                  ButtonSegment(
+                      value: LockType.pin,
+                      label: Text('PIN'),
+                      icon: Icon(HugeIcons.strokeRoundedPasswordValidation)),
+                  ButtonSegment(
+                      value: LockType.pattern,
+                      label: Text('Pattern'),
+                      icon: Icon(HugeIcons.strokeRoundedGrid)),
                 ],
                 selected: {_selectedType},
                 onSelectionChanged: (s) {
@@ -88,12 +108,14 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
                   });
                 },
                 style: ButtonStyle(
-                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
+                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28))),
                 ),
-              ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
-
+              )
+                  .animate()
+                  .fadeIn(duration: 400.ms, delay: 100.ms)
+                  .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 32),
-
             if (_selectedType == LockType.pin)
               PinPad(
                 onCompleted: _handleInput,
@@ -107,15 +129,16 @@ class _SecuritySettingsDialogState extends ConsumerState<SecuritySettingsDialog>
                 errorText: _errorText,
                 key: ValueKey('pattern_$_isConfirming'),
               ),
-
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextButton(
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancel'),
@@ -133,14 +156,17 @@ class SecurityVerifyDialog extends ConsumerStatefulWidget {
   const SecurityVerifyDialog({super.key});
 
   @override
-  ConsumerState<SecurityVerifyDialog> createState() => _SecurityVerifyDialogState();
+  ConsumerState<SecurityVerifyDialog> createState() =>
+      _SecurityVerifyDialogState();
 }
 
 class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
   String? _errorText;
 
   void _handleInput(String input) async {
-    final success = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(input);
+    final success = await ref
+        .read(securityControllerProvider.notifier)
+        .verifyPinOrPattern(input);
     if (success) {
       if (context.mounted) Navigator.pop(context, true);
     } else {
@@ -174,12 +200,19 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
                 size: 32,
                 color: theme.colorScheme.primary,
               ),
-            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+            )
+                .animate()
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 16),
             Text(
               'Verify to Disable',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+              style: theme.textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            )
+                .animate()
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
             const SizedBox(height: 24),
             if (security.lockType == LockType.pin)
               PinPad(onCompleted: _handleInput, errorText: _errorText)
@@ -191,8 +224,10 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
               children: [
                 TextButton(
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () => Navigator.pop(context, false),
                   child: const Text('Cancel'),

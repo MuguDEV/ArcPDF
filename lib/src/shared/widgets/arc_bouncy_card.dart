@@ -105,13 +105,15 @@ class _ArcBouncyCardState extends State<ArcBouncyCard> {
               _localOffset = Offset.zero;
             });
           },
-          onLongPress: widget.onLongPress != null ? () {
-            setState(() {
-              _isPressed = false;
-              _localOffset = Offset.zero;
-            });
-            widget.onLongPress?.call();
-          } : null,
+          onLongPress: widget.onLongPress != null
+              ? () {
+                  setState(() {
+                    _isPressed = false;
+                    _localOffset = Offset.zero;
+                  });
+                  widget.onLongPress?.call();
+                }
+              : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
@@ -135,9 +137,19 @@ class _ArcBouncyCardState extends State<ArcBouncyCard> {
                           height: 100,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.3),
                           ),
-                        ).animate().scale(begin: const Offset(0.0, 0.0), end: const Offset(5.0, 5.0), duration: 400.ms, curve: Curves.easeOutCirc).fadeOut(duration: 300.ms),
+                        )
+                            .animate()
+                            .scale(
+                                begin: const Offset(0.0, 0.0),
+                                end: const Offset(5.0, 5.0),
+                                duration: 400.ms,
+                                curve: Curves.easeOutCirc)
+                            .fadeOut(duration: 300.ms),
                       ),
                   ],
                 ),

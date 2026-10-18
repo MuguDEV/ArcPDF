@@ -39,7 +39,8 @@ class PdfFileItem {
     );
   }
 
-  static PdfFileItem fromFile(File file, {bool isEncrypted = false, bool isCorrupted = false}) {
+  static PdfFileItem fromFile(File file,
+      {bool isEncrypted = false, bool isCorrupted = false}) {
     final stat = file.statSync();
     final p = file.path;
     final parts = p.split(Platform.pathSeparator);

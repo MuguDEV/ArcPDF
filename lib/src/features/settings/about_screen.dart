@@ -15,7 +15,8 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        title: const Text('About & Licenses', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('About & Licenses',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -29,9 +30,14 @@ class AboutScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+                  color: isDark
+                      ? const Color(0xFF1E1E1E)
+                      : const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(32),
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5), width: 1.5),
+                  border: Border.all(
+                      color: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.5),
+                      width: 1.5),
                   boxShadow: [
                     BoxShadow(
                       color: theme.colorScheme.primary.withValues(alpha: 0.15),
@@ -45,13 +51,15 @@ class AboutScreen extends StatelessWidget {
                   size: 56,
                   color: theme.colorScheme.primary,
                 ),
-              ).animate().scale(delay: 100.ms, duration: 500.ms, curve: Curves.elasticOut),
+              ).animate().scale(
+                  delay: 100.ms, duration: 500.ms, curve: Curves.elasticOut),
             ),
             const SizedBox(height: 24),
 
             Text(
               'ArcPDF',
-              style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+              style: theme.textTheme.headlineLarge
+                  ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
             ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
 
             const SizedBox(height: 8),
@@ -70,18 +78,22 @@ class AboutScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: theme.colorScheme.outlineVariant
+                        .withValues(alpha: 0.5)),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(HugeIcons.strokeRoundedCopyright, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                      Icon(HugeIcons.strokeRoundedCopyright,
+                          size: 20, color: theme.colorScheme.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text(
                         '2026 Mugunthan S',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
@@ -90,7 +102,8 @@ class AboutScreen extends StatelessWidget {
                     'This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License (AGPL-3.0) as published by the Free Software Foundation.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.8),
                       height: 1.5,
                     ),
                   ),
@@ -106,12 +119,14 @@ class AboutScreen extends StatelessWidget {
                 showLicensePage(
                   context: context,
                   applicationName: 'ArcPDF',
-                  applicationLegalese: 'Copyright (C) 2026 Mugunthan S\nLicensed under GNU AGPL-3.0',
+                  applicationLegalese:
+                      'Copyright (C) 2026 Mugunthan S\nLicensed under GNU AGPL-3.0',
                 );
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -122,7 +137,8 @@ class AboutScreen extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -132,7 +148,8 @@ class AboutScreen extends StatelessWidget {
                         color: theme.colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(HugeIcons.strokeRoundedBookOpen01, color: theme.colorScheme.onPrimary, size: 24),
+                      child: Icon(HugeIcons.strokeRoundedBookOpen01,
+                          color: theme.colorScheme.onPrimary, size: 24),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -150,13 +167,15 @@ class AboutScreen extends StatelessWidget {
                           Text(
                             'View third-party software details',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                              color: theme.colorScheme.onPrimaryContainer
+                                  .withValues(alpha: 0.7),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Icon(HugeIcons.strokeRoundedArrowRight01, color: theme.colorScheme.onPrimaryContainer),
+                    Icon(HugeIcons.strokeRoundedArrowRight01,
+                        color: theme.colorScheme.onPrimaryContainer),
                   ],
                 ),
               ),

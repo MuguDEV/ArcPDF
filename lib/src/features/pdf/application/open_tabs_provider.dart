@@ -30,17 +30,20 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
     final List<dynamic>? pathsDynamic = _sessionBox.get('paths');
 
     if (pathsDynamic != null) {
-       final paths = pathsDynamic.cast<String>();
-       final List<PdfFileItem> loadedTabs = [];
-       for (final path in paths) {
-         final file = File(path);
-         if (file.existsSync()) {
-           loadedTabs.add(PdfFileItem.fromFile(file, isEncrypted: false, isCorrupted: false));
-         }
-       }
-       if (loadedTabs.isNotEmpty) {
-         state = state.copyWith(tabs: loadedTabs, activeIndex: activeIndex < loadedTabs.length ? activeIndex : 0);
-       }
+      final paths = pathsDynamic.cast<String>();
+      final List<PdfFileItem> loadedTabs = [];
+      for (final path in paths) {
+        final file = File(path);
+        if (file.existsSync()) {
+          loadedTabs.add(PdfFileItem.fromFile(file,
+              isEncrypted: false, isCorrupted: false));
+        }
+      }
+      if (loadedTabs.isNotEmpty) {
+        state = state.copyWith(
+            tabs: loadedTabs,
+            activeIndex: activeIndex < loadedTabs.length ? activeIndex : 0);
+      }
     }
   }
 
@@ -70,7 +73,7 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
 
     if (tabs.isEmpty) {
       newIndex = 0;
-      state = OpenTabsState(tabs: [], activeIndex: 0);
+      state = const OpenTabsState(tabs: [], activeIndex: 0);
     } else {
       if (newIndex >= index) {
         newIndex = newIndex > 0 ? newIndex - 1 : 0;
@@ -88,7 +91,8 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
   }
 }
 
-final openTabsProvider = StateNotifierProvider<OpenTabsNotifier, OpenTabsState>((ref) {
+final openTabsProvider =
+    StateNotifierProvider<OpenTabsNotifier, OpenTabsState>((ref) {
   final box = Hive.box<dynamic>(LocalBoxes.sessions);
   return OpenTabsNotifier(box);
 });

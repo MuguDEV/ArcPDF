@@ -33,7 +33,8 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
     if (!success) {
       if (mounted) {
         setState(() {
-          _errorText = 'Incorrect ${ref.read(securityControllerProvider).lockType == LockType.pin ? 'PIN' : 'Pattern'}';
+          _errorText =
+              'Incorrect ${ref.read(securityControllerProvider).lockType == LockType.pin ? 'PIN' : 'Pattern'}';
         });
       }
     } else {
@@ -50,7 +51,8 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final security = ref.watch(securityControllerProvider);
-    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final lowPowerMode =
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -63,7 +65,8 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
                 : BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
                     child: Container(
-                      color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.8 : 0.85),
+                      color: theme.colorScheme.surface
+                          .withValues(alpha: isDark ? 0.8 : 0.85),
                     ),
                   ),
           ),
@@ -78,19 +81,29 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
                       HugeIcons.strokeRoundedSecurityLock,
                       size: 64,
                       color: theme.colorScheme.primary,
-                    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                    )
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 24),
                     Text(
                       widget.title,
-                      style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ).animate().fadeIn(duration: 400.ms, delay: 50.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                      style: theme.textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    )
+                        .animate()
+                        .fadeIn(duration: 400.ms, delay: 50.ms)
+                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 8),
                     Text(
                       'Enter your ${security.lockType == LockType.pin ? 'PIN' : 'Pattern'} to continue',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    )
+                        .animate()
+                        .fadeIn(duration: 400.ms, delay: 100.ms)
+                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutCubic),
                     const SizedBox(height: 48),
-
                     if (security.lockType == LockType.pin)
                       PinPad(
                         onCompleted: _handleInput,
@@ -101,13 +114,12 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
                         onCompleted: _handleInput,
                         errorText: _errorText,
                       ),
-
                     const SizedBox(height: 32),
-
                     if (security.isBiometricEnabled)
                       TextButton.icon(
                         onPressed: widget.onBiometricAuth,
-                        icon: const Icon(HugeIcons.strokeRoundedFingerprintScan),
+                        icon:
+                            const Icon(HugeIcons.strokeRoundedFingerprintScan),
                         label: const Text('Use Biometrics'),
                       ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                   ],

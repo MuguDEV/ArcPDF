@@ -37,7 +37,8 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
 }
 
-class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsBindingObserver, RouteAware {
+class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
+    with WidgetsBindingObserver, RouteAware {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   late final PdfTextSearcher _textSearcher;
 
@@ -130,7 +131,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _readingTimer?.cancel();
     _autoScrollTimer?.cancel();
     if (_pendingReadingTime > 0) {
-      ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+      ref
+          .read(readingProgressRepositoryProvider)
+          .addReadTime(widget.item.path, _pendingReadingTime);
     }
     _searchController.dispose();
     _searchFocus.dispose();
@@ -158,9 +161,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
           _page = newPage;
           _pageCount = newPageCount;
         });
-        ref.read(readingProgressRepositoryProvider).saveLastReadPage(widget.item.path, newPage);
+        ref
+            .read(readingProgressRepositoryProvider)
+            .saveLastReadPage(widget.item.path, newPage);
       }
-      ref.read(readingProgressRepositoryProvider).saveLastZoom(widget.item.path, _pdfViewerController.currentZoom);
+      ref
+          .read(readingProgressRepositoryProvider)
+          .saveLastZoom(widget.item.path, _pdfViewerController.currentZoom);
     }
   }
 
@@ -177,7 +184,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     } else if (state == AppLifecycleState.paused) {
       _readingTimer?.cancel();
       if (_pendingReadingTime > 0) {
-        ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+        ref
+            .read(readingProgressRepositoryProvider)
+            .addReadTime(widget.item.path, _pendingReadingTime);
         _pendingReadingTime = 0;
       }
       // System will handle wakelock on pause automatically, no need to manually disable
@@ -189,7 +198,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     _readingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _pendingReadingTime++;
       if (_pendingReadingTime >= 10) {
-        ref.read(readingProgressRepositoryProvider).addReadTime(widget.item.path, _pendingReadingTime);
+        ref
+            .read(readingProgressRepositoryProvider)
+            .addReadTime(widget.item.path, _pendingReadingTime);
         _pendingReadingTime = 0;
       }
     });
@@ -216,13 +227,18 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
     });
     if (_isAutoScrolling) {
       _autoScrollTimer?.cancel();
-      _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      _autoScrollTimer =
+          Timer.periodic(const Duration(milliseconds: 50), (timer) {
         if (!mounted || !_pdfViewerController.isReady) return;
         final currentCenter = _pdfViewerController.centerPosition;
         if (_isHorizontalScroll) {
-          _pdfViewerController.setZoom(Offset(currentCenter.dx + 2, currentCenter.dy), _pdfViewerController.currentZoom);
+          _pdfViewerController.setZoom(
+              Offset(currentCenter.dx + 2, currentCenter.dy),
+              _pdfViewerController.currentZoom);
         } else {
-          _pdfViewerController.setZoom(Offset(currentCenter.dx, currentCenter.dy + 2), _pdfViewerController.currentZoom);
+          _pdfViewerController.setZoom(
+              Offset(currentCenter.dx, currentCenter.dy + 2),
+              _pdfViewerController.currentZoom);
         }
       });
       setState(() => _showToolbar = false); // Hide UI for reading
@@ -264,8 +280,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isBlurEnabled = ref.watch(settingsControllerProvider.select((s) => s.useBlurEffect && !s.lowPowerMode));
-    final isLiquidGlass = ref.watch(settingsControllerProvider.select((s) => s.useLiquidGlass && !s.lowPowerMode));
+    final isBlurEnabled = ref.watch(settingsControllerProvider
+        .select((s) => s.useBlurEffect && !s.lowPowerMode));
+    final isLiquidGlass = ref.watch(settingsControllerProvider
+        .select((s) => s.useLiquidGlass && !s.lowPowerMode));
     final repo = ref.read(readingProgressRepositoryProvider);
 
     return Scaffold(
@@ -282,7 +300,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               builder: (context) {
                 final viewer = PdfViewer.file(
                   widget.item.path,
-                  initialPageNumber: repo.getLastReadPage(widget.item.path) > 0 ? repo.getLastReadPage(widget.item.path) : 1,
+                  initialPageNumber: repo.getLastReadPage(widget.item.path) > 0
+                      ? repo.getLastReadPage(widget.item.path)
+                      : 1,
                   controller: _pdfViewerController,
                   passwordProvider: () async => _showPasswordPrompt(context),
                   params: PdfViewerParams(
@@ -292,7 +312,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                         controller.setZoom(controller.centerPosition, lastZoom);
                       }
                     },
-                    errorBannerBuilder: (context, error, stackTrace, documentRef) {
+                    errorBannerBuilder:
+                        (context, error, stackTrace, documentRef) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
@@ -327,22 +348,32 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     },
                     backgroundColor: theme.colorScheme.surface,
                     pageDropShadow: const BoxShadow(color: Colors.transparent),
-                    enableTextSelection: true,
                     margin: 4.0,
                     maxScale: 8.0,
-                    layoutPages: _isHorizontalScroll ? (pages, params) {
-                      final height = pages.fold(
-                        0.0, (prev, page) => prev > page.height ? prev : page.height) + params.margin * 2;
-                      final pageLayouts = <Rect>[];
-                      double x = params.margin;
-                      for (final page in pages) {
-                        pageLayouts.add(Rect.fromLTWH(
-                          x, (height - page.height) / 2, page.width, page.height,
-                        ));
-                        x += page.width + params.margin;
-                      }
-                      return PdfPageLayout(pageLayouts: pageLayouts, documentSize: Size(x, height));
-                    } : null,
+                    layoutPages: _isHorizontalScroll
+                        ? (pages, params) {
+                            final height = pages.fold(
+                                    0.0,
+                                    (prev, page) => prev > page.height
+                                        ? prev
+                                        : page.height) +
+                                params.margin * 2;
+                            final pageLayouts = <Rect>[];
+                            double x = params.margin;
+                            for (final page in pages) {
+                              pageLayouts.add(Rect.fromLTWH(
+                                x,
+                                (height - page.height) / 2,
+                                page.width,
+                                page.height,
+                              ));
+                              x += page.width + params.margin;
+                            }
+                            return PdfPageLayout(
+                                pageLayouts: pageLayouts,
+                                documentSize: Size(x, height));
+                          }
+                        : null,
                     pagePaintCallbacks: [
                       _textSearcher.pageTextMatchPaintCallback
                     ],
@@ -363,15 +394,33 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                 return RepaintBoundary(
                   child: RotatedBox(
                     quarterTurns: _rotationQuarterTurns,
-                    child: _pdfDarkMode ? ColorFiltered(
-                      colorFilter: const ColorFilter.matrix([
-                        -0.333, -0.333, -0.333, 0, 255,
-                        -0.333, -0.333, -0.333, 0, 255,
-                        -0.333, -0.333, -0.333, 0, 255,
-                        0,      0,      0,      1, 0,
-                      ]),
-                      child: viewer,
-                    ) : viewer,
+                    child: _pdfDarkMode
+                        ? ColorFiltered(
+                            colorFilter: const ColorFilter.matrix([
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              0,
+                              0,
+                              0,
+                              1,
+                              0,
+                            ]),
+                            child: viewer,
+                          )
+                        : viewer,
                   ),
                 );
               },
@@ -430,27 +479,36 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   decoration: InputDecoration(
                                     hintText: 'Search...',
                                     border: InputBorder.none,
-                                    prefixIcon: Icon(Icons.search_rounded, color: theme.colorScheme.onSurfaceVariant),
+                                    prefixIcon: Icon(Icons.search_rounded,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant),
                                   ),
                                 ),
                               ),
                               if (_textSearcher.hasMatches) ...[
-                                Text('${_textSearcher.currentIndex == null ? 0 : _textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}'),
+                                Text(
+                                    '${_textSearcher.currentIndex == null ? 0 : _textSearcher.currentIndex! + 1}/${_textSearcher.matches.length}'),
                                 ArcBouncyButton(
-                                  child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.keyboard_arrow_up)),
+                                  child: const Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Icon(Icons.keyboard_arrow_up)),
                                   onPressed: () {
                                     _textSearcher.goToPrevMatch();
                                   },
                                 ),
                                 ArcBouncyButton(
-                                  child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.keyboard_arrow_down)),
+                                  child: const Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Icon(Icons.keyboard_arrow_down)),
                                   onPressed: () {
                                     _textSearcher.goToNextMatch();
                                   },
                                 ),
                               ],
                               ArcBouncyButton(
-                                child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.close_rounded)),
+                                child: const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Icon(Icons.close_rounded)),
                                 onPressed: () {
                                   setState(() {
                                     _isSearching = false;
@@ -463,13 +521,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             ] else ...[
                               ArcBouncyButton(
                                 onPressed: () => Navigator.of(context).pop(),
-                                child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.arrow_back_rounded)),
+                                child: const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Icon(Icons.arrow_back_rounded)),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   widget.item.name,
-                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  style: theme.textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -479,23 +540,33 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   setState(() => _pdfDarkMode = !_pdfDarkMode);
                                   _scheduleHide();
                                 },
-                                child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(_pdfDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded)),
-                                tooltip: _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
+                                tooltip:
+                                    _pdfDarkMode ? 'Light Mode' : 'Dark Mode',
+                                child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Icon(_pdfDarkMode
+                                        ? Icons.light_mode_rounded
+                                        : Icons.dark_mode_rounded)),
                               ),
                               ArcBouncyButton(
                                 onPressed: () {
-                                  ref.read(pdfLibraryControllerProvider.notifier).toggleFavorite(widget.item);
+                                  ref
+                                      .read(
+                                          pdfLibraryControllerProvider.notifier)
+                                      .toggleFavorite(widget.item);
                                   _scheduleHide();
                                 },
+                                tooltip: 'Toggle Favorite',
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Icon(
-                                    ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites.contains(widget.item.path)))
+                                    ref.watch(pdfLibraryControllerProvider
+                                            .select((s) => s.favorites
+                                                .contains(widget.item.path)))
                                         ? Icons.star_rounded
                                         : Icons.star_border_rounded,
                                   ),
                                 ),
-                                tooltip: 'Toggle Favorite',
                               ),
                               ArcBouncyButton(
                                 onPressed: () {
@@ -503,7 +574,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   _searchFocus.requestFocus();
                                   _hideTimer?.cancel();
                                 },
-                                child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.search_rounded)),
+                                child: const Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Icon(Icons.search_rounded)),
                               ),
                               // Chrome-style Multi-Tab Button (Redesigned)
                               if (ref.watch(openTabsProvider).tabs.length > 1)
@@ -511,43 +584,54 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   onPressed: () {
                                     Navigator.of(context).push(
                                       MaterialPageRoute(
-                                        builder: (_) => const TabSwitcherScreen(),
+                                        builder: (_) =>
+                                            const TabSwitcherScreen(),
                                         fullscreenDialog: true,
                                       ),
                                     );
                                   },
+                                  tooltip: 'Open Tabs',
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.primaryContainer,
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.5), width: 1.5),
+                                      border: Border.all(
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.5),
+                                          width: 1.5),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
                                           '${ref.watch(openTabsProvider).tabs.length}',
-                                          style: theme.textTheme.labelLarge?.copyWith(
+                                          style: theme.textTheme.labelLarge
+                                              ?.copyWith(
                                             fontWeight: FontWeight.w800,
-                                            color: theme.colorScheme.onPrimaryContainer,
+                                            color: theme
+                                                .colorScheme.onPrimaryContainer,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  tooltip: 'Open Tabs',
                                 ),
                               PopupMenuButton<String>(
                                 icon: const Icon(Icons.more_vert_rounded),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
                                 onSelected: (val) async {
                                   _scheduleHide();
                                   if (val == 'info') {
                                     await _showPdfInfo();
                                   } else if (val == 'share') {
-
-                                    SharePlus.instance.share(<XFile>(widget.item.path)]);
+                                    await SharePlus.instance.share(
+                                      ShareParams(
+                                        files: [XFile(widget.item.path)],
+                                      ),
+                                    );
                                   } else if (val == 'print') {
                                     final file = File(widget.item.path);
                                     final bytes = await file.readAsBytes();
@@ -564,8 +648,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   } else if (val == 'autoscroll') {
                                     _toggleAutoScroll();
                                   } else if (val == 'wakelock') {
-                                    final current = ref.read(settingsControllerProvider).keepScreenAwake;
-                                    ref.read(settingsControllerProvider.notifier).setKeepScreenAwake(!current);
+                                    final current = ref
+                                        .read(settingsControllerProvider)
+                                        .keepScreenAwake;
+                                    ref
+                                        .read(
+                                            settingsControllerProvider.notifier)
+                                        .setKeepScreenAwake(!current);
                                     if (!current) {
                                       WakelockPlus.enable();
                                     } else {
@@ -576,17 +665,41 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   }
                                 },
                                 itemBuilder: (context) {
-                                  final keepAwake = ref.watch(settingsControllerProvider).keepScreenAwake;
+                                  final keepAwake = ref
+                                      .watch(settingsControllerProvider)
+                                      .keepScreenAwake;
                                   return [
-                                    PopupMenuItem(value: 'autoscroll', child: Text(_isAutoScrolling ? 'Stop Auto-Scroll' : 'Start Auto-Scroll')),
-                                    PopupMenuItem(value: 'wakelock', child: Text(keepAwake ? 'Allow Screen to Sleep' : 'Keep Screen Awake')),
-                                    const PopupMenuItem(value: 'jump', child: Text('Jump to Page')),
-                                    const PopupMenuItem(value: 'thumbnails', child: Text('Page Thumbnails')),
-                                    const PopupMenuItem(value: 'outline', child: Text('Document Outline')),
-                                    const PopupMenuItem(value: 'info', child: Text('Document Info')),
-                                    const PopupMenuItem(value: 'share', child: Text('Share Entire PDF')),
-                                    const PopupMenuItem(value: 'share_page', child: Text('Share Current Page Only')),
-                                    const PopupMenuItem(value: 'print', child: Text('Print Document')),
+                                    PopupMenuItem(
+                                        value: 'autoscroll',
+                                        child: Text(_isAutoScrolling
+                                            ? 'Stop Auto-Scroll'
+                                            : 'Start Auto-Scroll')),
+                                    PopupMenuItem(
+                                        value: 'wakelock',
+                                        child: Text(keepAwake
+                                            ? 'Allow Screen to Sleep'
+                                            : 'Keep Screen Awake')),
+                                    const PopupMenuItem(
+                                        value: 'jump',
+                                        child: Text('Jump to Page')),
+                                    const PopupMenuItem(
+                                        value: 'thumbnails',
+                                        child: Text('Page Thumbnails')),
+                                    const PopupMenuItem(
+                                        value: 'outline',
+                                        child: Text('Document Outline')),
+                                    const PopupMenuItem(
+                                        value: 'info',
+                                        child: Text('Document Info')),
+                                    const PopupMenuItem(
+                                        value: 'share',
+                                        child: Text('Share Entire PDF')),
+                                    const PopupMenuItem(
+                                        value: 'share_page',
+                                        child: Text('Share Current Page Only')),
+                                    const PopupMenuItem(
+                                        value: 'print',
+                                        child: Text('Print Document')),
                                   ];
                                 },
                               ),
@@ -599,7 +712,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           alignment: Alignment.topCenter,
                           child: _isToolbarExpanded
                               ? Padding(
-                                  padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+                                  padding: const EdgeInsets.only(
+                                      top: 8.0, bottom: 4.0),
                                   child: Wrap(
                                     alignment: WrapAlignment.spaceEvenly,
                                     spacing: 8.0,
@@ -607,66 +721,113 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                     children: [
                                       ArcBouncyButton(
                                         onPressed: () {
-                                          setState(() => _fitWidth = !_fitWidth);
-                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          setState(
+                                              () => _fitWidth = !_fitWidth);
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
                                             if (_fitWidth) {
-                                              final m = _pdfViewerController.calcMatrixFitWidthForPage(pageNumber: _pdfViewerController.pageNumber ?? 1);
+                                              final m = _pdfViewerController
+                                                  .calcMatrixFitWidthForPage(
+                                                      pageNumber:
+                                                          _pdfViewerController
+                                                                  .pageNumber ??
+                                                              1);
                                               if (m != null) {
-                                                _pdfViewerController.goTo(m, duration: const Duration(milliseconds: 250));
+                                                _pdfViewerController.goTo(m,
+                                                    duration: const Duration(
+                                                        milliseconds: 250));
                                               }
                                             } else {
-                                              _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
+                                              _pdfViewerController.setZoom(
+                                                  _pdfViewerController
+                                                      .centerPosition,
+                                                  _pdfViewerController
+                                                          .currentZoom /
+                                                      1.5);
                                             }
                                           });
                                           _scheduleHide();
                                         },
-                                        child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(_fitWidth ? Icons.fit_screen_rounded : Icons.width_full_rounded)),
-                                        tooltip: _fitWidth ? 'Fit Page' : 'Fit Width',
+                                        tooltip: _fitWidth
+                                            ? 'Fit Page'
+                                            : 'Fit Width',
+                                        child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Icon(_fitWidth
+                                                ? Icons.fit_screen_rounded
+                                                : Icons.width_full_rounded)),
                                       ),
                                       ArcBouncyButton(
                                         onPressed: () {
-                                          _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom * 1.5, duration: const Duration(milliseconds: 250));
+                                          _pdfViewerController.setZoom(
+                                              _pdfViewerController
+                                                  .centerPosition,
+                                              _pdfViewerController.currentZoom *
+                                                  1.5);
                                           _scheduleHide();
                                         },
-                                        child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.zoom_in_rounded)),
                                         tooltip: 'Zoom In',
+                                        child: const Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: Icon(Icons.zoom_in_rounded)),
                                       ),
                                       ArcBouncyButton(
                                         onPressed: () {
-                                          _pdfViewerController.setZoom(_pdfViewerController.centerPosition, _pdfViewerController.currentZoom / 1.5, duration: const Duration(milliseconds: 250));
+                                          _pdfViewerController.setZoom(
+                                              _pdfViewerController
+                                                  .centerPosition,
+                                              _pdfViewerController.currentZoom /
+                                                  1.5);
                                           _scheduleHide();
                                         },
-                                        child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.zoom_out_rounded)),
                                         tooltip: 'Zoom Out',
+                                        child: const Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child:
+                                                Icon(Icons.zoom_out_rounded)),
                                       ),
                                       ArcBouncyButton(
                                         onPressed: () {
                                           setState(() {
-                                            _rotationQuarterTurns = (_rotationQuarterTurns + 1) % 4;
+                                            _rotationQuarterTurns =
+                                                (_rotationQuarterTurns + 1) % 4;
                                           });
                                           _scheduleHide();
                                         },
-                                        child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.rotate_right_rounded)),
                                         tooltip: 'Rotate Page',
+                                        child: const Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: Icon(
+                                                Icons.rotate_right_rounded)),
                                       ),
                                       ArcBouncyButton(
                                         onPressed: () {
-                                          setState(() => _isHorizontalScroll = !_isHorizontalScroll);
+                                          setState(() => _isHorizontalScroll =
+                                              !_isHorizontalScroll);
                                           _scheduleHide();
                                         },
-                                        child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(_isHorizontalScroll ? Icons.swap_vert_rounded : Icons.swap_horiz_rounded)),
                                         tooltip: 'Toggle Scroll Direction',
+                                        child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Icon(_isHorizontalScroll
+                                                ? Icons.swap_vert_rounded
+                                                : Icons.swap_horiz_rounded)),
                                       ),
                                       ArcBouncyButton(
                                         onPressed: () {
                                           setState(() {
                                             _isFullscreen = !_isFullscreen;
                                             if (_isFullscreen) {
-                                              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                                              SystemChrome
+                                                  .setEnabledSystemUIMode(
+                                                      SystemUiMode
+                                                          .immersiveSticky);
                                               _showToolbar = false;
                                               _isToolbarExpanded = false;
                                             } else {
-                                              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                              SystemChrome
+                                                  .setEnabledSystemUIMode(
+                                                      SystemUiMode.edgeToEdge);
                                             }
                                           });
                                           if (!_isFullscreen) {
@@ -675,18 +836,25 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                             _hideTimer?.cancel();
                                           }
                                         },
-                                        child: Padding(padding: const EdgeInsets.all(8.0), child: Icon(_isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded)),
-                                        tooltip: _isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                                        tooltip: _isFullscreen
+                                            ? 'Exit Fullscreen'
+                                            : 'Fullscreen',
+                                        child: Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Icon(_isFullscreen
+                                                ? Icons.fullscreen_exit_rounded
+                                                : Icons.fullscreen_rounded)),
                                       ),
                                     ],
                                   ),
                                 )
-                              : const SizedBox(width: double.infinity, height: 0),
+                              : const SizedBox(
+                                  width: double.infinity, height: 0),
                         ),
                       ],
                     ),
                   ),
-              ),
+                ),
               ),
             ),
           ),
@@ -708,18 +876,22 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                   useBlur: isBlurEnabled,
                   useLiquidGlass: isLiquidGlass,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Row(
                       children: [
                         ArcBouncyButton(
                           onPressed: _page > 1
                               ? () {
-                                  _pdfViewerController.goToPage(pageNumber: _page - 1);
+                                  _pdfViewerController.goToPage(
+                                      pageNumber: _page - 1);
                                   _scheduleHide();
                                 }
                               : null,
                           tooltip: 'Previous Page',
-                          child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.navigate_before_rounded)),
+                          child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(Icons.navigate_before_rounded)),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -737,12 +909,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                             divisions: _pageCount > 1 ? _pageCount - 1 : 1,
                             label: '$_page',
                             activeColor: theme.colorScheme.onSurface,
-                            inactiveColor: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                            inactiveColor: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.3),
                             onChanged: _pageCount > 1
                                 ? (value) {
                                     final newPage = value.round();
                                     if (newPage != _page) {
-                                      _pdfViewerController.goToPage(pageNumber: newPage);
+                                      _pdfViewerController.goToPage(
+                                          pageNumber: newPage);
                                       _scheduleHide();
                                     }
                                   }
@@ -760,12 +934,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                         ArcBouncyButton(
                           onPressed: _page < _pageCount
                               ? () {
-                                  _pdfViewerController.goToPage(pageNumber: _page + 1);
+                                  _pdfViewerController.goToPage(
+                                      pageNumber: _page + 1);
                                   _scheduleHide();
                                 }
                               : null,
                           tooltip: 'Next Page',
-                          child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.navigate_next_rounded)),
+                          child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(Icons.navigate_next_rounded)),
                         ),
                       ],
                     ),
@@ -787,7 +964,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       final pdfImage = await page.render(
         width: page.width.toInt(),
         height: page.height.toInt(),
-        backgroundColor: Colors.white,
+        backgroundColor: 0xffffffff,
       );
 
       if (pdfImage == null || pdfImage.pixels.isEmpty) return;
@@ -801,11 +978,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       final tempFile = File(p.join(tempDir.path, 'page_$_page.png'));
       await tempFile.writeAsBytes(byteData.buffer.asUint8List());
 
-      await
-      SharePlus.instance.share(<XFile>(tempFile.path)], text: 'Page $_page from ${widget.item.name}');
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(tempFile.path)],
+          text: 'Page $_page from ${widget.item.name}',
+        ),
+      );
     } catch (e) {
       if (context.mounted) {
-        PdfErrorHandler.show(context, e, contextMessage: 'Failed to extract and share page');
+        PdfErrorHandler.show(context, e,
+            contextMessage: 'Failed to extract and share page');
       }
     }
   }
@@ -819,7 +1001,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       builder: (context) {
         String password = '';
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
           backgroundColor: theme.colorScheme.surfaceContainerHigh,
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -832,12 +1015,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     color: theme.colorScheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.lock_rounded, size: 32, color: theme.colorScheme.onPrimaryContainer),
+                  child: Icon(Icons.lock_rounded,
+                      size: 32, color: theme.colorScheme.onPrimaryContainer),
                 ),
                 const SizedBox(height: 24),
-                Text('Password Required', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+                Text('Password Required',
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                Text('This document is protected.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                Text('This document is protected.',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 24),
                 TextField(
                   obscureText: true,
@@ -862,7 +1050,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        Navigator.of(context).pop(); // Exit screen if they cancel
+                        Navigator.of(context)
+                            .pop(); // Exit screen if they cancel
                       },
                       child: const Text('Cancel'),
                     ),
@@ -882,7 +1071,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   }
 
   Future<void> _showThumbnails() async {
-
     final theme = Theme.of(context);
     showModalBottomSheet<void>(
       context: context,
@@ -897,7 +1085,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
             return DecoratedBox(
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
                 children: [
@@ -906,18 +1095,22 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     width: 48,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Page Thumbnails', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                  Text('Page Thumbnails',
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
                   Expanded(
                     child: GridView.builder(
                       controller: scrollController,
                       padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
@@ -942,7 +1135,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                   offset: const Offset(0, 2),
                                 ),
                               ],
-                              border: _page == pageNum ? Border.all(color: theme.colorScheme.primary, width: 3) : null,
+                              border: _page == pageNum
+                                  ? Border.all(
+                                      color: theme.colorScheme.primary,
+                                      width: 3)
+                                  : null,
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: Stack(
@@ -951,20 +1148,25 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                                 if (_pdfViewerController.isReady)
                                   PdfPageView(
                                     document: _pdfViewerController.document,
-                                  pageNumber: pageNum,
-                                ),
+                                    pageNumber: pageNum,
+                                  ),
                                 Positioned(
                                   bottom: 4,
                                   right: 4,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.6),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.6),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       '$pageNum',
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ),
@@ -992,14 +1194,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
       context: context,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
           backgroundColor: theme.colorScheme.surfaceContainerHigh,
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Jump to Page', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                Text('Jump to Page',
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
                 TextField(
                   keyboardType: TextInputType.number,
@@ -1034,7 +1239,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                     FilledButton(
                       onPressed: () {
                         final target = int.tryParse(pageInput);
-                        if (target != null && target >= 1 && target <= _pageCount) {
+                        if (target != null &&
+                            target >= 1 &&
+                            target <= _pageCount) {
                           _pdfViewerController.goToPage(pageNumber: target);
                         }
                         Navigator.of(context).pop();
@@ -1057,7 +1264,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 
     if (outline.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No outline found in this document.'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('No outline found in this document.'),
+            behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -1078,7 +1287,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: Column(
                   children: [
@@ -1087,12 +1297,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                       width: 48,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Document Outline', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    Text('Document Outline',
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 16),
                     Expanded(
                       child: ListView.builder(
@@ -1107,17 +1320,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                               Navigator.of(context).pop();
                             },
                           )
-                          .animate()
-                          .fadeIn(
-                            delay: (index > 20 ? 0 : index * 30).ms,
-                            duration: 300.ms,
-                            curve: Curves.easeOut,
-                          )
-                          .slideY(
-                            begin: 0.1,
-                            duration: 300.ms,
-                            curve: Curves.easeOutBack,
-                          );
+                              .animate()
+                              .fadeIn(
+                                delay: (index > 20 ? 0 : index * 30).ms,
+                                duration: 300.ms,
+                                curve: Curves.easeOut,
+                              )
+                              .slideY(
+                                begin: 0.1,
+                                duration: 300.ms,
+                                curve: Curves.easeOutBack,
+                              );
                         },
                       ),
                     ),
@@ -1134,12 +1347,16 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
   Future<void> _showPdfInfo() async {
     final theme = Theme.of(context);
     final sizeStr = (widget.item.sizeBytes / (1024 * 1024)).toStringAsFixed(2);
-    final dateStr = DateFormat.yMMMd().add_jm().format(widget.item.lastModified);
-    
+    final dateStr =
+        DateFormat.yMMMd().add_jm().format(widget.item.lastModified);
+
     final repo = ref.read(readingProgressRepositoryProvider);
     final totalTimeSec = repo.getTotalReadTime(widget.item.path);
-    final timeStr = '${(totalTimeSec / 60).floor()} min ${totalTimeSec % 60} sec';
-    final completionStr = _pageCount > 0 ? '${((_page / _pageCount) * 100).toStringAsFixed(1)}%' : '0%';
+    final timeStr =
+        '${(totalTimeSec / 60).floor()} min ${totalTimeSec % 60} sec';
+    final completionStr = _pageCount > 0
+        ? '${((_page / _pageCount) * 100).toStringAsFixed(1)}%'
+        : '0%';
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1167,38 +1384,66 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
                           color: theme.colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: Icon(Icons.info_outline_rounded, color: theme.colorScheme.onPrimaryContainer),
+                        child: Icon(Icons.info_outline_rounded,
+                            color: theme.colorScheme.onPrimaryContainer),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           'Document Info',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                       ArcBouncyButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Padding(padding: EdgeInsets.all(8.0), child: Icon(Icons.close_rounded)),
+                        child: const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Icon(Icons.close_rounded)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _InfoRow(icon: Icons.title_rounded, label: 'Name', value: widget.item.name),
+                  _InfoRow(
+                      icon: Icons.title_rounded,
+                      label: 'Name',
+                      value: widget.item.name),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.folder_open_rounded, label: 'Path', value: widget.item.path),
+                  _InfoRow(
+                      icon: Icons.folder_open_rounded,
+                      label: 'Path',
+                      value: widget.item.path),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.data_usage_rounded, label: 'Size', value: '$sizeStr MB'),
+                  _InfoRow(
+                      icon: Icons.data_usage_rounded,
+                      label: 'Size',
+                      value: '$sizeStr MB'),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.calendar_today_rounded, label: 'Modified', value: dateStr),
+                  _InfoRow(
+                      icon: Icons.calendar_today_rounded,
+                      label: 'Modified',
+                      value: dateStr),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.file_copy_rounded, label: 'Pages', value: '$_pageCount pages'),
+                  _InfoRow(
+                      icon: Icons.file_copy_rounded,
+                      label: 'Pages',
+                      value: '$_pageCount pages'),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.timer_rounded, label: 'Total Reading Time', value: timeStr),
+                  _InfoRow(
+                      icon: Icons.timer_rounded,
+                      label: 'Total Reading Time',
+                      value: timeStr),
                   const Divider(height: 24),
-                  _InfoRow(icon: Icons.trending_up_rounded, label: 'Completion', value: completionStr),
+                  _InfoRow(
+                      icon: Icons.trending_up_rounded,
+                      label: 'Completion',
+                      value: completionStr),
                   if (widget.item.isEncrypted) ...[
                     const Divider(height: 24),
-                    const _InfoRow(icon: Icons.lock_rounded, label: 'Security', value: 'Password Protected'),
+                    const _InfoRow(
+                        icon: Icons.lock_rounded,
+                        label: 'Security',
+                        value: 'Password Protected'),
                   ],
                   const SizedBox(height: 16),
                 ],
@@ -1212,7 +1457,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen> with WidgetsB
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow(
+      {required this.icon, required this.label, required this.value});
   final IconData icon;
   final String label;
   final String value;
@@ -1229,7 +1475,9 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Text(label,
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               const SizedBox(height: 4),
               Text(value, style: theme.textTheme.bodyMedium),
             ],
@@ -1241,7 +1489,10 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _FrostedBar extends ConsumerWidget {
-  const _FrostedBar({required this.child, required this.useBlur, required this.useLiquidGlass});
+  const _FrostedBar(
+      {required this.child,
+      required this.useBlur,
+      required this.useLiquidGlass});
   final Widget child;
   final bool useBlur;
   final bool useLiquidGlass;
@@ -1251,7 +1502,8 @@ class _FrostedBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFF5F5F5);
-    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final lowPowerMode =
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     final double sigma = useLiquidGlass ? 48.0 : 16.0;
     // Enhanced Premium Liquid Glass
@@ -1261,36 +1513,54 @@ class _FrostedBar extends ConsumerWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(32), // Slightly rounder for elegance
-      child: useBlur && !lowPowerMode ? BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: useLiquidGlass ? (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.4)) : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
-              width: useLiquidGlass ? 1.5 : 1.0,
+      child: useBlur && !lowPowerMode
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: useLiquidGlass
+                        ? (isDark
+                            ? Colors.white.withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.4))
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.05)),
+                    width: useLiquidGlass ? 1.5 : 1.0,
+                  ),
+                  boxShadow: useLiquidGlass
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 24,
+                            spreadRadius: -8,
+                          )
+                        ]
+                      : null,
+                ),
+                child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: child),
+              ),
+            )
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                color: navBg,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.04),
+                ),
+              ),
+              child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: child),
             ),
-            boxShadow: useLiquidGlass ? [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 24,
-                spreadRadius: -8,
-              )
-            ] : null,
-          ),
-          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: child),
-        ),
-      ) : DecoratedBox(
-        decoration: BoxDecoration(
-          color: navBg,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
-          ),
-        ),
-        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: child),
-      ),
     );
   }
 }

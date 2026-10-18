@@ -30,7 +30,8 @@ class ToolsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: CustomScrollView(
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics()),
         slivers: [
           const GlassSliverAppBar(
             title: Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -42,7 +43,9 @@ class ToolsScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildSectionHeader('PDF Utilities', context).animate().fadeIn(duration: 300.ms),
+                    child: _buildSectionHeader('PDF Utilities', context)
+                        .animate()
+                        .fadeIn(duration: 300.ms),
                   ),
                 ),
                 SliverGrid(
@@ -59,48 +62,70 @@ class ToolsScreen extends ConsumerWidget {
                       icon: HugeIcons.strokeRoundedLayers01,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MergePdfsPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const MergePdfsPage()));
                       },
-                    ).animate(delay: 50.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 50.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                     ToolCard(
                       title: 'Split PDF',
-                      subtitle: 'Extract pages from a PDF and save as new files',
+                      subtitle:
+                          'Extract pages from a PDF and save as new files',
                       icon: HugeIcons.strokeRoundedScissor01,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SplitPdfPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const SplitPdfPage()));
                       },
-                    ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 100.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                     ToolCard(
                       title: 'Rearrange / Delete Pages',
                       subtitle: 'Change page order or remove pages from a PDF',
                       icon: HugeIcons.strokeRoundedGridView,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RearrangePagesPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const RearrangePagesPage()));
                       },
-                    ).animate(delay: 150.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 150.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                     ToolCard(
                       title: 'Compress PDF',
                       subtitle: 'Reduce the file size of your PDF document',
                       icon: HugeIcons.strokeRoundedFile01,
                       onTap: () => _handleCompress(context, ref),
-                    ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 200.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                     ToolCard(
                       title: 'Metadata Editor',
                       subtitle: 'View and edit document properties',
                       icon: HugeIcons.strokeRoundedInformationCircle,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MetadataEditorPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const MetadataEditorPage()));
                       },
-                    ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 250.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                   ]),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 32, bottom: 12),
-                    child: _buildSectionHeader('Conversion', context).animate(delay: 200.ms).fadeIn(duration: 300.ms),
+                    child: _buildSectionHeader('Conversion', context)
+                        .animate(delay: 200.ms)
+                        .fadeIn(duration: 300.ms),
                   ),
                 ),
                 SliverGrid(
@@ -113,22 +138,32 @@ class ToolsScreen extends ConsumerWidget {
                   delegate: SliverChildListDelegate([
                     ToolCard(
                       title: 'Images to PDF',
-                      subtitle: 'Convert, reorder, and combine images into a PDF',
+                      subtitle:
+                          'Convert, reorder, and combine images into a PDF',
                       icon: HugeIcons.strokeRoundedImage01,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImagesToPdfPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const ImagesToPdfPage()));
                       },
-                    ).animate(delay: 250.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 250.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                     ToolCard(
                       title: 'PDF to Images',
-                      subtitle: 'Extract and save each page of a PDF as an image',
+                      subtitle:
+                          'Extract and save each page of a PDF as an image',
                       icon: HugeIcons.strokeRoundedImage02,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PdfToImagesPage()));
+                        Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const PdfToImagesPage()));
                       },
-                    ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+                    )
+                        .animate(delay: 300.ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05),
                   ]),
                 ),
                 const SliverToBoxAdapter(
@@ -151,94 +186,103 @@ class ToolsScreen extends ConsumerWidget {
       // Let user pick compression level
       int quality = 40; // Default
       bool userPicked = await showDialog<bool>(
-        context: context,
-        builder: (context) {
-          int tempQuality = quality;
-          final theme = Theme.of(context);
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return Dialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          HugeIcons.strokeRoundedFolder01,
-                          size: 32,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        paths.length == 1 ? 'Compress PDF' : 'Batch Compress ${paths.length} PDFs',
-                        style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Select the image quality for compression (lower is smaller file size but worse quality).',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Quality: $tempQuality%',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      Slider(
-                        value: tempQuality.toDouble(),
-                        min: 10,
-                        max: 90,
-                        divisions: 8,
-                        onChanged: (val) {
-                          setState(() {
-                            tempQuality = val.toInt();
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+              context: context,
+              builder: (context) {
+                int tempQuality = quality;
+                final theme = Theme.of(context);
+                return StatefulBuilder(builder: (context, setState) {
+                  return Dialog(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28)),
+                    backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
                             ),
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
+                            child: Icon(
+                              HugeIcons.strokeRoundedFolder01,
+                              size: 32,
+                              color: theme.colorScheme.primary,
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            onPressed: () {
-                              quality = tempQuality;
-                              Navigator.of(context).pop(true);
+                          const SizedBox(height: 16),
+                          Text(
+                            paths.length == 1
+                                ? 'Compress PDF'
+                                : 'Batch Compress ${paths.length} PDFs',
+                            style: theme.textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Select the image quality for compression (lower is smaller file size but worse quality).',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Quality: $tempQuality%',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Slider(
+                            value: tempQuality.toDouble(),
+                            min: 10,
+                            max: 90,
+                            divisions: 8,
+                            onChanged: (val) {
+                              setState(() {
+                                tempQuality = val.toInt();
+                              });
                             },
-                            child: const Text('Compress'),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16)),
+                                ),
+                                onPressed: () {
+                                  quality = tempQuality;
+                                  Navigator.of(context).pop(true);
+                                },
+                                child: const Text('Compress'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            }
-          );
-        }
-      ) ?? false;
+                    ),
+                  );
+                });
+              }) ??
+          false;
 
       if (!userPicked) return;
       if (!context.mounted) return;
@@ -248,26 +292,37 @@ class ToolsScreen extends ConsumerWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const ToolActionDialog(title: 'Compressing PDF', message: 'Applying compression settings...', isLoading: true),
+          builder: (context) => const ToolActionDialog(
+              title: 'Compressing PDF',
+              message: 'Applying compression settings...',
+              isLoading: true),
         );
 
         final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-        final outputPath = p.join(dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        final outputPath = p.join(
+            dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
 
         final threads = ref.read(settingsControllerProvider).compressionThreads;
-        final successPath = await ToolsService.compressPdf(paths.first, outputPath, quality: quality, maxThreads: threads);
+        final successPath = await ToolsService.compressPdf(
+            paths.first, outputPath,
+            quality: quality, maxThreads: threads);
 
         if (!context.mounted) return;
         Navigator.of(context).pop(); // hide loading
         if (successPath != null) {
           showDialog(
             context: context,
-            builder: (context) => ToolActionDialog(title: 'Success', message: 'PDF compressed successfully!\nSaved to: $successPath', isLoading: false, outputPath: successPath),
+            builder: (context) => ToolActionDialog(
+                title: 'Success',
+                message: 'PDF compressed successfully!\nSaved to: $successPath',
+                isLoading: false,
+                outputPath: successPath),
           );
         } else {
-          showDialog(
-            context: context,
-            builder: (context) => PdfErrorHandler.show(context, 'compression failed', contextMessage: 'Failed to compress PDF.');
+          PdfErrorHandler.show(
+            context,
+            'compression failed',
+            contextMessage: 'Failed to compress PDF.',
           );
         }
       } else {
@@ -275,7 +330,11 @@ class ToolsScreen extends ConsumerWidget {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => ToolActionDialog(title: 'Batch Compressing', message: 'Compressing ${paths.length} files. This may take a while...', isLoading: true),
+          builder: (context) => ToolActionDialog(
+              title: 'Batch Compressing',
+              message:
+                  'Compressing ${paths.length} files. This may take a while...',
+              isLoading: true),
         );
 
         final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
@@ -284,7 +343,8 @@ class ToolsScreen extends ConsumerWidget {
         final results = await Future.wait(paths.map((path) async {
           final originalName = p.basenameWithoutExtension(path);
           final outputPath = p.join(dir, '${originalName}_compressed.pdf');
-          return await ToolsService.compressPdf(path, outputPath, quality: quality, maxThreads: threads);
+          return await ToolsService.compressPdf(path, outputPath,
+              quality: quality, maxThreads: threads);
         }));
 
         int successCount = results.where((path) => path != null).length;
@@ -295,11 +355,12 @@ class ToolsScreen extends ConsumerWidget {
         showDialog(
           context: context,
           builder: (context) => ToolActionDialog(
-            title: 'Batch Compression Complete',
-            message: 'Successfully compressed $successCount out of ${paths.length} files.\nSaved to: $dir',
-            isLoading: false,
-            outputPath: dir // Open directory
-          ),
+              title: 'Batch Compression Complete',
+              message:
+                  'Successfully compressed $successCount out of ${paths.length} files.\nSaved to: $dir',
+              isLoading: false,
+              outputPath: dir // Open directory
+              ),
         );
       }
     }

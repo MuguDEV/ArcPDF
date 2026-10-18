@@ -10,7 +10,11 @@ import 'pdf_thumbnail_cache.dart';
 import '../../../settings/settings_controller.dart';
 
 class PdfThumbnail extends ConsumerWidget {
-  const PdfThumbnail({super.key, required this.path, this.isEncrypted = false, this.isCorrupted = false});
+  const PdfThumbnail(
+      {super.key,
+      required this.path,
+      this.isEncrypted = false,
+      this.isCorrupted = false});
   final String path;
   final bool isEncrypted;
   final bool isCorrupted;
@@ -18,7 +22,8 @@ class PdfThumbnail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final lowPowerMode = ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final lowPowerMode =
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
     if (isCorrupted) {
       return _CorruptedFallback(theme: theme);
@@ -38,17 +43,23 @@ class PdfThumbnail extends ConsumerWidget {
               ? _LockedState(theme: theme)
               : FutureBuilder<ui.Image?>(
                   initialData: PdfThumbnailCache.getCached(path),
-                  future: PdfThumbnailCache.getThumbnail(path, lowPowerMode: lowPowerMode),
+                  future: PdfThumbnailCache.getThumbnail(path,
+                      lowPowerMode: lowPowerMode),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
                       return Shimmer.fromColors(
                         baseColor: theme.colorScheme.surfaceContainer,
-                        highlightColor: theme.colorScheme.surfaceContainerHighest,
-                        child: Container(color: theme.colorScheme.surfaceContainer),
+                        highlightColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        child: Container(
+                            color: theme.colorScheme.surfaceContainer),
                       );
                     }
 
-                    if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+                    if (snapshot.hasError ||
+                        !snapshot.hasData ||
+                        snapshot.data == null) {
                       return const _Fallback();
                     }
 
@@ -98,7 +109,10 @@ class _Fallback extends StatelessWidget {
       child: Center(
         child: Icon(
           HugeIcons.strokeRoundedPdf02,
-          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          color: Theme.of(context)
+              .colorScheme
+              .onSurfaceVariant
+              .withValues(alpha: 0.5),
           size: 24,
         ),
       ),
@@ -129,7 +143,9 @@ class _LockedState extends StatelessWidget {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface.withValues(alpha: 0.8),
                 shape: BoxShape.circle,
-                border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: theme.colorScheme.outlineVariant
+                        .withValues(alpha: 0.5)),
               ),
               child: Icon(
                 HugeIcons.strokeRoundedLockKey,

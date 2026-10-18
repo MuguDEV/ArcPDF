@@ -44,8 +44,8 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     final paths = await InAppPdfSelector.show(context, allowMultiple: false);
     if (paths != null && paths.isNotEmpty) {
       setState(() {
-         _selectedFile = paths.first;
-         _pagesController.clear();
+        _selectedFile = paths.first;
+        _pagesController.clear();
       });
     }
   }
@@ -82,18 +82,21 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
 
     final pagesToExtract = _parsePages(_pagesController.text);
     if (pagesToExtract.isEmpty) {
-      PdfErrorHandler.show(context, 'invalid input', contextMessage: 'Please enter valid page numbers to split.');
+      PdfErrorHandler.show(context, 'invalid input',
+          contextMessage: 'Please enter valid page numbers to split.');
       return;
     }
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(title: 'Splitting PDF', message: 'Please wait...', isLoading: true),
+      builder: (context) => const ToolActionDialog(
+          title: 'Splitting PDF', message: 'Please wait...', isLoading: true),
     );
 
     final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final successPath = await ToolsService.splitPdf(_selectedFile!, dir, pagesToExtract);
+    final successPath =
+        await ToolsService.splitPdf(_selectedFile!, dir, pagesToExtract);
 
     if (!context.mounted) return;
     Navigator.of(context).pop();
@@ -101,12 +104,19 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     if (successPath != null) {
       showDialog(
         context: context,
-        builder: (context) => ToolActionDialog(title: 'Success', message: 'Saved to:\n$successPath', isLoading: false, outputPath: successPath),
+        builder: (context) => ToolActionDialog(
+            title: 'Success',
+            message: 'Saved to:\n$successPath',
+            isLoading: false,
+            outputPath: successPath),
       );
     } else {
       showDialog(
         context: context,
-        builder: (context) => const ToolActionDialog(title: 'Error', message: 'Failed to split. Check ranges.', isLoading: false),
+        builder: (context) => const ToolActionDialog(
+            title: 'Error',
+            message: 'Failed to split. Check ranges.',
+            isLoading: false),
       );
     }
   }
@@ -124,13 +134,17 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedFile02, size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+                        Icon(HugeIcons.strokeRoundedFile02,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
                         Text(
                           'No PDF selected yet.\nTap "Select PDF" to begin.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -148,10 +162,12 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.65),
+                                color: theme.colorScheme.surfaceContainerLow
+                                    .withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
-                                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                                  color: theme.colorScheme.outlineVariant
+                                      .withValues(alpha: 0.5),
                                   width: 1.0,
                                 ),
                               ),
@@ -162,7 +178,10 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                                     child: SizedBox(
                                       width: 120,
                                       height: 160,
-                                      child: PdfThumbnail(path: _selectedFile!, isEncrypted: false, isCorrupted: false),
+                                      child: PdfThumbnail(
+                                          path: _selectedFile!,
+                                          isEncrypted: false,
+                                          isCorrupted: false),
                                     ),
                                   ),
                                   const SizedBox(height: 16),
@@ -171,14 +190,16 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                                     maxLines: 2,
                                     textAlign: TextAlign.center,
                                     overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     '${(File(_selectedFile!).lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
-                                    style: theme.textTheme.labelMedium?.copyWith(
+                                    style:
+                                        theme.textTheme.labelMedium?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
@@ -190,7 +211,8 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                         const SizedBox(height: 32),
                         Text(
                           'Pages to Extract',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
                         TextField(
@@ -198,18 +220,21 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                           decoration: InputDecoration(
                             hintText: 'e.g. 1, 3-5, 7',
                             filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            fillColor: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
-                            prefixIcon: const Icon(HugeIcons.strokeRoundedLayers01),
+                            prefixIcon:
+                                const Icon(HugeIcons.strokeRoundedLayers01),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Enter specific pages separated by commas or ranges (e.g., 1-5).',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -223,7 +248,8 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _pickFile,
-                      child: Text(_selectedFile == null ? 'Select PDF' : 'Change PDF'),
+                      child: Text(
+                          _selectedFile == null ? 'Select PDF' : 'Change PDF'),
                     ),
                   ),
                   const SizedBox(width: 16),

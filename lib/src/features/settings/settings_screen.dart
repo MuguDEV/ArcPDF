@@ -68,7 +68,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) {
         final theme = Theme.of(context);
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           backgroundColor: theme.colorScheme.surfaceContainerHigh,
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -90,7 +91,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
                 Text(
                   'Update Available',
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -102,23 +104,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.4),
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                      border: Border.all(
+                          color: theme.colorScheme.outlineVariant
+                              .withValues(alpha: 0.5)),
                     ),
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: MarkdownBody(
                         data: release.body,
-                        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                        styleSheet:
+                            MarkdownStyleSheet.fromTheme(theme).copyWith(
                           p: theme.textTheme.bodyMedium,
-                          h1: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          h2: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          h3: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          h1: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          h2: theme.textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          h3: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                           listBullet: theme.textTheme.bodyMedium,
                         ),
                       ),
@@ -131,8 +140,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     TextButton(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text('Later'),
@@ -140,14 +151,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
                       onPressed: () {
-                        launchUrl(Uri.parse(release.url), mode: LaunchMode.externalApplication);
+                        launchUrl(Uri.parse(release.url),
+                            mode: LaunchMode.externalApplication);
                         Navigator.of(context).pop();
                       },
-                      icon: const Icon(HugeIcons.strokeRoundedDownload04, size: 20),
+                      icon: const Icon(HugeIcons.strokeRoundedDownload04,
+                          size: 20),
                       label: const Text('Download'),
                     ),
                   ],
@@ -167,17 +182,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
 
     return CustomScrollView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       slivers: [
         const GlassSliverAppBar(
-          title: Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
+          title:
+              Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverList.list(
             children: [
               // ── Appearance ───────────────────────────────────
-              const _SectionHeader(label: 'Appearance').animate().fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Appearance')
+                  .animate()
+                  .fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -185,33 +204,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Text('Theme Mode', style: theme.textTheme.titleMedium),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Text('Theme Mode',
+                          style: theme.textTheme.titleMedium),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: SegmentedButton<ThemeMode>(
                         segments: const [
-                          ButtonSegment(value: ThemeMode.system, label: Text('System', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.brightness_auto_rounded)),
-                          ButtonSegment(value: ThemeMode.light, label: Text('Light', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.light_mode_rounded)),
-                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark', maxLines: 1, overflow: TextOverflow.visible), icon: Icon(Icons.dark_mode_rounded)),
+                          ButtonSegment(
+                              value: ThemeMode.system,
+                              label: Text('System',
+                                  maxLines: 1, overflow: TextOverflow.visible),
+                              icon: Icon(Icons.brightness_auto_rounded)),
+                          ButtonSegment(
+                              value: ThemeMode.light,
+                              label: Text('Light',
+                                  maxLines: 1, overflow: TextOverflow.visible),
+                              icon: Icon(Icons.light_mode_rounded)),
+                          ButtonSegment(
+                              value: ThemeMode.dark,
+                              label: Text('Dark',
+                                  maxLines: 1, overflow: TextOverflow.visible),
+                              icon: Icon(Icons.dark_mode_rounded)),
                         ],
                         selected: {settings.themeMode},
                         onSelectionChanged: (s) => ctrl.setThemeMode(s.first),
                         style: ButtonStyle(
                           shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                            RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28)),
                           ),
                         ),
                       ),
                     ),
                     const Divider(height: 16),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Typography', style: theme.textTheme.titleMedium),
+                          Text('Typography',
+                              style: theme.textTheme.titleMedium),
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
@@ -232,12 +269,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-              ).animate(delay: 40.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              )
+                  .animate(delay: 40.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 
               // ── Layout ───────────────────────────────────────
-              const _SectionHeader(label: 'Layout & Appearance').animate(delay: 120.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Layout & Appearance')
+                  .animate(delay: 120.ms)
+                  .fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -247,14 +289,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       value: settings.useBlurEffect,
                       onChanged: ctrl.setUseBlurEffect,
                       title: const Text('Frosted Glass (Blur)'),
-                      subtitle: const Text('Enable standard blur effects on UI elements'),
+                      subtitle: const Text(
+                          'Enable standard blur effects on UI elements'),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile.adaptive(
                       value: settings.useLiquidGlass,
-                      onChanged: settings.useBlurEffect ? ctrl.setUseLiquidGlass : null,
+                      onChanged: settings.useBlurEffect
+                          ? ctrl.setUseLiquidGlass
+                          : null,
                       title: const Text('Apple Liquid Glass'),
-                      subtitle: const Text('Premium iOS-style highly polished glass effect'),
+                      subtitle: const Text(
+                          'Premium iOS-style highly polished glass effect'),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile.adaptive(
@@ -275,20 +321,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-              ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              )
+                  .animate(delay: 140.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 
               // ── Security ──────────────────────────────────────
-              const _SectionHeader(label: 'Security').animate(delay: 150.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Security')
+                  .animate(delay: 150.ms)
+                  .fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
-              const SecuritySettingsSection().animate(delay: 155.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              const SecuritySettingsSection()
+                  .animate(delay: 155.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 
               // ── Performance & Tuning ──────────────────────────
-              const _SectionHeader(label: 'Performance & Tuning').animate(delay: 160.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Performance & Tuning')
+                  .animate(delay: 160.ms)
+                  .fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -299,32 +355,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       value: settings.lowPowerMode,
                       onChanged: ctrl.setLowPowerMode,
                       title: const Text('Eco Mode / Low Power'),
-                      subtitle: const Text('Disables blur, 120Hz, animations, and lowers thumbnail quality to save battery and memory.'),
+                      subtitle: const Text(
+                          'Disables blur, 120Hz, animations, and lowers thumbnail quality to save battery and memory.'),
                       activeTrackColor: theme.colorScheme.primary,
-                      secondary: Icon(HugeIcons.strokeRoundedBatteryLow, color: settings.lowPowerMode ? theme.colorScheme.primary : null),
+                      secondary: Icon(HugeIcons.strokeRoundedBatteryLow,
+                          color: settings.lowPowerMode
+                              ? theme.colorScheme.primary
+                              : null),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile.adaptive(
                       value: settings.enableGyroCards,
                       onChanged: ctrl.setEnableGyroCards,
                       title: const Text('3D Gyroscope Cards'),
-                      subtitle: const Text('Cards physically tilt with your device sensors.'),
+                      subtitle: const Text(
+                          'Cards physically tilt with your device sensors.'),
                       activeTrackColor: theme.colorScheme.primary,
-                      secondary: Icon(Icons.screen_rotation_rounded, color: settings.enableGyroCards ? theme.colorScheme.primary : null),
+                      secondary: Icon(Icons.screen_rotation_rounded,
+                          color: settings.enableGyroCards
+                              ? theme.colorScheme.primary
+                              : null),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile.adaptive(
                       value: settings.enableMeshBackground,
                       onChanged: ctrl.setEnableMeshBackground,
                       title: const Text('Animated Mesh Background'),
-                      subtitle: const Text('Adds a slowly shifting liquid aura background to the Home screen.'),
+                      subtitle: const Text(
+                          'Adds a slowly shifting liquid aura background to the Home screen.'),
                       activeTrackColor: theme.colorScheme.primary,
-                      secondary: Icon(HugeIcons.strokeRoundedLayers01, color: settings.enableMeshBackground ? theme.colorScheme.primary : null),
+                      secondary: Icon(HugeIcons.strokeRoundedLayers01,
+                          color: settings.enableMeshBackground
+                              ? theme.colorScheme.primary
+                              : null),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       title: const Text('Animation intensity'),
-                      subtitle: Text('${(settings.animationIntensity * 100).round()}%'),
+                      subtitle: Text(
+                          '${(settings.animationIntensity * 100).round()}%'),
                       trailing: SizedBox(
                         width: 160,
                         child: Slider.adaptive(
@@ -337,7 +406,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     ListTile(
                       title: const Text('Animation Speed'),
-                      subtitle: Text('${settings.animationSpeed.toStringAsFixed(1)}x'),
+                      subtitle: Text(
+                          '${settings.animationSpeed.toStringAsFixed(1)}x'),
                       trailing: SizedBox(
                         width: 160,
                         child: Slider.adaptive(
@@ -351,7 +421,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     ListTile(
                       title: const Text('Thumbnail quality'),
-                      subtitle: Text('${(settings.thumbnailQuality * 100).round()}%'),
+                      subtitle:
+                          Text('${(settings.thumbnailQuality * 100).round()}%'),
                       trailing: SizedBox(
                         width: 160,
                         child: Slider.adaptive(
@@ -364,7 +435,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     ListTile(
                       title: const Text('Compression threads'),
-                      subtitle: Text('${settings.compressionThreads} parallel processes'),
+                      subtitle: Text(
+                          '${settings.compressionThreads} parallel processes'),
                       trailing: SizedBox(
                         width: 160,
                         child: Slider.adaptive(
@@ -372,18 +444,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           min: 1.0,
                           max: 5.0,
                           divisions: 4,
-                          onChanged: (v) => ctrl.setCompressionThreads(v.toInt()),
+                          onChanged: (v) =>
+                              ctrl.setCompressionThreads(v.toInt()),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ).animate(delay: 180.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              )
+                  .animate(delay: 180.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 
               // ── Diagnostics ──────────────────────────────────
-              const _SectionHeader(label: 'Diagnostics').animate(delay: 190.ms).fadeIn(duration: 260.ms),
+              const _SectionHeader(label: 'Diagnostics')
+                  .animate(delay: 190.ms)
+                  .fadeIn(duration: 260.ms),
               const SizedBox(height: 8),
 
               _SettingsCard(
@@ -394,11 +472,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const LogViewerScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const LogViewerScreen()),
                     );
                   },
                 ),
-              ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              )
+                  .animate(delay: 200.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
 
@@ -414,14 +496,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           color: theme.colorScheme.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(28),
                         ),
-                        child: const Icon(HugeIcons.strokeRoundedPdf02, size: 22),
+                        child:
+                            const Icon(HugeIcons.strokeRoundedPdf02, size: 22),
                       ),
                       title: const Text('ArcPDF'),
                       subtitle: Text('$_version · Your local PDF workspace'),
                       trailing: const Icon(Icons.info_outline_rounded),
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const AboutScreen()),
+                          MaterialPageRoute(
+                              builder: (_) => const AboutScreen()),
                         );
                       },
                     ),
@@ -434,7 +518,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-              ).animate(delay: 200.ms).fadeIn(duration: 300.ms).slideY(begin: 0.05),
+              )
+                  .animate(delay: 200.ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.05),
 
               const SizedBox(height: 20),
             ],
@@ -481,7 +568,8 @@ class _SettingsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
       child: child,

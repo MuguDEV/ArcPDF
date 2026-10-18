@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/arc_colors.dart';
 
 class ArcProgressBar extends StatelessWidget {
   const ArcProgressBar({

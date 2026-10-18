@@ -50,12 +50,14 @@ class AppLogger {
     await _log('WARNING', message, null);
   }
 
-  static Future<void> error(String message, [Object? error, StackTrace? stackTrace]) async {
+  static Future<void> error(String message,
+      [Object? error, StackTrace? stackTrace]) async {
     final fullMessage = error != null ? '$message: $error' : message;
     await _log('ERROR', fullMessage, stackTrace?.toString());
   }
 
-  static Future<void> _log(String level, String message, String? stackTrace) async {
+  static Future<void> _log(
+      String level, String message, String? stackTrace) async {
     final entry = LogEntry(
       timestamp: DateTime.now(),
       level: level,
@@ -82,7 +84,11 @@ class AppLogger {
 
   static List<LogEntry> getLogs() {
     if (_box == null) return [];
-    return _box!.values.map((e) => LogEntry.fromMap(e as Map)).toList().reversed.toList();
+    return _box!.values
+        .map((e) => LogEntry.fromMap(e as Map))
+        .toList()
+        .reversed
+        .toList();
   }
 
   static Future<void> clearLogs() async {

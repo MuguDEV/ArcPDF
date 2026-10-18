@@ -19,7 +19,8 @@ class GitHubRelease {
 }
 
 class UpdaterService {
-  static const String _repoUrl = 'https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest';
+  static const String _repoUrl =
+      'https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest';
 
   static bool _isNewerVersion(String latest, String current) {
     try {

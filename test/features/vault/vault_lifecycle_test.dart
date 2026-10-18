@@ -7,7 +7,9 @@ import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-class FakePathProviderPlatform extends Fake with MockPlatformInterfaceMixin implements PathProviderPlatform {
+class FakePathProviderPlatform extends Fake
+    with MockPlatformInterfaceMixin
+    implements PathProviderPlatform {
   final Directory tempDir = Directory.systemTemp.createTempSync('arcpdf_test');
   @override
   Future<String?> getApplicationDocumentsPath() async => tempDir.path;
@@ -58,7 +60,8 @@ void main() {
     final files = container.read(vaultControllerProvider).vaultFiles;
     expect(files.isNotEmpty, true);
 
-    final res2 = await controller.restoreFromVault(files.first, fakePathProvider.tempDir.path);
+    final res2 = await controller.restoreFromVault(
+        files.first, fakePathProvider.tempDir.path);
     expect(res2, true);
   });
 }

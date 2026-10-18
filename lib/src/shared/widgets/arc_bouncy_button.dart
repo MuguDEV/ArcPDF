@@ -39,12 +39,18 @@ class _ArcBouncyButtonState extends State<ArcBouncyButton> {
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTapDown: widget.onPressed != null ? (_) => setState(() => _isPressed = true) : null,
-      onTapUp: widget.onPressed != null ? (_) {
-        setState(() => _isPressed = false);
-        widget.onPressed!();
-      } : null,
-      onTapCancel: widget.onPressed != null ? () => setState(() => _isPressed = false) : null,
+      onTapDown: widget.onPressed != null
+          ? (_) => setState(() => _isPressed = true)
+          : null,
+      onTapUp: widget.onPressed != null
+          ? (_) {
+              setState(() => _isPressed = false);
+              widget.onPressed!();
+            }
+          : null,
+      onTapCancel: widget.onPressed != null
+          ? () => setState(() => _isPressed = false)
+          : null,
       child: content,
     );
   }

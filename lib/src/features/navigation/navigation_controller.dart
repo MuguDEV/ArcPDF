@@ -13,4 +13,6 @@ class NavigationController extends StateNotifier<NavigationState> {
   void setIndex(int index) => state = NavigationState(index);
 }
 
-final navigationControllerProvider = StateNotifierProvider<NavigationController, NavigationState>((ref) => NavigationController());
+final navigationControllerProvider =
+    StateNotifierProvider<NavigationController, NavigationState>(
+        (ref) => NavigationController());

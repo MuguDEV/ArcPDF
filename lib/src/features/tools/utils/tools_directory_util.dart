@@ -7,7 +7,8 @@ class ToolsDirectoryUtil {
   static Future<String> getDefaultOutputDirectory() async {
     if (Platform.isAndroid) {
       try {
-        final docs = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS);
+        final docs = await ExternalPath.getExternalStoragePublicDirectory(
+            ExternalPath.DIRECTORY_DOCUMENTS);
         if (docs.isNotEmpty) {
           final arcPdfDir = Directory('$docs/ArcPDF');
           if (!await arcPdfDir.exists()) {

@@ -24,7 +24,8 @@ class ArcEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = iconColor ?? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+    final color =
+        iconColor ?? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
 
     Widget iconWidget = Container(
       width: 88,
@@ -40,7 +41,11 @@ class ArcEmptyState extends StatelessWidget {
     if (animated) {
       iconWidget = iconWidget
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scaleXY(begin: 0.96, end: 1.0, duration: 2000.ms, curve: Curves.easeInOutCubicEmphasized);
+          .scaleXY(
+              begin: 0.96,
+              end: 1.0,
+              duration: 2000.ms,
+              curve: Curves.easeInOutCubicEmphasized);
     }
 
     return Center(
@@ -57,12 +62,13 @@ class ArcEmptyState extends StatelessWidget {
             const SizedBox(height: 22),
             Text(
               title,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
-            )
-            .animate()
-            .fadeIn(delay: 100.ms, duration: 400.ms)
-            .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
+            ).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideY(
+                begin: 0.2,
+                curve: Curves.easeInOutCubicEmphasized,
+                duration: 600.ms),
             const SizedBox(height: 8),
             Text(
               subtitle,
@@ -71,23 +77,24 @@ class ArcEmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.5,
               ),
-            )
-            .animate()
-            .fadeIn(delay: 150.ms, duration: 400.ms)
-            .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
+            ).animate().fadeIn(delay: 150.ms, duration: 400.ms).slideY(
+                begin: 0.2,
+                curve: Curves.easeInOutCubicEmphasized,
+                duration: 600.ms),
             if (action != null && actionLabel != null) ...[
               const SizedBox(height: 24),
               FilledButton.tonal(
                 onPressed: action,
                 style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28)),
                   minimumSize: const Size(160, 48),
                 ),
                 child: Text(actionLabel!),
-              )
-              .animate()
-              .fadeIn(delay: 200.ms, duration: 400.ms)
-              .slideY(begin: 0.2, curve: Curves.easeInOutCubicEmphasized, duration: 600.ms),
+              ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(
+                  begin: 0.2,
+                  curve: Curves.easeInOutCubicEmphasized,
+                  duration: 600.ms),
             ],
           ],
         ),
@@ -95,4 +102,3 @@ class ArcEmptyState extends StatelessWidget {
     );
   }
 }
-

@@ -29,11 +29,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final security = ref.read(securityControllerProvider);
       if (!security.isLockEnabled) {
-         setState(() {
-           _noLock = true;
-         });
+        setState(() {
+          _noLock = true;
+        });
       } else {
-         _authenticate();
+        _authenticate();
       }
     });
   }
@@ -43,7 +43,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
     bool success = false;
 
     if (security.isBiometricEnabled) {
-       success = await ref.read(securityControllerProvider.notifier).authenticateBiometric();
+      success = await ref
+          .read(securityControllerProvider.notifier)
+          .authenticateBiometric();
     }
 
     if (!success) {
@@ -60,29 +62,34 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
   Future<bool> _showManualAuth(LockType lockType) async {
     return await Navigator.push<bool>(
-      context,
-      PageRouteBuilder(
-        opaque: false,
-        pageBuilder: (context, _, __) {
-          return SharedLockOverlay(
-            title: 'Unlock Vault',
-            onVerify: (val) async {
-              final valid = await ref.read(securityControllerProvider.notifier).verifyPinOrPattern(val);
-              if (valid && context.mounted) {
-                Navigator.pop(context, true);
-              }
-              return valid;
+          context,
+          PageRouteBuilder(
+            opaque: false,
+            pageBuilder: (context, _, __) {
+              return SharedLockOverlay(
+                title: 'Unlock Vault',
+                onVerify: (val) async {
+                  final valid = await ref
+                      .read(securityControllerProvider.notifier)
+                      .verifyPinOrPattern(val);
+                  if (valid && context.mounted) {
+                    Navigator.pop(context, true);
+                  }
+                  return valid;
+                },
+                onBiometricAuth: () async {
+                  final success = await ref
+                      .read(securityControllerProvider.notifier)
+                      .authenticateBiometric();
+                  if (success && context.mounted) {
+                    Navigator.pop(context, true);
+                  }
+                },
+              );
             },
-            onBiometricAuth: () async {
-              final success = await ref.read(securityControllerProvider.notifier).authenticateBiometric();
-              if (success && context.mounted) {
-                Navigator.pop(context, true);
-              }
-            },
-          );
-        },
-      ),
-    ) ?? false;
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -107,14 +114,22 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 const SizedBox(height: 24),
                 Text(
                   'App Lock Required',
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                ).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideY(begin: 0.2),
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                )
+                    .animate()
+                    .fadeIn(delay: 100.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
                 const SizedBox(height: 12),
                 Text(
                   'To use the Secure Vault, you need to enable App Lock in Settings first. This ensures your files are protected.',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.2),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                )
+                    .animate()
+                    .fadeIn(delay: 200.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
                 const SizedBox(height: 32),
                 FilledButton.icon(
                   onPressed: () {
@@ -125,9 +140,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   icon: const Icon(Icons.arrow_back),
                   label: const Text('Go Back'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 16),
                   ),
-                ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideY(begin: 0.2),
+                )
+                    .animate()
+                    .fadeIn(delay: 300.ms, duration: 400.ms)
+                    .slideY(begin: 0.2),
               ],
             ),
           ),
@@ -167,37 +186,57 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       title: Text(item.name),
                       subtitle: const Text('Encrypted Vault File'),
                       onTap: () async {
-                         final tempFile = await ref.read(vaultControllerProvider.notifier).decryptToTempFile(item);
-                         try {
-                           if (tempFile != null && context.mounted) {
-                             final tempItem = PdfFileItem.fromFile(tempFile);
-                             if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
-                           }
-                         } finally {
-                            if (tempFile != null && tempFile.existsSync()) {
-                              tempFile.deleteSync();
+                        final tempFile = await ref
+                            .read(vaultControllerProvider.notifier)
+                            .decryptToTempFile(item);
+                        try {
+                          if (tempFile != null && context.mounted) {
+                            final tempItem = PdfFileItem.fromFile(tempFile);
+                            if (context.mounted) {
+                              await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          PdfViewerScreen(item: tempItem)));
                             }
-                         }
+                          }
+                        } finally {
+                          if (tempFile != null && tempFile.existsSync()) {
+                            tempFile.deleteSync();
+                          }
+                        }
                       },
                       trailing: IconButton(
                         icon: const Icon(Icons.restore),
                         onPressed: () async {
-                           HapticFeedback.mediumImpact();
-                           final downloads = await getDownloadsDirectory(); // path_provider
-                           // Fallback to Download dir
-                           if (downloads != null) {
-                             final success = await ref.read(vaultControllerProvider.notifier).restoreFromVault(item, downloads.path);
-                             if (success && context.mounted) {
-                                HapticFeedback.selectionClick();
-                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Restored to Downloads folder')));
-                             } else if (!success && context.mounted) {
-                                HapticFeedback.heavyImpact();
-                                PdfErrorHandler.show(context, 'restore_failed', contextMessage: 'Failed to restore file');
-                             }
-                           }
+                          HapticFeedback.mediumImpact();
+                          final downloads =
+                              await getDownloadsDirectory(); // path_provider
+                          // Fallback to Download dir
+                          if (downloads != null) {
+                            final success = await ref
+                                .read(vaultControllerProvider.notifier)
+                                .restoreFromVault(item, downloads.path);
+                            if (success && context.mounted) {
+                              HapticFeedback.selectionClick();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Restored to Downloads folder')));
+                              }
+                            } else if (!success && context.mounted) {
+                              HapticFeedback.heavyImpact();
+                              PdfErrorHandler.show(context, 'restore_failed',
+                                  contextMessage: 'Failed to restore file');
+                            }
+                          }
                         },
                       ),
-                    ).animate(delay: (index * 50).ms).fadeIn(duration: 300.ms).slideY(begin: 0.05);
+                    )
+                        .animate(delay: (index * 50).ms)
+                        .fadeIn(duration: 300.ms)
+                        .slideY(begin: 0.05);
                   },
                 ),
     );

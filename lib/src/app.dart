@@ -151,14 +151,19 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         useMaterial3: true,
         colorScheme: colorScheme.copyWith(
           primary: brightness == Brightness.light ? Colors.black : Colors.white,
-          onPrimary: brightness == Brightness.light ? Colors.white : Colors.black,
-          secondary: brightness == Brightness.light ? Colors.grey.shade800 : Colors.grey.shade300,
+          onPrimary:
+              brightness == Brightness.light ? Colors.white : Colors.black,
+          secondary: brightness == Brightness.light
+              ? Colors.grey.shade800
+              : Colors.grey.shade300,
         ),
         brightness: brightness,
         textTheme: textTheme,
         scaffoldBackgroundColor: colorScheme.surface,
-        splashColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
-        highlightColor: brightness == Brightness.light ? Colors.black12 : Colors.white12,
+        splashColor:
+            brightness == Brightness.light ? Colors.black12 : Colors.white12,
+        highlightColor:
+            brightness == Brightness.light ? Colors.black12 : Colors.white12,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         pageTransitionsTheme: const PageTransitionsTheme(builders: {
           TargetPlatform.android: TracedZoomPageTransitionsBuilder(
@@ -172,13 +177,15 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           scrolledUnderElevation: 0,
         ),
         cardTheme: CardThemeData(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           clipBehavior: Clip.antiAlias,
           color: colorScheme.surfaceContainerLow,
           elevation: 0,
         ),
         dialogTheme: DialogThemeData(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           backgroundColor: colorScheme.surfaceContainerHigh,
           elevation: 0,
         ),
@@ -189,7 +196,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           elevation: 0,
         ),
         chipTheme: ChipThemeData(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
           side: BorderSide.none,
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -218,7 +226,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: colorScheme.surfaceContainerLow,
-          indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          indicatorShape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -246,7 +255,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
 
     // Create a global scroll behavior to enforce bouncing everywhere
     final scrollBehavior = const MaterialScrollBehavior().copyWith(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics:
+          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       scrollbars: false,
       overscroll: false,
     );
@@ -261,7 +271,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       scrollBehavior: scrollBehavior,
       navigatorObservers: [pdfRouteObserver],
       home: const AppShell(),
-      builder: (context, child) => LockScreenWrapper(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) =>
+          LockScreenWrapper(child: child ?? const SizedBox.shrink()),
     );
   }
 }

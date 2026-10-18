@@ -20,7 +20,8 @@ class VaultState {
     this.isLoading = false,
   });
 
-  VaultState copyWith({bool? isUnlocked, List<PdfFileItem>? vaultFiles, bool? isLoading}) {
+  VaultState copyWith(
+      {bool? isUnlocked, List<PdfFileItem>? vaultFiles, bool? isLoading}) {
     return VaultState(
       isUnlocked: isUnlocked ?? this.isUnlocked,
       vaultFiles: vaultFiles ?? this.vaultFiles,
@@ -52,7 +53,9 @@ class VaultController extends StateNotifier<VaultState> {
   Future<_VaultKey> get _readyKey async {
     await ready;
     final k = _vaultKey;
-    if (k == null) throw const VaultInitException('Vault key is null after initialization');
+    if (k == null) {
+      throw const VaultInitException('Vault key is null after initialization');
+    }
     return k;
   }
 
@@ -73,15 +76,18 @@ class VaultController extends StateNotifier<VaultState> {
       }
 
       final keyBytes = base64Decode(keyStr);
-      if (keyBytes.length != 32) throw VaultInitException('Invalid key length: ${keyBytes.length}');
+      if (keyBytes.length != 32) {
+        throw VaultInitException('Invalid key length: ${keyBytes.length}');
+      }
 
       final ivBytes = base64Decode(ivStr);
-      if (ivBytes.length != 16) throw VaultInitException('Invalid IV length: ${ivBytes.length}');
+      if (ivBytes.length != 16) {
+        throw VaultInitException('Invalid IV length: ${ivBytes.length}');
+      }
 
       _vaultKey = _VaultKey(
-        enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc)),
-        enc.IV(ivBytes)
-      );
+          enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc)),
+          enc.IV(ivBytes));
 
       final appDir = await getApplicationDocumentsDirectory();
       final vaultDir = Directory(p.join(appDir.path, 'vault'));
@@ -89,7 +95,6 @@ class VaultController extends StateNotifier<VaultState> {
         await vaultDir.create(recursive: true);
       }
       _vaultDir = vaultDir;
-
     } catch (e) {
       _vaultKey = null;
       _vaultDir = null;
@@ -107,7 +112,8 @@ class VaultController extends StateNotifier<VaultState> {
         return;
       }
       final files = vaultDir.listSync().whereType<File>().toList();
-      final items = files.map((f) => PdfFileItem.fromFile(f, isEncrypted: true)).toList();
+      final items =
+          files.map((f) => PdfFileItem.fromFile(f, isEncrypted: true)).toList();
       state = state.copyWith(vaultFiles: items, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false);
@@ -155,7 +161,9 @@ class VaultController extends StateNotifier<VaultState> {
       }
 
       // Ignore errors updating the ref since we might not be within a widget tree in test
-      try { _ref.read(pdfLibraryControllerProvider.notifier).refresh(); } catch (_) {}
+      try {
+        _ref.read(pdfLibraryControllerProvider.notifier).refresh();
+      } catch (_) {}
       loadVaultFiles();
       return true;
     } catch (e) {
@@ -171,10 +179,12 @@ class VaultController extends StateNotifier<VaultState> {
       if (!await vaultFile.exists()) return null;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
+      final decryptedBytes =
+          key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
 
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File(p.join(tempDir.path, 'temp_decrypted_${vaultItem.name}'));
+      final tempFile =
+          File(p.join(tempDir.path, 'temp_decrypted_${vaultItem.name}'));
       await tempFile.writeAsBytes(decryptedBytes, flush: true);
       return tempFile;
     } catch (e) {
@@ -183,14 +193,16 @@ class VaultController extends StateNotifier<VaultState> {
     }
   }
 
-  Future<bool> restoreFromVault(PdfFileItem vaultItem, String restoreDirPath) async {
+  Future<bool> restoreFromVault(
+      PdfFileItem vaultItem, String restoreDirPath) async {
     try {
       final key = await _readyKey;
       final vaultFile = File(vaultItem.path);
       if (!await vaultFile.exists()) return false;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes = key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
+      final decryptedBytes =
+          key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
 
       final newPath = p.join(restoreDirPath, vaultItem.name);
       final newFile = File(newPath);
@@ -202,7 +214,9 @@ class VaultController extends StateNotifier<VaultState> {
         return false;
       }
 
-      try { _ref.read(pdfLibraryControllerProvider.notifier).refresh(); } catch (_) {}
+      try {
+        _ref.read(pdfLibraryControllerProvider.notifier).refresh();
+      } catch (_) {}
       loadVaultFiles();
       return true;
     } catch (e) {
@@ -212,6 +226,7 @@ class VaultController extends StateNotifier<VaultState> {
   }
 }
 
-final vaultControllerProvider = StateNotifierProvider<VaultController, VaultState>((ref) {
+final vaultControllerProvider =
+    StateNotifierProvider<VaultController, VaultState>((ref) {
   return VaultController(ref);
 });

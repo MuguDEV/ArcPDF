@@ -39,4 +39,5 @@ class HapticService {
   }
 }
 
-final hapticServiceProvider = Provider<HapticService>((ref) => HapticService(ref));
+final hapticServiceProvider =
+    Provider<HapticService>((ref) => HapticService(ref));

@@ -103,19 +103,33 @@ class AppSettings {
 class SettingsController extends StateNotifier<AppSettings> {
   SettingsController(this._box)
       : super(AppSettings(
-          themeMode: ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
+          themeMode:
+              ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
           useBlurEffect: _box.get('useBlurEffect', defaultValue: true) as bool,
-          useLiquidGlass: _box.get('useLiquidGlass', defaultValue: false) as bool,
-          animationIntensity: ((_box.get('anim', defaultValue: 1.0) as num).toDouble()).clamp(0.01, 1.0),
-          animationSpeed: ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble()).clamp(0.5, 2.0),
-          thumbnailQuality: ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble()).clamp(0.01, 1.0),
-          fontFamily: AppFontFamily.values[_box.get('fontFamily', defaultValue: 1) as int],
+          useLiquidGlass:
+              _box.get('useLiquidGlass', defaultValue: false) as bool,
+          animationIntensity:
+              ((_box.get('anim', defaultValue: 1.0) as num).toDouble())
+                  .clamp(0.01, 1.0),
+          animationSpeed:
+              ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble())
+                  .clamp(0.5, 2.0),
+          thumbnailQuality:
+              ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble())
+                  .clamp(0.01, 1.0),
+          fontFamily: AppFontFamily
+              .values[_box.get('fontFamily', defaultValue: 1) as int],
           useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
-          keepScreenAwake: _box.get('keepScreenAwake', defaultValue: false) ?? false,
-          compressionThreads: ((_box.get('compressionThreads', defaultValue: 2) as num).toInt()).clamp(1, 5),
+          keepScreenAwake:
+              _box.get('keepScreenAwake', defaultValue: false) ?? false,
+          compressionThreads:
+              ((_box.get('compressionThreads', defaultValue: 2) as num).toInt())
+                  .clamp(1, 5),
           lowPowerMode: _box.get('lowPowerMode', defaultValue: false) ?? false,
-          enableGyroCards: _box.get('enableGyroCards', defaultValue: false) ?? false,
-          enableMeshBackground: _box.get('enableMeshBackground', defaultValue: false) ?? false,
+          enableGyroCards:
+              _box.get('enableGyroCards', defaultValue: false) ?? false,
+          enableMeshBackground:
+              _box.get('enableMeshBackground', defaultValue: false) ?? false,
           skippedUpdateVersion: _box.get('skippedUpdateVersion') as String?,
         ));
 
@@ -193,6 +207,7 @@ class SettingsController extends StateNotifier<AppSettings> {
   }
 }
 
-final settingsControllerProvider = StateNotifierProvider<SettingsController, AppSettings>(
+final settingsControllerProvider =
+    StateNotifierProvider<SettingsController, AppSettings>(
   (ref) => SettingsController(Hive.box(LocalBoxes.settings)),
 );

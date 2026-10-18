@@ -44,7 +44,8 @@ class _PinPadState extends ConsumerState<PinPad> {
   void _onBackspaceTap() {
     if (_pinController.text.isNotEmpty) {
       _triggerHaptic();
-      _pinController.text = _pinController.text.substring(0, _pinController.text.length - 1);
+      _pinController.text =
+          _pinController.text.substring(0, _pinController.text.length - 1);
     }
   }
 
@@ -55,7 +56,6 @@ class _PinPadState extends ConsumerState<PinPad> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
 
     final defaultPinTheme = PinTheme(
       width: 56,
@@ -92,7 +92,10 @@ class _PinPadState extends ConsumerState<PinPad> {
           useNativeKeyboard: false, // We use custom keypad
           onCompleted: widget.onCompleted,
           showCursor: true,
-        ).animate().fadeIn(duration: 300.ms).scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
+        )
+            .animate()
+            .fadeIn(duration: 300.ms)
+            .scaleXY(begin: 0.95, end: 1.0, curve: Curves.easeOutBack),
         const SizedBox(height: 32),
         _buildKeypad(theme)
             .animate()
@@ -113,7 +116,8 @@ class _PinPadState extends ConsumerState<PinPad> {
         crossAxisSpacing: 8,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          for (var i = 1; i <= 9; i++) _KeypadButton(text: '$i', onTap: () => _onKeypadTap('$i')),
+          for (var i = 1; i <= 9; i++)
+            _KeypadButton(text: '$i', onTap: () => _onKeypadTap('$i')),
           const SizedBox.shrink(), // Empty space
           _KeypadButton(text: '0', onTap: () => _onKeypadTap('0')),
           _KeypadButton(icon: Icons.backspace_outlined, onTap: _onBackspaceTap),
@@ -145,7 +149,8 @@ class _KeypadButton extends StatelessWidget {
           child: text != null
               ? Text(
                   text!,
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w500),
                 )
               : Icon(icon, size: 28, color: theme.colorScheme.onSurface),
         ),
@@ -197,8 +202,10 @@ class _AnimatedObscureCharState extends State<_AnimatedObscureChar> {
         _currentChar,
         key: ValueKey(_currentChar),
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-          color: _isSettled ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+              color: _isSettled
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
       ),
     );
   }

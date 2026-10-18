@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-final readingProgressRepositoryProvider = Provider<ReadingProgressRepository>((ref) => ReadingProgressRepository());
+final readingProgressRepositoryProvider =
+    Provider<ReadingProgressRepository>((ref) => ReadingProgressRepository());
 
 class ReadingProgressRepository {
   Box<int> get _pageBox => Hive.box<int>('reading_progress_pages');

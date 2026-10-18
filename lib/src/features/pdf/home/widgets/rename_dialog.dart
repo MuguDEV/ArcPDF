@@ -5,7 +5,8 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
       ? currentName.substring(0, currentName.length - 4)
       : currentName;
   final controller = TextEditingController(text: name);
-  controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+  controller.selection =
+      TextSelection(baseOffset: 0, extentOffset: controller.text.length);
 
   return showDialog<String>(
     context: context,
@@ -34,24 +35,28 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
               const SizedBox(height: 16),
               Text(
                 'Rename PDF',
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
                 autofocus: true,
-                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                style: theme.textTheme.bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                    borderSide:
+                        BorderSide(color: theme.colorScheme.outlineVariant),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(color: theme.colorScheme.primary),
                   ),
                   labelText: 'New Name',
-                  labelStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  labelStyle:
+                      TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 24),
@@ -61,17 +66,22 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       foregroundColor: theme.colorScheme.onSurfaceVariant,
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                     ),
                     onPressed: () {
                       final newName = controller.text.trim();

@@ -7,7 +7,8 @@ class MultiTabViewerScreen extends ConsumerStatefulWidget {
   const MultiTabViewerScreen({super.key});
 
   @override
-  ConsumerState<MultiTabViewerScreen> createState() => _MultiTabViewerScreenState();
+  ConsumerState<MultiTabViewerScreen> createState() =>
+      _MultiTabViewerScreenState();
 }
 
 class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
@@ -30,7 +31,8 @@ class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
   Widget build(BuildContext context) {
     // Listen to state changes to sync PageController outside of build phase
     ref.listen<OpenTabsState>(openTabsProvider, (previous, next) {
-      if (previous?.activeIndex != next.activeIndex && _pageController.hasClients) {
+      if (previous?.activeIndex != next.activeIndex &&
+          _pageController.hasClients) {
         if (_pageController.page?.round() != next.activeIndex) {
           _pageController.animateToPage(
             next.activeIndex,
