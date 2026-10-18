@@ -20,7 +20,7 @@ Future<T?> showAppBottomSheet<T>({
 }) {
   return showModalBottomSheet<T>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
     isScrollControlled: isScrollControlled,
     elevation: 0,
     builder: (BuildContext context) {

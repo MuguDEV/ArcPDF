@@ -43,17 +43,13 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     final isLiquid = settings.useLiquidGlass;
     final double sigma = isLiquid ? 48.0 : 24.0;
 
-    final navBg = isDark ? ArcColors.surfaceToken : ArcColors.textPrimary;
-    final Color bgColor = isLiquid
-        ? (isDark
-            ? Colors.black.withValues(alpha: 0.4)
-            : Colors.white.withValues(alpha: 0.4))
-        : navBg.withValues(alpha: isDark ? 0.75 : 0.85);
+    final navBg = theme.colorScheme.surfaceContainerHigh;
+    final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.4 : 0.72);
 
     Widget navContainer = Container(
       height: 64,
       decoration: BoxDecoration(
-        color: isBlur ? bgColor : navBg,
+        color: bgColor,
         borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
         border: Border.all(
           color: isDark
@@ -95,7 +91,7 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
               children: List.generate(_icons.length, (index) {
                 final isSelected = widget.selectedIndex == index;
                 final color = isSelected
-                    ? ArcColors.active
+                    ? theme.colorScheme.onSurface
                     : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
 
                 Widget iconWidget = Icon(_icons[index], color: color, size: 24);

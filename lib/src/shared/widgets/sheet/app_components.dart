@@ -7,9 +7,9 @@ class AppBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(
-          color: ArcColors.surfaceToken,
-          borderRadius: BorderRadius.vertical(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: const BorderRadius.vertical(
             top: Radius.circular(ArcColors.sheetRadius),
           ),
         ),

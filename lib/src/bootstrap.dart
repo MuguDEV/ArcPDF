@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'data/local_boxes.dart';
 
@@ -6,6 +7,7 @@ import 'features/pdf/domain/pdf_annotation.dart';
 import 'core/utils/logger.dart';
 
 Future<void> bootstrap() async {
+  await pdfrxFlutterInitialize();
   await Hive.initFlutter();
   if (!Hive.isAdapterRegistered(2)) {
     Hive.registerAdapter(PdfAnnotationAdapter());
