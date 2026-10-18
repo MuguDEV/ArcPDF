@@ -279,24 +279,24 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
                 : ArcColors.outlineToken.withValues(alpha: 0.35),
           ),
         ),
+        segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+            minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: ArcColors.space12),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+              ),
+            ),
+          ),
+        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(64, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-            ),
-            segmentedButtonTheme: SegmentedButtonThemeData(
-              style: ButtonStyle(
-                minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
-                padding: const WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(horizontal: ArcColors.space12),
-                ),
-                shape: WidgetStatePropertyAll(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-                  ),
-                ),
-              ),
             ),
           ),
         ),
