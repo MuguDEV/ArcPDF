@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../shared/widgets/arc_bouncy_card.dart';
+import '../../../shared/theme/arc_colors.dart';
 
 class ToolCard extends StatelessWidget {
   const ToolCard({
@@ -27,21 +28,22 @@ class ToolCard extends StatelessWidget {
           width: double.infinity,
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(ArcColors.cardRadius),
             border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius:
+                      BorderRadius.circular(ArcColors.buttonRadius),
                 ),
-                child: Icon(icon, size: 28, color: theme.colorScheme.onSurface),
+                child: Icon(icon, size: 24, color: theme.colorScheme.onSurface),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -50,7 +52,7 @@ class ToolCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -68,6 +70,7 @@ class ToolCard extends StatelessWidget {
               const SizedBox(width: 12),
               Icon(
                 Icons.chevron_right_rounded,
+                size: 20,
                 color:
                     theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),

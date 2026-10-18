@@ -14,8 +14,8 @@ abstract final class ArcTypography {
     final themed = _applyGoogleFont(base, family);
     return themed.copyWith(
       titleLarge: themed.titleLarge?.copyWith(
-        fontSize: 28,
-        fontWeight: FontWeight.w500,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.4,
       ),
       titleMedium: themed.titleMedium?.copyWith(
@@ -24,7 +24,7 @@ abstract final class ArcTypography {
         letterSpacing: 0.4,
       ),
       bodyLarge: themed.bodyLarge?.copyWith(
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: FontWeight.w400,
         letterSpacing: 0.4,
       ),

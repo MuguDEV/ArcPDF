@@ -37,7 +37,7 @@ class ToolsScreen extends ConsumerWidget {
             title: Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             sliver: SliverMainAxisGroup(
               slivers: [
                 SliverToBoxAdapter(
@@ -51,9 +51,9 @@ class ToolsScreen extends ConsumerWidget {
                 SliverGrid(
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 500,
-                    mainAxisExtent: 104,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    mainAxisExtent: 80,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
                   delegate: SliverChildListDelegate([
                     ToolCard(
@@ -122,7 +122,7 @@ class ToolsScreen extends ConsumerWidget {
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 32, bottom: 12),
+                    padding: const EdgeInsets.only(top: 24, bottom: 12),
                     child: _buildSectionHeader('Conversion', context)
                         .animate(delay: 200.ms)
                         .fadeIn(duration: 300.ms),
@@ -131,9 +131,9 @@ class ToolsScreen extends ConsumerWidget {
                 SliverGrid(
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 500,
-                    mainAxisExtent: 104,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    mainAxisExtent: 80,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
                   ),
                   delegate: SliverChildListDelegate([
                     ToolCard(
