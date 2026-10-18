@@ -17,7 +17,8 @@ class ParticleBurst extends StatefulWidget {
   ParticleBurstState createState() => ParticleBurstState();
 }
 
-class ParticleBurstState extends State<ParticleBurst> with SingleTickerProviderStateMixin {
+class ParticleBurstState extends State<ParticleBurst>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   final _random = math.Random();
   final List<_Particle> _particles = [];
@@ -57,16 +58,25 @@ class ParticleBurstState extends State<ParticleBurst> with SingleTickerProviderS
       alignment: Alignment.center,
       children: [
         widget.child,
-        if (_controller.isAnimating)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _BurstPainter(
-                progress: Curves.easeOutCirc.transform(_controller.value),
-                particles: _particles,
-                color: widget.burstColor,
-              ),
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                if (!_controller.isAnimating) {
+                  return const SizedBox.shrink();
+                }
+                return CustomPaint(
+                  painter: _BurstPainter(
+                    progress: Curves.easeOutCirc.transform(_controller.value),
+                    particles: _particles,
+                    color: widget.burstColor,
+                  ),
+                );
+              },
             ),
           ),
+        ),
       ],
     );
   }
@@ -85,7 +95,8 @@ class _BurstPainter extends CustomPainter {
   final List<_Particle> particles;
   final Color color;
 
-  _BurstPainter({required this.progress, required this.particles, required this.color});
+  _BurstPainter(
+      {required this.progress, required this.particles, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
