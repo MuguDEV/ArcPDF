@@ -12,11 +12,13 @@ import 'dart:async';
 import 'dart:collection';
 
 class PdfThumbnailCache {
-  static final LinkedHashMap<String, ui.Image> _memCache = LinkedHashMap<String, ui.Image>();
+  static final LinkedHashMap<String, ui.Image> _memCache =
+      LinkedHashMap<String, ui.Image>();
   static const int _maxMemCacheSize = 100;
   static String? _cacheDir;
 
   static final Queue<_ThumbnailTask> _taskQueue = Queue<_ThumbnailTask>();
+  static final Map<String, Future<ui.Image?>> _inFlight = {};
   static int _activeTasks = 0;
   static const int _maxConcurrentTasks = 4;
 
@@ -43,7 +45,8 @@ class PdfThumbnailCache {
 
   static void _addToMemCache(String path, ui.Image image) {
     if (_memCache.containsKey(path)) {
-      _memCache.remove(path); // Remove so it gets added to the end (most recent)
+      _memCache
+          .remove(path); // Remove so it gets added to the end (most recent)
     }
     _memCache[path] = image;
 
@@ -56,15 +59,26 @@ class PdfThumbnailCache {
     }
   }
 
-  static Future<ui.Image?> getThumbnail(String pdfPath, {bool lowPowerMode = false}) async {
+  static Future<ui.Image?> getThumbnail(String pdfPath,
+      {bool lowPowerMode = false}) async {
     final cached = getCached(pdfPath);
     if (cached != null) return cached;
+
+    final inFlight = _inFlight[pdfPath];
+    if (inFlight != null) return inFlight;
 
     final completer = Completer<ui.Image?>();
     _taskQueue.add(_ThumbnailTask(pdfPath, lowPowerMode, completer));
     _processQueue();
 
-    return completer.future;
+    final future = completer.future;
+    _inFlight[pdfPath] = future;
+    future.whenComplete(() {
+      if (identical(_inFlight[pdfPath], future)) {
+        _inFlight.remove(pdfPath);
+      }
+    });
+    return future;
   }
 
   static void _processQueue() async {
@@ -84,7 +98,8 @@ class PdfThumbnailCache {
     }
   }
 
-  static Future<ui.Image?> _generateThumbnail(String pdfPath, bool lowPowerMode) async {
+  static Future<ui.Image?> _generateThumbnail(
+      String pdfPath, bool lowPowerMode) async {
     // Check cache again in case another task already generated it
     final cached = getCached(pdfPath);
     if (cached != null) return cached;
@@ -109,9 +124,9 @@ class PdfThumbnailCache {
         doc.dispose();
         return null;
       }
-      
+
       final page = doc.pages.first;
-      
+
       // Render small thumbnail (e.g. max width 400)
       final double targetWidth = lowPowerMode ? 150.0 : 400.0;
       double scale = targetWidth / page.width;
@@ -121,7 +136,7 @@ class PdfThumbnailCache {
         fullWidth: page.width * scale,
         fullHeight: page.height * scale,
       );
-      
+
       doc.dispose();
       if (kDebugMode) Timeline.finishSync();
 
@@ -133,16 +148,17 @@ class PdfThumbnailCache {
 
         // Async write bytes to disk without blocking UI texture memory load
         image.toByteData(format: ui.ImageByteFormat.png).then((byteData) {
-           if (byteData != null) {
-              file.writeAsBytes(byteData.buffer.asUint8List());
-           }
+          if (byteData != null) {
+            file.writeAsBytes(byteData.buffer.asUint8List());
+          }
         });
 
         return image;
       }
     } catch (e, stackTrace) {
       final redactedPath = pdfPath.split('/').lastOrNull ?? 'unknown_file';
-      AppLogger.error('Failed to generate thumbnail for $redactedPath', e, stackTrace);
+      AppLogger.error(
+          'Failed to generate thumbnail for $redactedPath', e, stackTrace);
     }
     return null;
   }
