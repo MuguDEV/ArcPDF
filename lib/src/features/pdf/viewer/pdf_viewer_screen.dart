@@ -276,6 +276,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     final isLiquidGlass = ref.watch(settingsControllerProvider
         .select((s) => s.useLiquidGlass && !s.lowPowerMode));
     final repo = ref.read(readingProgressRepositoryProvider);
+    final fileExists = File(widget.item.path).existsSync();
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -286,14 +287,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
             const Center(
               child: ArcProgressIndicator(),
             )
+          else if (!fileExists || widget.item.sizeBytes <= 0)
+            _buildLoadError(
+              context,
+              'The PDF file is unavailable or empty.',
+            )
           else
             Builder(
               builder: (context) {
                 final viewer = PdfViewer.file(
                   widget.item.path,
-                  initialPageNumber: repo.getLastReadPage(widget.item.path) > 0
-                      ? repo.getLastReadPage(widget.item.path)
-                      : 1,
+                  initialPageNumber: 1,
                   controller: _pdfViewerController,
                   passwordProvider: () async => _showPasswordPrompt(context),
                   params: PdfViewerParams(
@@ -301,6 +305,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                       final lastZoom = repo.getLastZoom(widget.item.path);
                       if (lastZoom != null) {
                         controller.setZoom(controller.centerPosition, lastZoom);
+                      }
+                      final savedPage =
+                          repo.getLastReadPage(widget.item.path);
+                      if (savedPage > 1 && savedPage <= controller.pageCount) {
+                        controller.goToPage(pageNumber: savedPage);
                       }
                     },
                     errorBannerBuilder:
@@ -943,6 +952,37 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLoadError(BuildContext context, String message) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.picture_as_pdf_outlined,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unable to open PDF',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
