@@ -44,12 +44,12 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     final double sigma = isLiquid ? 48.0 : 24.0;
 
     final navBg = theme.colorScheme.surfaceContainerHigh;
-    final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.4 : 0.72);
+    final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.38 : 0.64);
 
     Widget navContainer = Container(
       height: 64,
       decoration: BoxDecoration(
-        color: bgColor,
+        color: isBlur ? bgColor : navBg.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
         border: Border.all(
           color: isDark

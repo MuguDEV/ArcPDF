@@ -203,10 +203,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: _isSelectionMode
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 90.0),
-              child: FloatingActionButton.extended(
+          ? FloatingActionButton.extended(
                 onPressed: _selectedPaths.length > 1
                     ? () => _handleQuickCombine(context)
                     : null,
@@ -219,13 +218,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: const Icon(HugeIcons.strokeRoundedLayers01),
                 label: Text('Combine (${_selectedPaths.length})'),
               ).animate().slideY(
-                  begin: 1.0, duration: 250.ms, curve: Curves.easeOutBack),
-            )
+                begin: 1.0,
+                duration: 250.ms,
+                curve: Curves.easeOutBack,
+              )
           : _showScrollToTop
-              ? Padding(
-                  padding: const EdgeInsets.only(
-                      bottom: 90.0), // Elevate above the bottom navigation bar
-                  child: FloatingActionButton(
+              ? FloatingActionButton(
                     onPressed: () {
                       _scrollController.animateTo(
                         0,
@@ -237,8 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     foregroundColor: theme.colorScheme.onSecondaryContainer,
                     elevation: 4,
                     child: const Icon(Icons.arrow_upward_rounded),
-                  ),
-                )
+                  )
               : null,
       body: Stack(
         children: [

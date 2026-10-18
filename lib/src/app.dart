@@ -91,12 +91,12 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       onError: Color(0xFFFFFFFF),
       errorContainer: Color(0xFFE0E0E0),
       onErrorContainer: Color(0xFF1E1E1E),
-      surface: Color(0xFFF5F5F5),
-      onSurface: Color(0xFF1E1E1E),
-      surfaceContainerHighest: Color(0xFFD4D4D4),
-      surfaceContainerHigh: Color(0xFFEBEBEB),
-      surfaceContainer: Color(0xFFF0F0F0),
-      surfaceContainerLow: Color(0xFFFFFFFF),
+      surface: Color(0xFFECECEC),
+      onSurface: Color(0xFF171717),
+      surfaceContainerHighest: Color(0xFFD0D0D0),
+      surfaceContainerHigh: Color(0xFFE0E0E0),
+      surfaceContainer: Color(0xFFE6E6E6),
+      surfaceContainerLow: Color(0xFFF7F7F7),
       surfaceContainerLowest: Color(0xFFFFFFFF),
       onSurfaceVariant: Color(0xFF424242),
       outline: Color(0xFF9E9E9E),
@@ -192,8 +192,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           backgroundColor: colorScheme.surfaceContainerHigh,
           elevation: 0,
         ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: ArcColors.surfaceToken,
+        bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: colorScheme.surfaceContainerHigh,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(ArcColors.sheetRadius),
