@@ -246,6 +246,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           minTileHeight: ArcColors.minRowHeight,
           contentPadding:
               EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
+          dense: true,
+          visualDensity: VisualDensity(horizontal: -1, vertical: -1),
         ),
         popupMenuTheme: PopupMenuThemeData(
           color: colorScheme.surfaceContainerHigh,
@@ -282,6 +284,19 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
             minimumSize: const Size(64, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            ),
+            segmentedButtonTheme: SegmentedButtonThemeData(
+              style: ButtonStyle(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: ArcColors.space12),
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

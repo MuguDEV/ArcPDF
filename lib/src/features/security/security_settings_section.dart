@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'security_controller.dart';
 import 'security_settings_dialog.dart';
+import '../../shared/theme/arc_colors.dart';
 
 class SecuritySettingsSection extends ConsumerWidget {
   const SecuritySettingsSection({super.key});
@@ -16,7 +17,7 @@ class SecuritySettingsSection extends ConsumerWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(ArcColors.cardRadius),
         border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),

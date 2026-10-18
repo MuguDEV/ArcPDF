@@ -15,6 +15,7 @@ import '../security/security_settings_section.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../shared/widgets/glass_app_bar.dart';
+import '../../shared/theme/arc_colors.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -494,7 +495,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(28),
+                          borderRadius: BorderRadius.circular(ArcColors.cardRadius),
                         ),
                         child:
                             const Icon(HugeIcons.strokeRoundedPdf02, size: 22),

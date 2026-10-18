@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../shared/theme/arc_colors.dart';
 
 class PdfCardShimmer extends StatelessWidget {
   const PdfCardShimmer({super.key});
@@ -18,7 +19,7 @@ class PdfCardShimmer extends StatelessWidget {
           height: 136,
           decoration: BoxDecoration(
             color: base,
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(ArcColors.cardRadius),
           ),
         ),
       ).animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(

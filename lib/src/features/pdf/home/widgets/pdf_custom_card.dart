@@ -274,13 +274,13 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     );
 
     Widget cardContent = ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(ArcColors.cardRadius),
       child: lowPowerMode
           ? Container(
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow
                     .withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(ArcColors.cardRadius),
                 border: Border.all(
                   color:
                       theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
@@ -295,7 +295,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerLow
                       .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(ArcColors.cardRadius),
                   border: Border.all(
                     color:
                         theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
