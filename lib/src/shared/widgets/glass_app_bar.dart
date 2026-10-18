@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/settings/settings_controller.dart';
 
 class GlassSliverAppBar extends ConsumerWidget {
+  static final ImageFilter _blur16 = ImageFilter.blur(sigmaX: 16, sigmaY: 16);
+  static final ImageFilter _blur48 = ImageFilter.blur(sigmaX: 48, sigmaY: 48);
+
   final Widget title;
   final List<Widget>? actions;
   final bool pinned;
@@ -24,8 +27,6 @@ class GlassSliverAppBar extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final isBlur = settings.useBlurEffect && !settings.lowPowerMode;
     final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
-    final double sigma = isLiquid ? 48.0 : 16.0;
-
     final Color bgColor = isBlur
         ? (isLiquid
             ? (isDark ? const Color(0x33000000) : const Color(0x66FFFFFF))
@@ -37,18 +38,24 @@ class GlassSliverAppBar extends ConsumerWidget {
       backgroundColor: bgColor,
       surfaceTintColor: Colors.transparent, // Prevents Material 3 tint overlay
       flexibleSpace: isBlur
-          ? ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    border: isLiquid ? Border(
-                      bottom: BorderSide(
-                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
-                        width: 0.5, // Subtle bottom rim light
-                      ),
-                    ) : null,
+          ? RepaintBoundary(
+              child: ClipRRect(
+                child: BackdropFilter(
+                  filter: isLiquid ? _blur48 : _blur16,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: isLiquid
+                          ? Border(
+                              bottom: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.03),
+                                width: 0.5,
+                              ),
+                            )
+                          : null,
+                    ),
                   ),
                 ),
               ),
