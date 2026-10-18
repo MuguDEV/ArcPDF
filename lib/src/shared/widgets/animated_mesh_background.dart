@@ -9,7 +9,8 @@ class AnimatedMeshBackground extends StatefulWidget {
   State<AnimatedMeshBackground> createState() => _AnimatedMeshBackgroundState();
 }
 
-class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground> with SingleTickerProviderStateMixin {
+class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -34,8 +35,10 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground> with Si
 
     // Very subtle monochrome base colors
     final baseColor = theme.colorScheme.surface;
-    final highlight1 = theme.colorScheme.primaryContainer.withValues(alpha: isDark ? 0.3 : 0.5);
-    final highlight2 = theme.colorScheme.secondaryContainer.withValues(alpha: isDark ? 0.3 : 0.5);
+    final highlight1 = theme.colorScheme.primaryContainer
+        .withValues(alpha: isDark ? 0.3 : 0.5);
+    final highlight2 = theme.colorScheme.secondaryContainer
+        .withValues(alpha: isDark ? 0.3 : 0.5);
 
     return Container(
       color: baseColor,
@@ -43,18 +46,20 @@ class _AnimatedMeshBackgroundState extends State<AnimatedMeshBackground> with Si
         fit: StackFit.expand,
         children: [
           // Moving blobs
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              final val = _controller.value;
-              return CustomPaint(
-                painter: _MeshPainter(
-                  value: val,
-                  color1: highlight1,
-                  color2: highlight2,
-                ),
-              );
-            },
+          RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final val = _controller.value;
+                return CustomPaint(
+                  painter: _MeshPainter(
+                    value: val,
+                    color1: highlight1,
+                    color2: highlight2,
+                  ),
+                );
+              },
+            ),
           ),
           // Heavy glass blur to merge the blobs into a mesh gradient
           BackdropFilter(
@@ -72,7 +77,8 @@ class _MeshPainter extends CustomPainter {
   final Color color1;
   final Color color2;
 
-  _MeshPainter({required this.value, required this.color1, required this.color2});
+  _MeshPainter(
+      {required this.value, required this.color1, required this.color2});
 
   @override
   void paint(Canvas canvas, Size size) {
