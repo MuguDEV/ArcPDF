@@ -7,6 +7,7 @@ import '../../pdf/application/pdf_library_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 import '../../../shared/utils/glass_bottom_sheet.dart';
+import '../../../shared/theme/arc_colors.dart';
 
 class InAppPdfSelector extends ConsumerStatefulWidget {
   const InAppPdfSelector({
@@ -71,18 +72,6 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 16, bottom: 8),
-              child: Container(
-                width: 48,
-                height: 4,
-                decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
@@ -131,9 +120,10 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? theme.colorScheme.primaryContainer
-                                        .withValues(alpha: 0.5)
-                                    : theme.colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(24),
+                                    : theme.colorScheme.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(
+                                  ArcColors.cardRadius,
+                                ),
                                 border: Border.all(
                                   color: isSelected
                                       ? theme.colorScheme.primary
@@ -241,7 +231,7 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
             Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
+                color: theme.colorScheme.surfaceContainerHigh,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
