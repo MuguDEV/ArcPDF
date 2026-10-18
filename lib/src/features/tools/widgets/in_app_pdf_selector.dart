@@ -6,6 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../pdf/application/pdf_library_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
+import '../../../shared/utils/glass_bottom_sheet.dart';
 
 class InAppPdfSelector extends ConsumerStatefulWidget {
   const InAppPdfSelector({
@@ -17,14 +18,9 @@ class InAppPdfSelector extends ConsumerStatefulWidget {
 
   static Future<List<String>?> show(BuildContext context,
       {bool allowMultiple = true}) async {
-    return showModalBottomSheet<List<String>>(
+    return showAppBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
       builder: (context) => InAppPdfSelector(allowMultiple: allowMultiple),
     );
   }
@@ -55,7 +51,7 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
       allowedExtensions: ['pdf'],
       allowMultiple: widget.allowMultiple,
     );
-    if (result != null && mounted) {
+    if (mounted && result != null) {
       Navigator.of(context).pop(result.paths.whereType<String>().toList());
     }
   }

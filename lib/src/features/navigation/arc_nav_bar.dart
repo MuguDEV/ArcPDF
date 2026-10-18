@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../settings/settings_controller.dart';
 import '../settings/haptic_service.dart';
 import 'navigation_controller.dart';
+import '../../shared/theme/arc_colors.dart';
 
 class ArcNavBar extends ConsumerStatefulWidget {
   const ArcNavBar({super.key, required this.selectedIndex});
@@ -24,6 +25,13 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     HugeIcons.strokeRoundedDashboardSquare01,
     HugeIcons.strokeRoundedSettings01,
   ];
+  final List<String> _labels = const [
+    'Home',
+    'Favorites',
+    'Recent',
+    'Tools',
+    'Settings',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +43,7 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     final isLiquid = settings.useLiquidGlass;
     final double sigma = isLiquid ? 48.0 : 24.0;
 
-    final navBg = isDark ? const Color(0xFF1C1C1C) : const Color(0xFFFCFCFC);
+    final navBg = isDark ? ArcColors.surfaceToken : ArcColors.textPrimary;
     final Color bgColor = isLiquid
         ? (isDark
             ? Colors.black.withValues(alpha: 0.4)
@@ -46,7 +54,7 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
       height: 64,
       decoration: BoxDecoration(
         color: isBlur ? bgColor : navBg,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.05)
@@ -75,10 +83,8 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
               width: itemWidth - 24,
               child: Container(
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
+                  color: ArcColors.active.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
                 ),
               ),
             ),
@@ -89,7 +95,7 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
               children: List.generate(_icons.length, (index) {
                 final isSelected = widget.selectedIndex == index;
                 final color = isSelected
-                    ? (isDark ? Colors.white : theme.colorScheme.primary)
+                    ? ArcColors.active
                     : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
 
                 Widget iconWidget = Icon(_icons[index], color: color, size: 24);
@@ -124,7 +130,21 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
                             .setIndex(index);
                       }
                     },
-                    child: Center(child: iconWidget),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          iconWidget,
+                          Text(
+                            _labels[index],
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: color,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }),
@@ -137,7 +157,7 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     return SafeArea(
       minimum: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
         child: isBlur
             ? BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),

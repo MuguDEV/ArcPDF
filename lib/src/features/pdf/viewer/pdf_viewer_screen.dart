@@ -57,7 +57,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   int _rotationQuarterTurns = 0;
 
   bool _isSearching = false;
-  bool _isReadyToRender = false;
+  bool _isReadyToRender = true;
   bool _isToolbarExpanded = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -88,16 +88,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     if (modalRoute != null) {
       pdfRouteObserver.subscribe(this, modalRoute);
 
-      if (!_isRouteObserverInitialized) {
-        _isRouteObserverInitialized = true;
-
-        // Immediately ready to render without waiting for animation.
-        // Waiting for the animation to complete causes a blank screen
-        // until the end of the transition, making it feel choppy or broken.
-        // We defer pdfrx document loading internally instead if needed,
-        // but visually we must exist right away.
-        setState(() => _isReadyToRender = true);
-      }
+      _isRouteObserverInitialized = true;
     }
   }
 

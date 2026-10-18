@@ -10,15 +10,12 @@ import '../../../vault/vault_controller.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../../../tools/pages/rearrange_pages_page.dart';
 import '../../../tools/pages/metadata_editor_page.dart';
+import '../../../../shared/utils/glass_bottom_sheet.dart';
 
 void showPdfBottomSheet(BuildContext context, WidgetRef ref, PdfFileItem item) {
-  showModalBottomSheet(
+  showAppBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-    ),
     builder: (context) => _PdfBottomSheet(item: item),
   );
 }

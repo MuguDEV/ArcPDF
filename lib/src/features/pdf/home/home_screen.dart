@@ -29,6 +29,7 @@ import '../../vault/vault_screen.dart';
 import '../../../shared/widgets/glass_app_bar.dart';
 import '../../../shared/widgets/dynamic_island_notification.dart';
 import '../../../shared/utils/glass_bottom_sheet.dart';
+import '../../../shared/widgets/sheet/app_components.dart';
 import '../../../shared/widgets/animated_mesh_background.dart';
 import '../../updater/updater_service.dart';
 import '../../settings/settings_controller.dart';
@@ -818,88 +819,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context) {
         final state = ref.watch(pdfLibraryControllerProvider);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListTile(
-                leading: const Icon(HugeIcons.strokeRoundedRefresh),
-                title: const Text('Refresh Library'),
+              SheetActionRow(
+                icon: HugeIcons.strokeRoundedRefresh,
+                label: 'Refresh Library',
                 onTap: () {
                   Navigator.pop(context);
                   ctrl.refresh();
                 },
               ),
-              const Divider(),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Sort By',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-              ),
-              RadioListTile<PdfSortField>(
+              const SheetSectionHeader(title: 'Sort By', first: true),
+              SheetRadioRow<PdfSortField>(
                 value: PdfSortField.name,
                 groupValue: state.sortField,
+                label: 'Name',
                 onChanged: (val) {
-                  ctrl.setSortField(val!);
+                  ctrl.setSortField(val);
                   Navigator.pop(context);
                 },
-                title: const Text('Name'),
-                dense: true,
               ),
-              RadioListTile<PdfSortField>(
+              SheetRadioRow<PdfSortField>(
                 value: PdfSortField.date,
                 groupValue: state.sortField,
+                label: 'Date Modified',
                 onChanged: (val) {
-                  ctrl.setSortField(val!);
+                  ctrl.setSortField(val);
                   Navigator.pop(context);
                 },
-                title: const Text('Date Modified'),
-                dense: true,
               ),
-              RadioListTile<PdfSortField>(
+              SheetRadioRow<PdfSortField>(
                 value: PdfSortField.size,
                 groupValue: state.sortField,
+                label: 'Size',
                 onChanged: (val) {
-                  ctrl.setSortField(val!);
+                  ctrl.setSortField(val);
                   Navigator.pop(context);
                 },
-                title: const Text('Size'),
-                dense: true,
               ),
-              const Divider(),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Order',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-              ),
-              RadioListTile<PdfSortDirection>(
+              const SheetSectionHeader(title: 'Order'),
+              SheetRadioRow<PdfSortDirection>(
                 value: PdfSortDirection.ascending,
                 groupValue: state.sortDirection,
+                label: 'Ascending',
                 onChanged: (val) {
-                  ctrl.setSortDirection(val!);
+                  ctrl.setSortDirection(val);
                   Navigator.pop(context);
                 },
-                title: const Text('Ascending'),
-                dense: true,
               ),
-              RadioListTile<PdfSortDirection>(
+              SheetRadioRow<PdfSortDirection>(
                 value: PdfSortDirection.descending,
                 groupValue: state.sortDirection,
+                label: 'Descending',
                 onChanged: (val) {
-                  ctrl.setSortDirection(val!);
+                  ctrl.setSortDirection(val);
                   Navigator.pop(context);
                 },
-                title: const Text('Descending'),
-                dense: true,
               ),
             ],
           ),

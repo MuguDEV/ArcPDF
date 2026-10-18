@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/sheet/app_components.dart';
 
 Future<String?> showRenameDialog(BuildContext context, String currentName) {
   final name = currentName.toLowerCase().endsWith('.pdf')
@@ -8,7 +9,7 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
   controller.selection =
       TextSelection(baseOffset: 0, extentOffset: controller.text.length);
 
-  return showDialog<String>(
+  return showAppDialog<String>(
     context: context,
     builder: (context) {
       final theme = Theme.of(context);

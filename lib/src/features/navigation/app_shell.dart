@@ -23,11 +23,11 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          _buildOffstage(0, nav.index, const HomeScreen()),
-          _buildOffstage(1, nav.index, const FavoritesScreen()),
-          _buildOffstage(2, nav.index, const RecentScreen()),
-          _buildOffstage(3, nav.index, const ToolsScreen()),
-          _buildOffstage(4, nav.index, const SettingsScreen()),
+          _buildOffstage(0, nav.index, const HomeScreen(), context),
+          _buildOffstage(1, nav.index, const FavoritesScreen(), context),
+          _buildOffstage(2, nav.index, const RecentScreen(), context),
+          _buildOffstage(3, nav.index, const ToolsScreen(), context),
+          _buildOffstage(4, nav.index, const SettingsScreen(), context),
         ],
       ),
       extendBody: true,
@@ -35,7 +35,8 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  Widget _buildOffstage(int tabIndex, int currentIndex, Widget child) {
+  Widget _buildOffstage(
+      int tabIndex, int currentIndex, Widget child, BuildContext context) {
     final isSelected = tabIndex == currentIndex;
     return Offstage(
       offstage: !isSelected,
@@ -43,7 +44,12 @@ class AppShell extends ConsumerWidget {
         opacity: isSelected ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.fastLinearToSlowEaseIn,
-        child: child,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: 88 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: child,
+        ),
       ),
     );
   }

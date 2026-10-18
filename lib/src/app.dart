@@ -12,6 +12,7 @@ import 'shared/utils/traced_page_transitions_builder.dart';
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
 import 'features/pdf/viewer/route_observer.dart';
+import 'shared/theme/arc_colors.dart';
 
 class ArcPdfApp extends ConsumerStatefulWidget {
   const ArcPdfApp({super.key});
@@ -178,26 +179,32 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         ),
         cardTheme: CardThemeData(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ArcColors.cardRadius)),
           clipBehavior: Clip.antiAlias,
           color: colorScheme.surfaceContainerLow,
           elevation: 0,
         ),
         dialogTheme: DialogThemeData(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ArcColors.dialogRadius)),
           backgroundColor: colorScheme.surfaceContainerHigh,
           elevation: 0,
         ),
         bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: ArcColors.surfaceToken,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(ArcColors.sheetRadius),
+            ),
           ),
           elevation: 0,
         ),
         chipTheme: ChipThemeData(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
+              RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ArcColors.pillRadius)),
           side: BorderSide.none,
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -227,27 +234,80 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: colorScheme.surfaceContainerLow,
           indicatorShape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: ArcColors.divider,
+          space: 1,
+          thickness: 1,
+        ),
+        listTileTheme: const ListTileThemeData(
+          minTileHeight: ArcColors.minRowHeight,
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
+        ),
+        popupMenuTheme: PopupMenuThemeData(
+          color: colorScheme.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+          ),
+          menuPadding: EdgeInsets.zero,
+        ),
+        radioTheme: RadioThemeData(
+          fillColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? ArcColors.active
+                : ArcColors.outlineToken,
+          ),
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? ArcColors.active
+                : Colors.transparent,
+          ),
+          checkColor: const WidgetStatePropertyAll(Colors.black),
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: const WidgetStatePropertyAll(ArcColors.active),
+          trackColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? ArcColors.active.withValues(alpha: 0.35)
+                : ArcColors.outlineToken.withValues(alpha: 0.35),
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(64, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            ),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             minimumSize: const Size(64, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            ),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(64, 48),
             side: BorderSide(width: 1.0, color: colorScheme.outline),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            ),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             minimumSize: const Size(64, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            ),
           ),
         ),
       );

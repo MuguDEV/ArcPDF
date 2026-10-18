@@ -16,6 +16,7 @@ import '../../../../shared/widgets/arc_bouncy_card.dart';
 import '../../../../shared/widgets/particle_burst.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:async';
+import '../../../../shared/theme/arc_colors.dart';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
   const PdfCustomCard({
@@ -381,9 +382,10 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                               vertical: 4, horizontal: 8),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF2A2A2A)
-                                : const Color(0xFFEEEEEE),
-                            borderRadius: BorderRadius.circular(20),
+                                ? ArcColors.surfaceVariant
+                                : ArcColors.textSecondary,
+                            borderRadius:
+                                BorderRadius.circular(ArcColors.cardRadius),
                             border: Border.all(
                                 color: theme.colorScheme.outlineVariant,
                                 width: 1),
@@ -403,17 +405,8 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     ],
                   )
                 : null,
-            child: Consumer(
-              builder: (context, ref, _) {
-                final settings = ref.watch(settingsControllerProvider);
-                return Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateX(settings.enableGyroCards ? _tiltX : 0.0)
-                    ..rotateY(settings.enableGyroCards ? _tiltY : 0.0),
-                  alignment: Alignment.center,
-                  child: RepaintBoundary(
-                    child: ArcBouncyCard(
+            child: RepaintBoundary(
+              child: ArcBouncyCard(
                       onTap: () {
                         ref.read(hapticServiceProvider).selectionClick();
                         widget.onTap();
@@ -438,11 +431,8 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                         );
                         Overlay.of(context).insert(entry);
                       },
-                      child: cardContent,
-                    ),
-                  ),
-                );
-              },
+                child: cardContent,
+              ),
             ),
           ),
         ));
