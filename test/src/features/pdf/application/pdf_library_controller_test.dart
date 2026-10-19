@@ -41,6 +41,8 @@ void main() {
       );
     });
 
+    tearDown(() => controller.dispose());
+
     test('filters items correctly based on query and filter', () {
       final now = DateTime.now();
       final item1 = PdfFileItem(

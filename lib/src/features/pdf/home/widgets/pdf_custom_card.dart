@@ -407,30 +407,34 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                 : null,
             child: RepaintBoundary(
               child: ArcBouncyCard(
-                      onTap: () {
-                        ref.read(hapticServiceProvider).selectionClick();
-                        widget.onTap();
-                      },
-                      onLongPress: () {
-                        // Custom injected long press (e.g., selection mode) wins over Peek
-                        if (widget.onLongPress != null) {
-                          widget.onLongPress!.call();
-                          return;
-                        }
+                onTap: () {
+                  ref.read(hapticServiceProvider).selectionClick();
+                  widget.onTap();
+                },
+                onLongPress: () {
+                  // Custom injected long press (e.g., selection mode) wins over Peek
+                  if (widget.onLongPress != null) {
+                    widget.onLongPress!.call();
+                    return;
+                  }
 
-                        // Peek overlay
-                        ref.read(hapticServiceProvider).mediumImpact();
-                        OverlayEntry? entry;
-                        entry = OverlayEntry(
-                          builder: (context) => PeekOverlay(
-                            item: widget.item,
-                            onDismiss: () {
-                              entry?.remove();
-                            },
-                          ),
-                        );
-                        Overlay.of(context).insert(entry);
+                  // Peek overlay
+                  ref.read(hapticServiceProvider).mediumImpact();
+                  OverlayEntry? entry;
+                  entry = OverlayEntry(
+                    builder: (context) => PeekOverlay(
+                      item: widget.item,
+                      onDismiss: () {
+                        // Guard against the overlay already having been
+                        // removed (e.g. if dismissal was triggered twice).
+                        if (entry?.mounted ?? false) {
+                          entry?.remove();
+                        }
                       },
+                    ),
+                  );
+                  Overlay.of(context).insert(entry);
+                },
                 child: cardContent,
               ),
             ),

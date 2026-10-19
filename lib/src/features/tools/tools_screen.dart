@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../pdf/application/pdf_error_handler.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -9,7 +9,7 @@ import '../settings/settings_controller.dart';
 import '../settings/haptic_service.dart';
 import 'widgets/tool_card.dart';
 import 'tools_service.dart';
-import 'tool_action_dialog.dart';
+import 'utils/run_tool_action.dart';
 import 'pages/merge_pdfs_page.dart';
 import 'pages/split_pdf_page.dart';
 import 'pages/rearrange_pages_page.dart';
@@ -179,6 +179,7 @@ class ToolsScreen extends ConsumerWidget {
 
   Future<void> _handleCompress(BuildContext context, WidgetRef ref) async {
     ref.read(hapticServiceProvider).lightImpact();
+    final threads = ref.read(settingsControllerProvider).compressionThreads;
     final paths = await InAppPdfSelector.show(context, allowMultiple: true);
 
     if (paths != null && paths.isNotEmpty) {
@@ -223,7 +224,7 @@ class ToolsScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Select the image quality for compression (lower is smaller file size but worse quality).',
+                            'Select the image quality (lower reduces image size). This rasterizes every page: searchable text, links, and forms are not preserved, and the file may become larger. The original is kept.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant),
@@ -287,82 +288,38 @@ class ToolsScreen extends ConsumerWidget {
       if (!userPicked) return;
       if (!context.mounted) return;
 
-      // Single file scenario
-      if (paths.length == 1) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const ToolActionDialog(
-              title: 'Compressing PDF',
-              message: 'Applying compression settings...',
-              isLoading: true),
-        );
-
-        final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-        final outputPath = p.join(
-            dir, 'Compressed_${DateTime.now().millisecondsSinceEpoch}.pdf');
-
-        final threads = ref.read(settingsControllerProvider).compressionThreads;
-        final successPath = await ToolsService.compressPdf(
-            paths.first, outputPath,
-            quality: quality, maxThreads: threads);
-
-        if (!context.mounted) return;
-        Navigator.of(context).pop(); // hide loading
-        if (successPath != null) {
-          showDialog(
-            context: context,
-            builder: (context) => ToolActionDialog(
-                title: 'Success',
-                message: 'PDF compressed successfully!\nSaved to: $successPath',
-                isLoading: false,
-                outputPath: successPath),
-          );
-        } else {
-          PdfErrorHandler.show(
-            context,
-            'compression failed',
-            contextMessage: 'Failed to compress PDF.',
-          );
-        }
-      } else {
-        // Batch scenario
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => ToolActionDialog(
-              title: 'Batch Compressing',
-              message:
-                  'Compressing ${paths.length} files. This may take a while...',
-              isLoading: true),
-        );
-
-        final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-        final threads = ref.read(settingsControllerProvider).compressionThreads;
-
-        final results = await Future.wait(paths.map((path) async {
-          final originalName = p.basenameWithoutExtension(path);
-          final outputPath = p.join(dir, '${originalName}_compressed.pdf');
-          return await ToolsService.compressPdf(path, outputPath,
-              quality: quality, maxThreads: threads);
-        }));
-
-        int successCount = results.where((path) => path != null).length;
-
-        if (!context.mounted) return;
-        Navigator.of(context).pop(); // hide loading
-
-        showDialog(
-          context: context,
-          builder: (context) => ToolActionDialog(
-              title: 'Batch Compression Complete',
-              message:
-                  'Successfully compressed $successCount out of ${paths.length} files.\nSaved to: $dir',
-              isLoading: false,
-              outputPath: dir // Open directory
-              ),
-        );
-      }
+      var successCount = 0;
+      final outputs = <String>[];
+      await runToolAction(
+        context,
+        title: paths.length == 1 ? 'Compressing PDF' : 'Batch Compressing',
+        successMessage: (output) =>
+            'Compressed $successCount out of ${paths.length} files. Saved to: $output',
+        outputFiles: () => outputs,
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          String? lastOutput;
+          // Avoid multiplying each document's native rendering memory in batches.
+          for (var index = 0; index < paths.length; index++) {
+            final path = paths[index];
+            final name = p.basenameWithoutExtension(path);
+            final output = p.join(dir,
+                '${name}_compressed_${DateTime.now().microsecondsSinceEpoch}_$index.pdf');
+            final result = await ToolsService.compressPdf(path, output,
+                quality: quality, maxThreads: threads);
+            if (result != null) {
+              successCount++;
+              outputs.add(result);
+              lastOutput = result;
+            }
+          }
+          return successCount == 0
+              ? null
+              : successCount == 1
+                  ? lastOutput
+                  : dir;
+        },
+      );
     }
   }
 

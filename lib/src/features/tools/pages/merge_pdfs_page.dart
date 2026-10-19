@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../pdf/application/pdf_error_handler.dart';
+
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
@@ -7,7 +7,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import '../tools_service.dart';
-import '../tool_action_dialog.dart';
+import '../utils/run_tool_action.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
@@ -27,61 +27,28 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
   void initState() {
     super.initState();
     if (widget.initialFiles != null) {
-      _selectedFiles.addAll(widget.initialFiles!);
+      _selectedFiles.addAll(widget.initialFiles!.toSet());
     }
   }
 
   Future<void> _pickFiles() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: true);
+    if (!mounted) return;
     if (paths != null && paths.isNotEmpty) {
       setState(() {
-        _selectedFiles.addAll(paths);
+        _selectedFiles
+            .addAll(paths.where((path) => !_selectedFiles.contains(path)));
       });
     }
   }
 
   Future<void> _mergeFiles() async {
-    if (_selectedFiles.length < 2) {
-      PdfErrorHandler.show(context, 'invalid input',
-          contextMessage: 'Please select at least 2 PDFs to merge.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(
-          title: 'Merging PDFs', message: 'Please wait...', isLoading: true),
-    );
-
-    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final outputPath =
-        p.join(dir, 'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf');
-
-    final successPath =
-        await ToolsService.mergePdfs(_selectedFiles, outputPath);
-
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-
-    if (successPath != null) {
-      showDialog(
-        context: context,
-        builder: (context) => ToolActionDialog(
-            title: 'Success',
-            message: 'Saved to:\n$successPath',
-            isLoading: false,
-            outputPath: successPath),
-      ).then((_) {
-        // Handled internally by dialog actions
-      });
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => const ToolActionDialog(
-            title: 'Error', message: 'Failed to merge.', isLoading: false),
-      );
-    }
+    if (_selectedFiles.length < 2) return;
+    await runToolAction(context, title: 'Merging PDFs', action: () async {
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      return ToolsService.mergePdfs(List.of(_selectedFiles),
+          p.join(dir, 'Merged_${DateTime.now().microsecondsSinceEpoch}.pdf'));
+    });
   }
 
   @override
@@ -118,9 +85,8 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
-                    onReorder: (oldIndex, newIndex) {
+                    onReorderItem: (oldIndex, newIndex) {
                       setState(() {
-                        if (newIndex > oldIndex) newIndex -= 1;
                         final item = _selectedFiles.removeAt(oldIndex);
                         _selectedFiles.insert(newIndex, item);
                       });

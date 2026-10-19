@@ -13,12 +13,11 @@ class SecuritySettingsSection extends ConsumerWidget {
     final security = ref.watch(securityControllerProvider);
     final ctrl = ref.read(securityControllerProvider.notifier);
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-        border: Border.all(
+        side: BorderSide(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,

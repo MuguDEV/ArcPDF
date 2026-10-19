@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+
+import '../../../core/utils/logger.dart';
 import 'package:hive/hive.dart';
 
 import 'dart:io';
@@ -17,6 +22,8 @@ enum PdfFilter { all, recent, downloads, large, folders }
 enum PdfSortField { name, date, size }
 
 enum PdfSortDirection { ascending, descending }
+
+const _unchangedTag = Object();
 
 class PdfLibraryState {
   const PdfLibraryState({
@@ -56,7 +63,7 @@ class PdfLibraryState {
     Map<String, DateTime>? recents,
     StoragePermissionStatus? permissionStatus,
     Map<String, List<String>>? tags,
-    String? selectedTag,
+    Object? selectedTag = _unchangedTag,
   }) {
     return PdfLibraryState(
       loading: loading ?? this.loading,
@@ -69,7 +76,9 @@ class PdfLibraryState {
       recents: recents ?? this.recents,
       permissionStatus: permissionStatus ?? this.permissionStatus,
       tags: tags ?? this.tags,
-      selectedTag: selectedTag, // allow null
+      selectedTag: identical(selectedTag, _unchangedTag)
+          ? this.selectedTag
+          : selectedTag as String?,
     );
   }
 }
@@ -84,7 +93,26 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   ) : super(const PdfLibraryState()) {
     _loadSavedState();
     // Delay initial refresh to allow the splash screen and initial UI to animate smoothly
-    Future.delayed(const Duration(milliseconds: 500), refresh);
+    _initialRefresh = Timer(const Duration(milliseconds: 500), refresh);
+  }
+
+  Timer? _initialRefresh;
+  int _refreshGeneration = 0;
+  Future<void> _pendingMutation = Future<void>.value();
+
+  // Serialize metadata read-modify-write operations, including scan commits.
+  Future<T> _mutate<T>(Future<T> Function() action) {
+    final result = _pendingMutation.then((_) => action());
+    _pendingMutation =
+        result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return result;
+  }
+
+  @override
+  void dispose() {
+    _initialRefresh?.cancel();
+    _refreshGeneration++;
+    super.dispose();
   }
 
   final PdfScannerService _scanner;
@@ -128,45 +156,58 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   }
 
   Future<void> refresh({bool requestPermission = false}) async {
+    _initialRefresh?.cancel();
+    if (!mounted) return;
+    final generation = ++_refreshGeneration;
     state = state.copyWith(loading: true);
-    final result = await _scanner.scan(requestPermission: requestPermission);
-
-    // Auto-tagging based on filename heuristics
-    final currentTags = Map<String, List<String>>.from(state.tags);
-    bool tagsModified = false;
-
-    for (final file in result.files) {
-      final lowerName = file.name.toLowerCase();
-      final heuristics = {
-        'invoice': 'Invoice',
-        'receipt': 'Receipt',
-        'tax': 'Tax',
-        'book': 'Book',
-        'ticket': 'Ticket',
-        'resume': 'Resume',
-        'cv': 'Resume',
-        'statement': 'Statement',
-      };
-
-      for (final entry in heuristics.entries) {
-        if (lowerName.contains(entry.key)) {
+    try {
+      final result = await _scanner.scan(requestPermission: requestPermission);
+      await _mutate(() async {
+        if (!mounted || generation != _refreshGeneration) return;
+        final currentTags = Map<String, List<String>>.from(state.tags);
+        const heuristics = {
+          'invoice': 'Invoice',
+          'receipt': 'Receipt',
+          'tax': 'Tax',
+          'book': 'Book',
+          'ticket': 'Ticket',
+          'resume': 'Resume',
+          'cv': 'Resume',
+          'statement': 'Statement',
+        };
+        for (final file in result.files) {
           final fileTags = List<String>.from(currentTags[file.path] ?? []);
-          if (!fileTags.contains(entry.value)) {
-            fileTags.add(entry.value);
-            currentTags[file.path] = fileTags;
+          final lowerName = file.name.toLowerCase();
+          for (final entry in heuristics.entries) {
+            if (lowerName.contains(entry.key) &&
+                !fileTags.contains(entry.value)) {
+              fileTags.add(entry.value);
+            }
+          }
+          if (fileTags.length != (currentTags[file.path]?.length ?? 0)) {
             await _tagsBox.put(file.path, fileTags);
-            tagsModified = true;
+            currentTags[file.path] = fileTags;
           }
         }
+        // Metadata writes above are serialized with user edits. Publish them
+        // even if a newer scan started while a Hive write was in flight.
+        if (!mounted) return;
+        state = state.copyWith(tags: currentTags);
+        if (generation != _refreshGeneration) return;
+        state = state.copyWith(
+          loading: false,
+          items: result.files,
+          permissionStatus: result.permissionStatus,
+        );
+      });
+    } catch (_) {
+      // Keep the last usable library on transient filesystem/plugin failures.
+      AppLogger.warning('PDF library refresh failed');
+    } finally {
+      if (mounted && generation == _refreshGeneration) {
+        state = state.copyWith(loading: false);
       }
     }
-
-    state = state.copyWith(
-      loading: false,
-      items: result.files,
-      permissionStatus: result.permissionStatus,
-      tags: tagsModified ? currentTags : state.tags,
-    );
   }
 
   void setQuery(String query) => state = state.copyWith(query: query);
@@ -177,32 +218,36 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       state = state.copyWith(sortDirection: direction);
   void setSelectedTag(String? tag) => state = state.copyWith(selectedTag: tag);
 
-  Future<void> addTag(PdfFileItem item, String tag) async {
-    final tags = Map<String, List<String>>.from(state.tags);
-    final fileTags = List<String>.from(tags[item.path] ?? []);
-    if (!fileTags.contains(tag)) {
-      fileTags.add(tag);
-      tags[item.path] = fileTags;
-      await _tagsBox.put(item.path, fileTags);
-      state = state.copyWith(tags: tags);
-    }
-  }
+  Future<void> addTag(PdfFileItem item, String tag) => _mutate(() async {
+        if (!mounted) return;
+        tag = tag.trim();
+        if (tag.isEmpty) return;
+        final tags = Map<String, List<String>>.from(state.tags);
+        final fileTags = List<String>.from(tags[item.path] ?? []);
+        if (!fileTags.contains(tag)) {
+          fileTags.add(tag);
+          tags[item.path] = fileTags;
+          await _tagsBox.put(item.path, fileTags);
+          if (mounted) state = state.copyWith(tags: tags);
+        }
+      });
 
-  Future<void> removeTag(PdfFileItem item, String tag) async {
-    final tags = Map<String, List<String>>.from(state.tags);
-    final fileTags = List<String>.from(tags[item.path] ?? []);
-    if (fileTags.contains(tag)) {
-      fileTags.remove(tag);
-      if (fileTags.isEmpty) {
-        tags.remove(item.path);
-        await _tagsBox.delete(item.path);
-      } else {
-        tags[item.path] = fileTags;
-        await _tagsBox.put(item.path, fileTags);
-      }
-      state = state.copyWith(tags: tags);
-    }
-  }
+  Future<void> removeTag(PdfFileItem item, String tag) => _mutate(() async {
+        if (!mounted) return;
+        final tags = Map<String, List<String>>.from(state.tags);
+        final fileTags = List<String>.from(tags[item.path] ?? []);
+        if (fileTags.contains(tag)) {
+          fileTags.remove(tag);
+          if (fileTags.isEmpty) {
+            tags.remove(item.path);
+            await _tagsBox.delete(item.path);
+          } else {
+            tags[item.path] = fileTags;
+            await _tagsBox.put(item.path, fileTags);
+          }
+          if (mounted) state = state.copyWith(tags: tags);
+        }
+      });
 
   List<String> getAllTags() {
     final allTags = <String>{};
@@ -212,71 +257,179 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     return allTags.toList()..sort();
   }
 
-  Future<void> toggleFavorite(PdfFileItem item) async {
-    HapticFeedback.selectionClick();
-    final favorites = {...state.favorites};
-    if (favorites.contains(item.path)) {
-      favorites.remove(item.path);
-      await _favBox.delete(item.path);
-    } else {
-      favorites.add(item.path);
-      await _favBox.put(item.path, item.path);
-    }
-    state = state.copyWith(favorites: favorites);
-  }
-
-  Future<void> markRecent(PdfFileItem item) async {
-    final now = DateTime.now();
-    final recents = {...state.recents, item.path: now};
-    await _recentsBox.put(item.path, item.path);
-    await _timestampsBox.put(item.path, now.millisecondsSinceEpoch);
-    state = state.copyWith(recents: recents);
-  }
-
-  Future<bool> renameFile(PdfFileItem item, String newName) async {
-    try {
-      final oldFile = File(item.path);
-      if (!await oldFile.exists()) return false;
-
-      // Sanitize newName to prevent path traversal
-      final sanitizedName =
-          newName.replaceAll(RegExp(r'[/\\]|\.\.'), '').trim();
-      if (sanitizedName.isEmpty) return false;
-
-      final dir = oldFile.parent.path;
-      final newPath = '$dir${Platform.pathSeparator}$sanitizedName.pdf';
-      final newFile = File(newPath);
-      if (await newFile.exists()) return false;
-
-      await oldFile.rename(newPath);
-
-      // Update Hive boxes keys if they were favored or recent
-      if (state.favorites.contains(item.path)) {
-        await _favBox.delete(item.path);
-        await _favBox.put(newPath, newPath);
-      }
-      if (state.recents.containsKey(item.path)) {
-        await _recentsBox.delete(item.path);
-        await _recentsBox.put(newPath, newPath);
-        final ms = _timestampsBox.get(item.path);
-        if (ms != null) {
-          await _timestampsBox.delete(item.path);
-          await _timestampsBox.put(newPath, ms);
+  Future<void> toggleFavorite(PdfFileItem item) => _mutate(() async {
+        if (!mounted) return;
+        HapticFeedback.selectionClick();
+        final favorites = {...state.favorites};
+        if (favorites.contains(item.path)) {
+          favorites.remove(item.path);
+          await _favBox.delete(item.path);
+        } else {
+          favorites.add(item.path);
+          await _favBox.put(item.path, item.path);
         }
-      }
+        if (mounted) state = state.copyWith(favorites: favorites);
+      });
 
-      await refresh();
-      return true;
-    } catch (e) {
-      return false;
-    }
+  Future<void> markRecent(PdfFileItem item) => _mutate(() async {
+        if (!mounted) return;
+        final now = DateTime.now();
+        final recents = {...state.recents, item.path: now};
+        await _recentsBox.put(item.path, item.path);
+        await _timestampsBox.put(item.path, now.millisecondsSinceEpoch);
+        if (mounted) {
+          state = state.copyWith(
+            recents: recents,
+            items: state.items.any((file) => file.path == item.path)
+                ? state.items
+                : [...state.items, item],
+          );
+        }
+      });
+
+  Future<bool> renameFile(PdfFileItem item, String newName) =>
+      _mutate(() async {
+        if (!mounted) return false;
+        var name = newName.trim();
+        // Reject invalid names rather than silently turning traversal into a name.
+        if (name.isEmpty ||
+            name == '.' ||
+            name == '..' ||
+            RegExp(r'[<>:"/\\|?*\x00-\x1f]').hasMatch(name) ||
+            name.endsWith('.')) {
+          return false;
+        }
+        if (!name.toLowerCase().endsWith('.pdf')) name = '$name.pdf';
+        if (RegExp(r'^(con|prn|aux|nul|com[1-9]|lpt[1-9])\.',
+                caseSensitive: false)
+            .hasMatch(name)) {
+          return false;
+        }
+        final newPath = p.join(p.dirname(item.path), name);
+        final previous = state;
+        try {
+          if (await FileSystemEntity.type(item.path, followLinks: false) !=
+              FileSystemEntityType.file) {
+            return false;
+          }
+          if (p.equals(newPath, item.path)) return true;
+          if (await FileSystemEntity.type(newPath, followLinks: false) !=
+              FileSystemEntityType.notFound) {
+            return false;
+          }
+          await File(item.path).rename(newPath);
+          _invalidateScans();
+          final replacement = PdfFileItem(
+            path: newPath,
+            name: name,
+            sizeBytes: item.sizeBytes,
+            lastModified: item.lastModified,
+            locationLabel: item.locationLabel,
+            isEncrypted: item.isEncrypted,
+            isCorrupted: item.isCorrupted,
+            pageCount: item.pageCount,
+            openedAt: item.openedAt,
+          );
+          final favorites = {...previous.favorites};
+          final recents = {...previous.recents};
+          final tags = Map<String, List<String>>.from(previous.tags);
+          if (favorites.remove(item.path)) favorites.add(newPath);
+          final openedAt = recents.remove(item.path);
+          if (openedAt != null) recents[newPath] = openedAt;
+          final fileTags = tags.remove(item.path);
+          if (fileTags != null) tags[newPath] = fileTags;
+          if (mounted) {
+            state = state.copyWith(
+              items: [
+                for (final file in state.items)
+                  if (file.path == item.path) replacement else file
+              ],
+              favorites: favorites,
+              recents: recents,
+              tags: tags,
+            );
+          }
+          // The filesystem operation succeeded: a metadata failure must not report
+          // that the old file still exists or invite a duplicate rename.
+          try {
+            if (favorites.contains(newPath)) {
+              await _favBox.put(newPath, newPath);
+            }
+            if (openedAt != null) await _recentsBox.put(newPath, newPath);
+            final timestamp = _timestampsBox.get(item.path);
+            if (timestamp != null) await _timestampsBox.put(newPath, timestamp);
+            if (fileTags != null) await _tagsBox.put(newPath, fileTags);
+            await _removeMetadata(item.path);
+          } catch (_) {
+            AppLogger.warning(
+                'PDF renamed, but saved metadata could not be migrated');
+          }
+          return true;
+        } on FileSystemException {
+          return false;
+        }
+      });
+
+  void _invalidateScans() {
+    _initialRefresh?.cancel();
+    _refreshGeneration++;
+    if (mounted) state = state.copyWith(loading: false);
   }
 
-  Future<void> clearRecents() async {
-    await _recentsBox.clear();
-    await _timestampsBox.clear();
-    state = state.copyWith(recents: const {});
+  Future<void> _removeMetadata(String path) async {
+    await _favBox.delete(path);
+    await _recentsBox.delete(path);
+    await _timestampsBox.delete(path);
+    await _tagsBox.delete(path);
   }
+
+  Future<bool> deleteFile(PdfFileItem item) =>
+      _removeFile(item, deleteFromDisk: true);
+
+  Future<bool> removeMissingFile(PdfFileItem item) =>
+      _removeFile(item, deleteFromDisk: false);
+
+  Future<bool> _removeFile(PdfFileItem item, {required bool deleteFromDisk}) =>
+      _mutate(() async {
+        if (!mounted) return false;
+        try {
+          final type =
+              await FileSystemEntity.type(item.path, followLinks: false);
+          if (type != FileSystemEntityType.file &&
+              type != FileSystemEntityType.notFound) {
+            return false;
+          }
+          if (!deleteFromDisk && type != FileSystemEntityType.notFound) {
+            return false;
+          }
+          if (type == FileSystemEntityType.file) await File(item.path).delete();
+        } on FileSystemException {
+          return false;
+        }
+        _invalidateScans();
+        if (mounted) {
+          state = state.copyWith(
+            items: state.items.where((file) => file.path != item.path).toList(),
+            favorites: {...state.favorites}..remove(item.path),
+            recents: {...state.recents}..remove(item.path),
+            tags: {...state.tags}..remove(item.path),
+          );
+        }
+        try {
+          await _removeMetadata(item.path);
+        } catch (_) {
+          AppLogger.warning(
+              'PDF deleted, but saved metadata could not be removed');
+        }
+        return true;
+      });
+
+  Future<void> clearRecents() => _mutate(() async {
+        if (!mounted) return;
+        await _recentsBox.clear();
+        await _timestampsBox.clear();
+        if (mounted) state = state.copyWith(recents: const {});
+      });
 
   List<PdfFileItem> filteredItems(
       {bool favoritesOnly = false, bool recentsOnly = false}) {

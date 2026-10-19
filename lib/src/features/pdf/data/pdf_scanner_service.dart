@@ -67,15 +67,18 @@ class PdfScannerService {
         }
       }
     }
-    final appExt = await getExternalStorageDirectories();
-    if (appExt != null) roots.addAll(appExt.map((e) => e.path));
-
-    roots.addAll([
-      '/storage/emulated/0/Download',
-      '/storage/emulated/0/Downloads',
-      '/storage/emulated/0/Documents',
-      '/storage/emulated/0',
-    ]);
+    if (Platform.isAndroid) {
+      final appExt = await getExternalStorageDirectories();
+      if (appExt != null) roots.addAll(appExt.map((e) => e.path));
+      roots.add('/storage/emulated/0');
+    } else {
+      roots.add((await getApplicationDocumentsDirectory()).path);
+      // External storage APIs are Android-only and throw on iOS/desktop.
+      if (!Platform.isIOS) {
+        final downloads = await getDownloadsDirectory();
+        if (downloads != null) roots.add(downloads.path);
+      }
+    }
     return roots.where((p) => Directory(p).existsSync()).toList();
   }
 
@@ -86,8 +89,11 @@ class PdfScannerService {
       return ScanResult(files: const [], permissionStatus: permStatus);
     }
 
-    final roots = await _roots();
+    return scanDirectories(await _roots());
+  }
 
+  /// Scans explicitly supplied local roots without invoking platform plugins.
+  Future<ScanResult> scanDirectories(List<String> roots) async {
     // Heavy FS walk runs in a separate isolate — main thread stays smooth
     final files = await Isolate.run(() => _walkRoots(roots));
 
@@ -102,16 +108,28 @@ class PdfScannerService {
 List<PdfFileItem> _walkRoots(List<String> roots) {
   final out = <PdfFileItem>[];
   final seen = <String>{};
-  for (final root in roots) {
+  final visitedDirectories = <String>{};
+  final pending = [...roots];
+  while (pending.isNotEmpty) {
+    final root = pending.removeLast();
     try {
       final dir = Directory(root);
-      if (!dir.existsSync()) continue;
-      for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+      if (FileSystemEntity.typeSync(root, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        continue;
+      }
+      if (!visitedDirectories.add(dir.resolveSymbolicLinksSync())) continue;
+      // List one directory at a time: an inaccessible child must not discard
+      // all readable siblings (recursive listSync fails the entire root).
+      for (final entity in dir.listSync(followLinks: false)) {
+        if (entity is Directory) {
+          pending.add(entity.path);
+          continue;
+        }
         if (entity is! File) continue;
         if (!entity.path.toLowerCase().endsWith('.pdf')) continue;
-        if (seen.contains(entity.path)) continue;
-        seen.add(entity.path);
         try {
+          if (!seen.add(entity.resolveSymbolicLinksSync())) continue;
           final stat = entity.statSync();
           if (stat.size == 0) continue;
 
@@ -146,10 +164,12 @@ bool _isValidPdf(File file, int size) {
   try {
     if (size < 5) return false;
     final raf = file.openSync();
-    final bytes = raf.readSync(5);
-    raf.closeSync();
-    final header = String.fromCharCodes(bytes);
-    return header == '%PDF-';
+    try {
+      final bytes = raf.readSync(5);
+      return String.fromCharCodes(bytes) == '%PDF-';
+    } finally {
+      raf.closeSync();
+    }
   } catch (e, stack) {
     final redactedName = _redactPath(file.path);
     AppLogger.error('Error checking PDF header: $redactedName', e, stack);
@@ -160,18 +180,18 @@ bool _isValidPdf(File file, int size) {
 bool _isEncrypted(File file, int size) {
   try {
     final raf = file.openSync();
-    final bytes = raf.readSync(4096);
-    raf.closeSync();
-    final str = String.fromCharCodes(bytes);
-    if (str.contains('/Encrypt')) return true;
-
-    if (size > 4096) {
-      final raf2 = file.openSync();
-      raf2.setPositionSync(size - 4096);
-      final endBytes = raf2.readSync(4096);
-      raf2.closeSync();
-      final endStr = String.fromCharCodes(endBytes);
-      if (endStr.contains('/Encrypt')) return true;
+    try {
+      if (String.fromCharCodes(raf.readSync(4096)).contains('/Encrypt')) {
+        return true;
+      }
+      if (size > 4096) {
+        raf.setPositionSync(size - 4096);
+        if (String.fromCharCodes(raf.readSync(4096)).contains('/Encrypt')) {
+          return true;
+        }
+      }
+    } finally {
+      raf.closeSync();
     }
   } catch (e, stack) {
     final redactedName = _redactPath(file.path);

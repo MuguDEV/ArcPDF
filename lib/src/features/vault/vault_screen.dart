@@ -21,12 +21,17 @@ class VaultScreen extends ConsumerStatefulWidget {
 
 class _VaultScreenState extends ConsumerState<VaultScreen> {
   bool _noLock = false;
+  bool _authenticated = false;
+  late final VaultController _vaultController;
 
   @override
   void initState() {
     super.initState();
+    _vaultController = ref.read(vaultControllerProvider.notifier);
     // Verify lock enabled before letting them see this screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _vaultController.setUnlocked(false);
       final security = ref.read(securityControllerProvider);
       if (!security.isLockEnabled) {
         setState(() {
@@ -36,6 +41,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         _authenticate();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // The notifier is cached because a widget ref cannot be used after unmount.
+    // Defer notification until the widget tree has finished disposing this route.
+    final controller = _vaultController;
+    Future.microtask(() => controller.setUnlocked(false));
+    super.dispose();
   }
 
   Future<void> _authenticate() async {
@@ -48,19 +62,22 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           .authenticateBiometric();
     }
 
+    if (!mounted) return;
     if (!success) {
       // Need manual PIN/Pattern entry
-      success = await _showManualAuth(security.lockType);
+      success = await _showManualAuth();
     }
 
+    if (!mounted) return;
     if (success) {
-      ref.read(vaultControllerProvider.notifier).setUnlocked(true);
+      setState(() => _authenticated = true);
+      _vaultController.setUnlocked(true);
     } else {
       if (context.mounted) Navigator.pop(context);
     }
   }
 
-  Future<bool> _showManualAuth(LockType lockType) async {
+  Future<bool> _showManualAuth() async {
     return await Navigator.push<bool>(
           context,
           PageRouteBuilder(
@@ -154,7 +171,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       );
     }
 
-    if (!vaultState.isUnlocked) {
+    if (!_authenticated || !vaultState.isUnlocked) {
       return Scaffold(
         appBar: AppBar(title: const Text('Secure Vault')),
         body: const Center(child: ArcProgressIndicator()),
@@ -174,71 +191,96 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       ),
       body: vaultState.isLoading
           ? const Center(child: ArcProgressIndicator())
-          : vaultState.vaultFiles.isEmpty
-              ? const Center(child: Text('Vault is empty'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: vaultState.vaultFiles.length,
-                  itemBuilder: (context, index) {
-                    final item = vaultState.vaultFiles[index];
-                    return ListTile(
-                      leading: const Icon(HugeIcons.strokeRoundedLockPassword),
-                      title: Text(item.name),
-                      subtitle: const Text('Encrypted Vault File'),
-                      onTap: () async {
-                        final tempFile = await ref
-                            .read(vaultControllerProvider.notifier)
-                            .decryptToTempFile(item);
-                        try {
-                          if (tempFile != null && context.mounted) {
-                            final tempItem = PdfFileItem.fromFile(tempFile);
-                            if (context.mounted) {
-                              await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          PdfViewerScreen(item: tempItem)));
-                            }
-                          }
-                        } finally {
-                          if (tempFile != null && tempFile.existsSync()) {
-                            tempFile.deleteSync();
-                          }
-                        }
-                      },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.restore),
-                        onPressed: () async {
-                          HapticFeedback.mediumImpact();
-                          final downloads =
-                              await getDownloadsDirectory(); // path_provider
-                          // Fallback to Download dir
-                          if (downloads != null) {
-                            final success = await ref
-                                .read(vaultControllerProvider.notifier)
-                                .restoreFromVault(item, downloads.path);
-                            if (success && context.mounted) {
-                              HapticFeedback.selectionClick();
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text(
-                                            'Restored to Downloads folder')));
+          : vaultState.hasError
+              ? const Center(
+                  child: Text(
+                      'Vault unavailable. Encrypted files have not been changed.'))
+              : vaultState.vaultFiles.isEmpty
+                  ? const Center(child: Text('Vault is empty'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: vaultState.vaultFiles.length,
+                      itemBuilder: (context, index) {
+                        final item = vaultState.vaultFiles[index];
+                        return ListTile(
+                          leading:
+                              const Icon(HugeIcons.strokeRoundedLockPassword),
+                          title: Text(item.name),
+                          subtitle: const Text('Encrypted Vault File'),
+                          onTap: () async {
+                            try {
+                              final tempFile = await _vaultController
+                                  .decryptToTempFile(item);
+                              try {
+                                if (tempFile == null && context.mounted) {
+                                  PdfErrorHandler.show(
+                                      context, 'decrypt_failed',
+                                      contextMessage:
+                                          'Unable to open vault file');
+                                }
+                                if (tempFile != null && context.mounted) {
+                                  final tempItem =
+                                      PdfFileItem.fromFile(tempFile);
+                                  if (context.mounted) {
+                                    await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) => PdfViewerScreen(
+                                                item: tempItem)));
+                                  }
+                                }
+                              } finally {
+                                if (tempFile != null &&
+                                    await tempFile.parent.exists()) {
+                                  await tempFile.parent.delete(recursive: true);
+                                }
                               }
-                            } else if (!success && context.mounted) {
-                              HapticFeedback.heavyImpact();
-                              PdfErrorHandler.show(context, 'restore_failed',
-                                  contextMessage: 'Failed to restore file');
+                            } catch (_) {
+                              if (context.mounted) {
+                                PdfErrorHandler.show(context, 'decrypt_failed',
+                                    contextMessage:
+                                        'Unable to open vault file');
+                              }
                             }
-                          }
-                        },
-                      ),
-                    )
-                        .animate(delay: (index * 50).ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05);
-                  },
-                ),
+                          },
+                          trailing: IconButton(
+                            icon: const Icon(Icons.restore),
+                            onPressed: () async {
+                              HapticFeedback.mediumImpact();
+                              final downloads =
+                                  await getDownloadsDirectory(); // path_provider
+                              // Fallback to Download dir
+                              if (downloads != null) {
+                                var success = false;
+                                try {
+                                  success = await _vaultController
+                                      .restoreFromVault(item, downloads.path);
+                                } catch (_) {
+                                  // Initialization errors use the same safe failure UI.
+                                }
+                                if (success && context.mounted) {
+                                  HapticFeedback.selectionClick();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Restored to Downloads folder')));
+                                  }
+                                } else if (!success && context.mounted) {
+                                  HapticFeedback.heavyImpact();
+                                  PdfErrorHandler.show(
+                                      context, 'restore_failed',
+                                      contextMessage: 'Failed to restore file');
+                                }
+                              }
+                            },
+                          ),
+                        )
+                            .animate(delay: (index * 50).ms)
+                            .fadeIn(duration: 300.ms)
+                            .slideY(begin: 0.05);
+                      },
+                    ),
     );
   }
 }

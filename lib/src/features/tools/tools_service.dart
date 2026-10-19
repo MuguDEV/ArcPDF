@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:ui';
-import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 import 'dart:typed_data';
-import 'package:pdfrx/pdfrx.dart';
+import 'dart:ui';
+
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
+import 'package:pdfrx/pdfrx.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
 
 class PdfMetadataInfo {
   final String title;
@@ -21,28 +23,57 @@ class PdfMetadataInfo {
 }
 
 class ToolsService {
-  static Future<PdfMetadataInfo?> readPdfMetadata(String inputPath) async {
-    return await Isolate.run(() async {
-      try {
-        final file = File(inputPath);
-        if (!file.existsSync()) return null;
-        final syncfusion.PdfDocument document =
-            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
-
-        final info = PdfMetadataInfo(
-          title: document.documentInformation.title,
-          author: document.documentInformation.author,
-          subject: document.documentInformation.subject,
-          keywords: document.documentInformation.keywords,
-        );
-
-        document.dispose();
-        return info;
-      } catch (e) {
-        return null;
+  static Future<int> readPageCount(String inputPath) => Isolate.run(() {
+        final document = syncfusion.PdfDocument(
+            inputBytes: File(inputPath).readAsBytesSync());
+        try {
+          return document.pages.count;
+        } finally {
+          document.dispose();
+        }
+      });
+  // Stage in the destination filesystem so a failed write never truncates the
+  // source. Only explicit metadata overwrite may replace an existing file.
+  static Future<String> _save(List<int> bytes, String outputPath,
+      {bool overwrite = false}) async {
+    final output = File(outputPath);
+    if (!overwrite && await output.exists()) {
+      throw FileSystemException('Output already exists', outputPath);
+    }
+    final staging =
+        await Directory(p.dirname(outputPath)).createTemp('.arcpdf_');
+    try {
+      final temp = File(p.join(staging.path, 'output'));
+      await temp.writeAsBytes(bytes, flush: true);
+      if (!overwrite && await output.exists()) {
+        throw FileSystemException('Output already exists', outputPath);
       }
-    });
+      await temp.rename(outputPath);
+      return outputPath;
+    } finally {
+      await staging.delete(recursive: true);
+    }
   }
+
+  static Future<PdfMetadataInfo?> readPdfMetadata(String inputPath) =>
+      Isolate.run(() {
+        syncfusion.PdfDocument? document;
+        try {
+          document = syncfusion.PdfDocument(
+              inputBytes: File(inputPath).readAsBytesSync());
+          final info = document.documentInformation;
+          return PdfMetadataInfo(
+            title: info.title,
+            author: info.author,
+            subject: info.subject,
+            keywords: info.keywords,
+          );
+        } catch (_) {
+          return null;
+        } finally {
+          document?.dispose();
+        }
+      });
 
   static Future<String?> editPdfMetadata({
     required String inputPath,
@@ -51,309 +82,261 @@ class ToolsService {
     required String author,
     required String subject,
     required String keywords,
-  }) async {
-    return await Isolate.run(() async {
-      syncfusion.PdfDocument? document;
-      try {
-        final file = File(inputPath);
-        if (!file.existsSync()) return null;
-
-        document = syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
-
-        document.documentInformation.title = title;
-        document.documentInformation.author = author;
-        document.documentInformation.subject = subject;
-        document.documentInformation.keywords = keywords;
-
-        final bytes = document.saveSync();
-
-        final outputFile = File(outputPath);
-        await outputFile.writeAsBytes(bytes);
-
-        return outputPath;
-      } catch (e) {
-        return null;
-      } finally {
-        document?.dispose();
-      }
-    });
-  }
-
-  static Future<String?> mergePdfs(
-      List<String> inputPaths, String outputPath) async {
-    return await Isolate.run(() async {
-      try {
-        final syncfusion.PdfDocument document = syncfusion.PdfDocument();
-        for (var path in inputPaths) {
-          final file = File(path);
-          if (!file.existsSync()) continue;
-          final syncfusion.PdfDocument loadedDocument =
-              syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
-
-          for (int i = 0; i < loadedDocument.pages.count; i++) {
-            final syncfusion.PdfPage loadedPage = loadedDocument.pages[i];
-            // Match the exact size of the loaded page to prevent cropping
-            document.pageSettings.size = loadedPage.size;
-            document.pageSettings.margins.all = 0;
-            document.pageSettings.rotate = loadedPage.rotation;
-
-            final syncfusion.PdfPage newPage = document.pages.add();
-            // Draw the loaded page content onto the new page
-            newPage.graphics.drawPdfTemplate(
-                loadedPage.createTemplate(), const Offset(0, 0));
-          }
-          loadedDocument.dispose();
-        }
-        final bytes = document.saveSync();
-        File(outputPath).writeAsBytesSync(bytes);
-        document.dispose();
-        return outputPath;
-      } catch (e) {
-        return null;
-      }
-    });
-  }
-
-  static Future<String?> rearrangePdf(
-      String inputPath, String outputPath, List<int> pagesToExtract) async {
-    return await Isolate.run(() async {
-      try {
-        final file = File(inputPath);
-        if (!file.existsSync()) return null;
-        final syncfusion.PdfDocument loadedDocument =
-            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
-        final syncfusion.PdfDocument newDocument = syncfusion.PdfDocument();
-
-        for (int pageNum in pagesToExtract) {
-          int index = pageNum - 1;
-          if (index >= 0 && index < loadedDocument.pages.count) {
-            final syncfusion.PdfPage loadedPage = loadedDocument.pages[index];
-
-            newDocument.pageSettings.size = loadedPage.size;
-            newDocument.pageSettings.margins.all = 0;
-            newDocument.pageSettings.rotate = loadedPage.rotation;
-
-            final syncfusion.PdfPage newPage = newDocument.pages.add();
-            newPage.graphics.drawPdfTemplate(
-                loadedPage.createTemplate(), const Offset(0, 0));
-          }
-        }
-
-        if (newDocument.pages.count == 0) {
-          loadedDocument.dispose();
-          newDocument.dispose();
-          return null;
-        }
-
-        final bytes = newDocument.saveSync();
-        File(outputPath).writeAsBytesSync(bytes);
-
-        loadedDocument.dispose();
-        newDocument.dispose();
-        return outputPath;
-      } catch (e) {
-        return null;
-      }
-    });
-  }
-
-  static Future<String?> splitPdf(
-      String inputPath, String outputDirPath, List<int> pagesToExtract) async {
-    return await Isolate.run(() async {
-      try {
-        final file = File(inputPath);
-        if (!file.existsSync()) return null;
-        final syncfusion.PdfDocument loadedDocument =
-            syncfusion.PdfDocument(inputBytes: file.readAsBytesSync());
-        final syncfusion.PdfDocument newDocument = syncfusion.PdfDocument();
-
-        for (int pageNum in pagesToExtract) {
-          int index = pageNum - 1;
-          if (index >= 0 && index < loadedDocument.pages.count) {
-            final syncfusion.PdfPage loadedPage = loadedDocument.pages[index];
-
-            // Match the exact size of the loaded page to prevent cropping
-            newDocument.pageSettings.size = loadedPage.size;
-            newDocument.pageSettings.margins.all = 0;
-            newDocument.pageSettings.rotate = loadedPage.rotation;
-
-            final syncfusion.PdfPage newPage = newDocument.pages.add();
-            // Draw the loaded page content onto the new page
-            newPage.graphics.drawPdfTemplate(
-                loadedPage.createTemplate(), const Offset(0, 0));
-          }
-        }
-
-        if (newDocument.pages.count == 0) {
-          loadedDocument.dispose();
-          newDocument.dispose();
-          return null;
-        }
-
-        final bytes = newDocument.saveSync();
-        final outputPath =
-            '$outputDirPath/split_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        File(outputPath).writeAsBytesSync(bytes);
-
-        loadedDocument.dispose();
-        newDocument.dispose();
-        return outputPath;
-      } catch (e) {
-        return null;
-      }
-    });
-  }
-
-  static Future<String?> compressPdf(String inputPath, String outputPath,
-      {int quality = 40, int maxThreads = 2}) async {
-    try {
-      final file = File(inputPath);
-      if (!file.existsSync()) return null;
-
-      final pdfDocument = await PdfDocument.openFile(inputPath);
-
-      // We will store the resulting JPEG bytes and the original page physical dimensions.
-      // Pre-allocate to maintain perfect page order safely.
-      List<Map<String, dynamic>?> processedPages =
-          List.filled(pdfDocument.pages.length, null);
-
-      for (int i = 0; i < pdfDocument.pages.length; i += maxThreads) {
-        final batchEnd = (i + maxThreads < pdfDocument.pages.length)
-            ? i + maxThreads
-            : pdfDocument.pages.length;
-
-        // We render all pages in the current batch sequentially to avoid native PDFium concurrency limits
-        final List<Future<void>> batchFutures = [];
-
-        for (int j = i; j < batchEnd; j++) {
-          final page = pdfDocument.pages[j];
-
-          // Render at a moderate resolution to save space but keep legibility.
-          double scale = 1.0;
-          if (page.width > 1200) {
-            scale = 1200 / page.width;
-          } else if (page.height > 1600) {
-            scale = 1600 / page.height;
-          }
-
-          final pdfImage = await page.render(
-            fullWidth: page.width * scale,
-            fullHeight: page.height * scale,
-          );
-
-          if (pdfImage != null) {
-            // Copy pixels from native FFI memory to a dart list before sending to isolate
-            final Uint8List pixelsCopy = Uint8List.fromList(pdfImage.pixels);
-            final int imgW = pdfImage.width;
-            final int imgH = pdfImage.height;
-            final double origW = page.width;
-            final double origH = page.height;
-
-            // Now it is safe to dispose the native image to free up RAM before spinning up the isolate
-            pdfImage.dispose();
-
-            // Enqueue the heavy JPEG encoding work to an isolate
-            final isolateFuture = Isolate.run(() {
-              final imgObject = img.Image.fromBytes(
-                width: imgW,
-                height: imgH,
-                bytes: pixelsCopy.buffer,
-                numChannels: 4,
-                order: img.ChannelOrder.bgra,
-              );
-              return img.encodeJpg(imgObject, quality: quality);
-            }).then((jpegBytes) {
-              // Assign directly to pre-allocated index to guarantee perfect ordering
-              processedPages[j] = {
-                'jpegBytes': jpegBytes,
-                'originalWidth': origW,
-                'originalHeight': origH,
-              };
-            });
-
-            batchFutures.add(isolateFuture);
-          }
-        }
-
-        // Wait for all isolates in this batch to finish before moving to the next batch
-        // to strictly cap memory usage at `maxThreads` simultaneous pages.
-        await Future.wait(batchFutures);
-      }
-
-      pdfDocument.dispose();
-
-      // 2. Assemble the new PDF in a background isolate
-      final result = await Isolate.run(() async {
+  }) =>
+      Isolate.run(() async {
+        syncfusion.PdfDocument? document;
         try {
-          final newPdf = syncfusion.PdfDocument();
-          newPdf.compressionLevel = syncfusion.PdfCompressionLevel.best;
-
-          for (final processedPage in processedPages) {
-            if (processedPage == null) continue;
-
-            final jpegBytes = processedPage['jpegBytes'] as Uint8List;
-            final double originalW = processedPage['originalWidth'];
-            final double originalH = processedPage['originalHeight'];
-
-            final syncfusionImage = syncfusion.PdfBitmap(jpegBytes);
-
-            // Use the original physical dimensions, not the rasterized pixel dimensions
-            newPdf.pageSettings.size = Size(originalW, originalH);
-            newPdf.pageSettings.margins.all = 0;
-            final newPage = newPdf.pages.add();
-
-            newPage.graphics.drawImage(
-                syncfusionImage, Rect.fromLTWH(0, 0, originalW, originalH));
-          }
-
-          final bytes = newPdf.saveSync();
-          File(outputPath).writeAsBytesSync(bytes);
-          newPdf.dispose();
-          return outputPath;
-        } catch (e) {
+          document = syncfusion.PdfDocument(
+              inputBytes: File(inputPath).readAsBytesSync());
+          final info = document.documentInformation;
+          info.title = title;
+          info.author = author;
+          info.subject = subject;
+          info.keywords = keywords;
+          return await _save(document.saveSync(), outputPath,
+              overwrite:
+                  p.equals(p.absolute(inputPath), p.absolute(outputPath)));
+        } catch (_) {
           return null;
+        } finally {
+          document?.dispose();
         }
       });
 
-      return result;
-    } catch (e) {
+  static syncfusion.PdfPage _addPage(syncfusion.PdfDocument document, Size size,
+      {syncfusion.PdfPageRotateAngle rotation =
+          syncfusion.PdfPageRotateAngle.rotateAngle0}) {
+    // A section owns its settings; changing document-wide settings can resize
+    // previously added pages in mixed-size documents.
+    final section = document.sections!.add();
+    section.pageSettings.orientation = size.width > size.height
+        ? syncfusion.PdfPageOrientation.landscape
+        : syncfusion.PdfPageOrientation.portrait;
+    section.pageSettings.size = size;
+    section.pageSettings.margins.all = 0;
+    section.pageSettings.rotate = rotation;
+    return section.pages.add();
+  }
+
+  static void _copyPage(
+      syncfusion.PdfDocument target, syncfusion.PdfPage source) {
+    _addPage(target, source.size, rotation: source.rotation)
+        .graphics
+        .drawPdfTemplate(source.createTemplate(), Offset.zero);
+  }
+
+  static Future<String?> mergePdfs(
+          List<String> inputPaths, String outputPath) =>
+      Isolate.run(() async {
+        final document = syncfusion.PdfDocument();
+        final sources = <syncfusion.PdfDocument>[];
+        try {
+          if (inputPaths.length < 2) return null;
+          for (final path in inputPaths) {
+            final source = syncfusion.PdfDocument(
+                inputBytes: File(path).readAsBytesSync());
+            sources.add(source);
+            for (var i = 0; i < source.pages.count; i++) {
+              _copyPage(document, source.pages[i]);
+            }
+          }
+          return await _save(document.saveSync(), outputPath);
+        } catch (_) {
+          return null;
+        } finally {
+          document.dispose();
+          for (final source in sources) {
+            source.dispose();
+          }
+        }
+      });
+
+  static Future<String?> rearrangePdf(
+          String inputPath, String outputPath, List<int> pagesToExtract) =>
+      Isolate.run(() async {
+        syncfusion.PdfDocument? source;
+        final document = syncfusion.PdfDocument();
+        try {
+          source = syncfusion.PdfDocument(
+              inputBytes: File(inputPath).readAsBytesSync());
+          if (pagesToExtract.isEmpty ||
+              pagesToExtract
+                  .any((page) => page < 1 || page > source!.pages.count)) {
+            return null;
+          }
+          for (final page in pagesToExtract) {
+            _copyPage(document, source.pages[page - 1]);
+          }
+          return await _save(document.saveSync(), outputPath);
+        } catch (_) {
+          return null;
+        } finally {
+          document.dispose();
+          source?.dispose();
+        }
+      });
+
+  static Future<String?> splitPdf(
+          String inputPath, String outputDirPath, List<int> pagesToExtract) =>
+      rearrangePdf(
+          inputPath,
+          p.join(outputDirPath,
+              'split_${DateTime.now().microsecondsSinceEpoch}.pdf'),
+          pagesToExtract);
+
+  static Future<String?> compressPdf(String inputPath, String outputPath,
+      {int quality = 40,
+      int maxThreads = 2,
+      Future<PdfDocument> Function(String)? openDocument}) async {
+    if (maxThreads < 1 ||
+        quality < 1 ||
+        quality > 100 ||
+        await File(outputPath).exists()) {
       return null;
+    }
+    PdfDocument? document;
+    try {
+      document = await (openDocument ?? PdfDocument.openFile)(inputPath);
+      final pages = <({Uint8List bytes, double width, double height})>[];
+      if (document.pages.isEmpty) return null;
+      // Render sequentially (PDFium), then encode a bounded batch in parallel.
+      for (var start = 0; start < document.pages.length; start += maxThreads) {
+        final batch = <({
+          Uint8List pixels,
+          int width,
+          int height,
+          double originalWidth,
+          double originalHeight
+        })>[];
+        final end = (start + maxThreads).clamp(0, document.pages.length);
+        for (var index = start; index < end; index++) {
+          final page = document.pages[index];
+          final scale = [1.0, 1200 / page.width, 1600 / page.height]
+              .reduce((a, b) => a < b ? a : b);
+          final image = await page.render(
+              fullWidth: page.width * scale, fullHeight: page.height * scale);
+          if (image == null) throw StateError('Page rendering failed');
+          late Uint8List pixels;
+          final width = image.width;
+          final height = image.height;
+          try {
+            pixels = Uint8List.fromList(image.pixels);
+          } finally {
+            image.dispose();
+          }
+          batch.add((
+            pixels: pixels,
+            width: width,
+            height: height,
+            originalWidth: page.width,
+            originalHeight: page.height
+          ));
+        }
+        pages.addAll(await Future.wait(batch.map((page) async {
+          final bytes = await Isolate.run(() => img.encodeJpg(
+              img.Image.fromBytes(
+                  width: page.width,
+                  height: page.height,
+                  bytes: page.pixels.buffer,
+                  numChannels: 4,
+                  order: img.ChannelOrder.bgra),
+              quality: quality));
+          return (
+            bytes: bytes,
+            width: page.originalWidth,
+            height: page.originalHeight
+          );
+        })));
+      }
+      return await Isolate.run(() async {
+        final output = syncfusion.PdfDocument();
+        try {
+          output.compressionLevel = syncfusion.PdfCompressionLevel.best;
+          for (final page in pages) {
+            _addPage(output, Size(page.width, page.height)).graphics.drawImage(
+                syncfusion.PdfBitmap(page.bytes),
+                Rect.fromLTWH(0, 0, page.width, page.height));
+          }
+          return await _save(output.saveSync(), outputPath);
+        } finally {
+          output.dispose();
+        }
+      });
+    } catch (_) {
+      return null;
+    } finally {
+      await document?.dispose();
+    }
+  }
+
+  static Future<String?> pdfToImages(String inputPath, String outputParent,
+      {Future<PdfDocument> Function(String)? openDocument}) async {
+    PdfDocument? document;
+    Directory? output;
+    try {
+      document = await (openDocument ?? PdfDocument.openFile)(inputPath);
+      if (document.pages.isEmpty) return null;
+      output = await Directory(outputParent).createTemp('Extracted_');
+      for (var index = 0; index < document.pages.length; index++) {
+        final page = document.pages[index];
+        final image =
+            await page.render(fullWidth: page.width, fullHeight: page.height);
+        if (image == null) throw StateError('Page rendering failed');
+        late Uint8List pixels;
+        final width = image.width;
+        final height = image.height;
+        try {
+          pixels = Uint8List.fromList(image.pixels);
+        } finally {
+          image.dispose();
+        }
+        final outputPath = p.join(output.path, 'page_${index + 1}.jpg');
+        // Await each encoder/write: bounded memory and no mutable loop index
+        // captured by deferred isolate work.
+        await Isolate.run(() async {
+          final bitmap = img.Image.fromBytes(
+              width: width,
+              height: height,
+              bytes: pixels.buffer,
+              numChannels: 4,
+              order: img.ChannelOrder.bgra);
+          await File(outputPath)
+              .writeAsBytes(img.encodeJpg(bitmap, quality: 90));
+        });
+      }
+      return output.path;
+    } catch (_) {
+      if (output != null && await output.exists()) {
+        await output.delete(recursive: true);
+      }
+      return null;
+    } finally {
+      await document?.dispose();
     }
   }
 
   static Future<String?> imagesToPdf(
-      List<String> imagePaths, String outputPath) async {
-    return await Isolate.run(() async {
-      try {
-        final syncfusion.PdfDocument document = syncfusion.PdfDocument();
-        for (var path in imagePaths) {
-          final file = File(path);
-          if (!file.existsSync()) continue;
-
-          final bytes = file.readAsBytesSync();
-          final syncfusion.PdfBitmap image = syncfusion.PdfBitmap(bytes);
-
-          // Exact image dimensions
-          final double imgWidth = image.width.toDouble();
-          final double imgHeight = image.height.toDouble();
-
-          // Create page matching exact image size
-          document.pageSettings.size = Size(imgWidth, imgHeight);
-          document.pageSettings.margins.all = 0;
-          final page = document.pages.add();
-
-          // Draw image explicitly to the exact image bounds to prevent any cropping
-          page.graphics
-              .drawImage(image, Rect.fromLTWH(0, 0, imgWidth, imgHeight));
+          List<String> imagePaths, String outputPath) =>
+      Isolate.run(() async {
+        final document = syncfusion.PdfDocument();
+        try {
+          if (imagePaths.isEmpty) return null;
+          for (final path in imagePaths) {
+            // Decode the picker-supported formats (including WebP/BMP) before
+            // passing a supported, normalized bitmap to Syncfusion.
+            final decoded = img.decodeImage(File(path).readAsBytesSync());
+            if (decoded == null) return null;
+            final bitmap = syncfusion.PdfBitmap(img.encodePng(decoded));
+            final size =
+                Size(bitmap.width.toDouble(), bitmap.height.toDouble());
+            _addPage(document, size).graphics.drawImage(
+                bitmap, Rect.fromLTWH(0, 0, size.width, size.height));
+          }
+          return await _save(document.saveSync(), outputPath);
+        } catch (_) {
+          return null;
+        } finally {
+          document.dispose();
         }
-
-        final bytes = document.saveSync();
-        File(outputPath).writeAsBytesSync(bytes);
-        document.dispose();
-        return outputPath;
-      } catch (e) {
-        return null;
-      }
-    });
-  }
+      });
 }

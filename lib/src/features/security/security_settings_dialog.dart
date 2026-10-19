@@ -20,8 +20,10 @@ class _SecuritySettingsDialogState
   String? _firstInput;
   String? _errorText;
   bool _isConfirming = false;
+  bool _isSaving = false;
 
   void _handleInput(String input) async {
+    if (_isSaving) return;
     if (!_isConfirming) {
       setState(() {
         _firstInput = input;
@@ -30,14 +32,20 @@ class _SecuritySettingsDialogState
       });
     } else {
       if (_firstInput == input) {
-        // Success
-        await ref
-            .read(securityControllerProvider.notifier)
-            .setLockType(_selectedType);
-        await ref
-            .read(securityControllerProvider.notifier)
-            .setLockEnabled(true, pinOrPattern: input);
-        if (context.mounted) Navigator.pop(context);
+        final controller = ref.read(securityControllerProvider.notifier);
+        setState(() => _isSaving = true);
+        try {
+          await controller.setLockType(_selectedType);
+          await controller.setLockEnabled(true, pinOrPattern: input);
+          if (mounted) Navigator.pop(context);
+        } catch (_) {
+          if (mounted) {
+            setState(() =>
+                _errorText = 'Could not save the lock. Please try again.');
+          }
+        } finally {
+          if (mounted) setState(() => _isSaving = false);
+        }
       } else {
         setState(() {
           _errorText = "Inputs don't match. Try again.";
@@ -140,7 +148,7 @@ class _SecuritySettingsDialogState
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _isSaving ? null : () => Navigator.pop(context),
                   child: const Text('Cancel'),
                 ),
               ],
@@ -162,17 +170,27 @@ class SecurityVerifyDialog extends ConsumerStatefulWidget {
 
 class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
   String? _errorText;
+  bool _isVerifying = false;
 
   void _handleInput(String input) async {
-    final success = await ref
-        .read(securityControllerProvider.notifier)
-        .verifyPinOrPattern(input);
-    if (success) {
-      if (context.mounted) Navigator.pop(context, true);
-    } else {
-      setState(() {
-        _errorText = 'Incorrect';
-      });
+    if (_isVerifying) return;
+    _isVerifying = true;
+    try {
+      final success = await ref
+          .read(securityControllerProvider.notifier)
+          .verifyPinOrPattern(input);
+      if (!mounted) return;
+      if (success) {
+        Navigator.pop(context, true);
+      } else {
+        setState(() => _errorText = 'Incorrect');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _errorText = 'Could not verify. Please try again.');
+      }
+    } finally {
+      _isVerifying = false;
     }
   }
 

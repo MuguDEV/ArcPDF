@@ -17,6 +17,7 @@ class PeekOverlay extends StatefulWidget {
 class _PeekOverlayState extends State<PeekOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _dismissing = false;
 
   @override
   void initState() {
@@ -27,6 +28,10 @@ class _PeekOverlayState extends State<PeekOverlay>
   }
 
   void _dismiss() {
+    // Multiple gesture callbacks (tap/pan/long-press end) can fire for a
+    // single release; guard so we only trigger the dismissal once.
+    if (_dismissing) return;
+    _dismissing = true;
     _controller.reverse().then((_) => widget.onDismiss());
   }
 

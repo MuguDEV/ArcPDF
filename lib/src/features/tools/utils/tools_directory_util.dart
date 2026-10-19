@@ -15,9 +15,12 @@ class ToolsDirectoryUtil {
             await arcPdfDir.create(recursive: true);
           }
           // Confirm directory is writable
-          final testFile = File('${arcPdfDir.path}/.test_write');
-          await testFile.writeAsString('test');
-          await testFile.delete();
+          final probe = await arcPdfDir.createTemp('.write_probe_');
+          try {
+            await File('${probe.path}/test').writeAsString('test');
+          } finally {
+            await probe.delete(recursive: true);
+          }
           return arcPdfDir.path;
         }
       } catch (e) {

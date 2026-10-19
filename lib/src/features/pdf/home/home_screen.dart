@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../application/pdf_error_handler.dart';
@@ -7,8 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+
 import 'package:install_plugin/install_plugin.dart';
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
@@ -66,12 +65,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBackgroundUpdate();
+      if (mounted) _checkBackgroundUpdate();
     });
   }
 
   Future<void> _checkBackgroundUpdate() async {
-    final release = await UpdaterService.checkForUpdates();
+    if (!mounted) return;
+    final release = await UpdaterService.checkForUpdates(
+      client: ref.read(updaterHttpClientProvider),
+    );
     if (release != null && mounted) {
       final settings = ref.read(settingsControllerProvider);
       if (settings.skippedUpdateVersion != release.version) {
@@ -83,72 +85,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _downloadAndInstallUpdate() async {
-    if (_availableUpdate == null) return;
-
-    setState(() {
-      _isDownloadingUpdate = true;
-    });
-
+    final release = _availableUpdate;
+    if (!mounted || release == null || _isDownloadingUpdate) return;
+    if (!Platform.isAndroid) {
+      DynamicIslandNotification.show(context,
+          'APK installation is Android-only. Download from Settings instead.',
+          icon: HugeIcons.strokeRoundedAlert01);
+      return;
+    }
+    final client = ref.read(updaterHttpClientProvider);
+    setState(() => _isDownloadingUpdate = true);
     DynamicIslandNotification.show(context, 'Downloading update...',
         icon: HugeIcons.strokeRoundedCloudDownload);
-
     try {
-      // Find universal or any apk
-      final response = await http.get(Uri.parse(
-          'https://api.github.com/repos/MuguDEV/ArcPDF/releases/latest'));
-      String? apkUrl;
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> assetsList = data['assets'] ?? [];
-        final universalApk = assetsList.firstWhere(
-            (a) =>
-                (a['name'] as String).contains('universal.apk') ||
-                ((a['name'] as String).endsWith('.apk') &&
-                    !(a['name'] as String).contains('arm') &&
-                    !(a['name'] as String).contains('x86')),
-            orElse: () => null);
-        final anyApk = assetsList.firstWhere(
-            (a) => (a['name'] as String).endsWith('.apk'),
-            orElse: () => null);
-
-        if (universalApk != null) {
-          apkUrl = universalApk['browser_download_url'];
-        } else if (anyApk != null) {
-          apkUrl = anyApk['browser_download_url'];
-        }
+      final file = await UpdaterService.downloadUpdate(release, client: client);
+      if (!mounted || _availableUpdate?.version != release.version) return;
+      // Never open an installer after leaving the page or backgrounding the app.
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if ((lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+          ModalRoute.of(context)?.isCurrent == false ||
+          !TickerMode.valuesOf(context).enabled) {
+        return;
       }
-
-      if (apkUrl == null) {
-        throw Exception("No APK found in release");
+      DynamicIslandNotification.show(
+          context, 'Update downloaded! Opening installer...',
+          icon: HugeIcons.strokeRoundedCheckmarkBadge01);
+      final result = await InstallPlugin.install(file.path);
+      if (result is Map && result['isSuccess'] == false) {
+        throw StateError('Installer could not be opened');
       }
-
-      final dir = await getTemporaryDirectory();
-      final filePath = '${dir.path}/ArcPDF_Update.apk';
-      final file = File(filePath);
-
-      final dlResponse = await http.get(Uri.parse(apkUrl));
-      await file.writeAsBytes(dlResponse.bodyBytes);
-
-      if (context.mounted) {
-        DynamicIslandNotification.show(context, 'Update downloaded!',
-            icon: HugeIcons.strokeRoundedCheckmarkBadge01);
-        // We trigger the install plugin automatically or via a delayed action
-        Future.delayed(const Duration(seconds: 1), () {
-          InstallPlugin.install(file.path);
-        });
-      }
-    } catch (e) {
-      if (context.mounted) {
-        DynamicIslandNotification.show(context, 'Failed to download update',
+      if (mounted) setState(() => _availableUpdate = null);
+    } catch (_) {
+      if (mounted) {
+        DynamicIslandNotification.show(
+            context, 'Could not download or open the update. Please try again.',
             icon: HugeIcons.strokeRoundedAlert01);
       }
     } finally {
-      if (context.mounted) {
-        setState(() {
-          _isDownloadingUpdate = false;
-          _availableUpdate = null;
-        });
-      }
+      if (mounted) setState(() => _isDownloadingUpdate = false);
     }
   }
 
@@ -206,36 +180,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: _isSelectionMode
           ? FloatingActionButton.extended(
-                onPressed: _selectedPaths.length > 1
-                    ? () => _handleQuickCombine(context)
-                    : null,
-                backgroundColor: _selectedPaths.length > 1
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.surfaceContainerHighest,
-                foregroundColor: _selectedPaths.length > 1
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurfaceVariant,
-                icon: const Icon(HugeIcons.strokeRoundedLayers01),
-                label: Text('Combine (${_selectedPaths.length})'),
-              ).animate().slideY(
+              onPressed: _selectedPaths.length > 1
+                  ? () => _handleQuickCombine(context)
+                  : null,
+              backgroundColor: _selectedPaths.length > 1
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.surfaceContainerHighest,
+              foregroundColor: _selectedPaths.length > 1
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurfaceVariant,
+              icon: const Icon(HugeIcons.strokeRoundedLayers01),
+              label: Text('Combine (${_selectedPaths.length})'),
+            ).animate().slideY(
                 begin: 1.0,
                 duration: 250.ms,
                 curve: Curves.easeOutBack,
               )
           : _showScrollToTop
               ? FloatingActionButton(
-                    onPressed: () {
-                      _scrollController.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.fastOutSlowIn,
-                      );
-                    },
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                    foregroundColor: theme.colorScheme.onSecondaryContainer,
-                    elevation: 4,
-                    child: const Icon(Icons.arrow_upward_rounded),
-                  )
+                  onPressed: () {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.fastOutSlowIn,
+                    );
+                  },
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
+                  elevation: 4,
+                  child: const Icon(Icons.arrow_upward_rounded),
+                )
               : null,
       body: Stack(
         children: [
@@ -1006,7 +980,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           final success = await ref
               .read(vaultControllerProvider.notifier)
               .moveToVault(item);
-          if (success && mounted) {
+          if (success && mounted && context.mounted) {
             ref.read(pdfLibraryControllerProvider.notifier).refresh();
             DynamicIslandNotification.show(context, 'Moved to Vault',
                 icon: HugeIcons.strokeRoundedFolderSecurity);

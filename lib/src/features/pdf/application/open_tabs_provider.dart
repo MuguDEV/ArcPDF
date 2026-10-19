@@ -31,6 +31,9 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
 
     if (pathsDynamic != null) {
       final paths = pathsDynamic.cast<String>();
+      final activePath = activeIndex >= 0 && activeIndex < paths.length
+          ? paths[activeIndex]
+          : null;
       final List<PdfFileItem> loadedTabs = [];
       for (final path in paths) {
         final file = File(path);
@@ -40,9 +43,12 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
         }
       }
       if (loadedTabs.isNotEmpty) {
+        final restoredIndex =
+            loadedTabs.indexWhere((tab) => tab.path == activePath);
         state = state.copyWith(
-            tabs: loadedTabs,
-            activeIndex: activeIndex < loadedTabs.length ? activeIndex : 0);
+          tabs: loadedTabs,
+          activeIndex: restoredIndex >= 0 ? restoredIndex : 0,
+        );
       }
     }
   }
@@ -84,7 +90,7 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
   }
 
   void setActiveIndex(int index) {
-    if (index >= 0 && index < state.tabs.length) {
+    if (index >= 0 && index < state.tabs.length && index != state.activeIndex) {
       state = state.copyWith(activeIndex: index);
       _saveSession();
     }

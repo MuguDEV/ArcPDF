@@ -39,15 +39,18 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
     final isDark = theme.brightness == Brightness.dark;
 
     final settings = ref.watch(settingsControllerProvider);
-    final isBlur = settings.useBlurEffect;
-    final isLiquid = settings.useLiquidGlass;
+    final reduceMotion =
+        settings.lowPowerMode || MediaQuery.disableAnimationsOf(context);
+    final isBlur = settings.useBlurEffect && !settings.lowPowerMode;
+    final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
     final double sigma = isLiquid ? 48.0 : 24.0;
 
     final navBg = theme.colorScheme.surfaceContainerHigh;
     final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.38 : 0.64);
 
     Widget navContainer = Container(
-      height: 64,
+      height:
+          64 + (MediaQuery.textScalerOf(context).scale(11) - 11).clamp(0, 24),
       decoration: BoxDecoration(
         color: isBlur ? bgColor : navBg.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
@@ -71,7 +74,9 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
           children: [
             // Fluid Pill Indicator
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 400),
               curve: Curves.easeOutBack, // Bouncy slide
               left: (itemWidth * widget.selectedIndex) + 12,
               top: 10,
@@ -92,11 +97,11 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
                 final isSelected = widget.selectedIndex == index;
                 final color = isSelected
                     ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+                    : theme.colorScheme.onSurfaceVariant;
 
                 Widget iconWidget = Icon(_icons[index], color: color, size: 24);
 
-                if (isSelected) {
+                if (!reduceMotion && isSelected) {
                   // Jelly squash and stretch effect when selected
                   iconWidget = iconWidget
                       .animate(key: ValueKey(index))
@@ -110,35 +115,53 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
                           end: 1.0,
                           duration: 500.ms,
                           curve: Curves.elasticOut);
-                } else {
+                } else if (!reduceMotion) {
                   iconWidget =
                       iconWidget.animate().scale(begin: const Offset(0.9, 0.9));
                 }
 
                 return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      if (index != widget.selectedIndex) {
-                        ref.read(hapticServiceProvider).selectionClick();
-                        ref
-                            .read(navigationControllerProvider.notifier)
-                            .setIndex(index);
-                      }
-                    },
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          iconWidget,
-                          Text(
-                            _labels[index],
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: color,
-                              letterSpacing: 0.3,
+                  child: Semantics(
+                    button: true,
+                    selected: isSelected,
+                    child: Tooltip(
+                      message: _labels[index],
+                      excludeFromSemantics: true,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          focusColor:
+                              theme.colorScheme.primary.withValues(alpha: 0.2),
+                          onTap: () {
+                            if (index != widget.selectedIndex) {
+                              ref.read(hapticServiceProvider).selectionClick();
+                              ref
+                                  .read(navigationControllerProvider.notifier)
+                                  .setIndex(index);
+                            }
+                          },
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                iconWidget,
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    _labels[index],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: color,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

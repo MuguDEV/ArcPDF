@@ -7,7 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
 
 import '../tools_service.dart';
-import '../tool_action_dialog.dart';
+import '../utils/run_tool_action.dart';
 import '../utils/tools_directory_util.dart';
 
 class ImagesToPdfPage extends StatefulWidget {
@@ -27,49 +27,24 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
       allowMultiple: true,
     );
 
-    if (result != null) {
+    if (mounted && result != null) {
       setState(() {
-        _selectedFiles.addAll(result.paths.whereType<String>());
+        _selectedFiles.addAll(result.paths
+            .whereType<String>()
+            .where((path) => !_selectedFiles.contains(path)));
       });
     }
   }
 
   Future<void> _convert() async {
     if (_selectedFiles.isEmpty) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(
-          title: 'Converting', message: 'Please wait...', isLoading: true),
-    );
-
-    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final outputPath =
-        p.join(dir, 'ImagesToPDF_${DateTime.now().millisecondsSinceEpoch}.pdf');
-
-    final successPath =
-        await ToolsService.imagesToPdf(_selectedFiles, outputPath);
-
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-
-    if (successPath != null) {
-      showDialog(
-        context: context,
-        builder: (context) => ToolActionDialog(
-            title: 'Success',
-            message: 'Saved to:\n$successPath',
-            isLoading: false,
-            outputPath: successPath),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => const ToolActionDialog(
-            title: 'Error', message: 'Failed to convert.', isLoading: false),
-      );
-    }
+    await runToolAction(context, title: 'Converting', action: () async {
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      return ToolsService.imagesToPdf(
+          List.of(_selectedFiles),
+          p.join(
+              dir, 'ImagesToPDF_${DateTime.now().microsecondsSinceEpoch}.pdf'));
+    });
   }
 
   @override
@@ -107,9 +82,8 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
-                    onReorder: (oldIndex, newIndex) {
+                    onReorderItem: (oldIndex, newIndex) {
                       setState(() {
-                        if (newIndex > oldIndex) newIndex -= 1;
                         final item = _selectedFiles.removeAt(oldIndex);
                         _selectedFiles.insert(newIndex, item);
                       });

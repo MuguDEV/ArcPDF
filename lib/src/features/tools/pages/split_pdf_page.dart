@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../pdf/application/pdf_error_handler.dart';
+
 import 'package:path/path.dart' as p;
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,7 +7,8 @@ import 'dart:ui';
 import 'dart:io';
 
 import '../tools_service.dart';
-import '../tool_action_dialog.dart';
+import '../utils/run_tool_action.dart';
+import '../utils/page_selection.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
@@ -42,6 +43,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
 
   Future<void> _pickFile() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+    if (!mounted) return;
     if (paths != null && paths.isNotEmpty) {
       setState(() {
         _selectedFile = paths.first;
@@ -50,75 +52,16 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     }
   }
 
-  List<int> _parsePages(String input) {
-    final List<int> pages = [];
-    final parts = input.split(',');
-    for (var part in parts) {
-      part = part.trim();
-      if (part.isEmpty) continue;
-      if (part.contains('-')) {
-        final rangeParts = part.split('-');
-        if (rangeParts.length == 2) {
-          final start = int.tryParse(rangeParts[0].trim());
-          final end = int.tryParse(rangeParts[1].trim());
-          if (start != null && end != null && start <= end) {
-            for (int i = start; i <= end; i++) {
-              pages.add(i);
-            }
-          }
-        }
-      } else {
-        final page = int.tryParse(part);
-        if (page != null) {
-          pages.add(page);
-        }
-      }
-    }
-    return pages.toSet().toList(); // Remove duplicates
-  }
-
   Future<void> _splitPdf() async {
-    if (_selectedFile == null) return;
-
-    final pagesToExtract = _parsePages(_pagesController.text);
-    if (pagesToExtract.isEmpty) {
-      PdfErrorHandler.show(context, 'invalid input',
-          contextMessage: 'Please enter valid page numbers to split.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(
-          title: 'Splitting PDF', message: 'Please wait...', isLoading: true),
-    );
-
-    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final successPath =
-        await ToolsService.splitPdf(_selectedFile!, dir, pagesToExtract);
-
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-
-    if (successPath != null) {
-      showDialog(
-        context: context,
-        builder: (context) => ToolActionDialog(
-            title: 'Success',
-            message: 'Saved to:\n$successPath',
-            isLoading: false,
-            outputPath: successPath),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => const ToolActionDialog(
-            title: 'Error',
-            message: 'Failed to split. Check ranges.',
-            isLoading: false),
-      );
-    }
+    final input = _selectedFile;
+    if (input == null) return;
+    final selection = _pagesController.text;
+    await runToolAction(context, title: 'Splitting PDF', action: () async {
+      final count = await ToolsService.readPageCount(input);
+      final pages = parsePageSelection(selection, pageCount: count);
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      return ToolsService.splitPdf(input, dir, pages);
+    });
   }
 
   @override
@@ -197,7 +140,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${(File(_selectedFile!).lengthSync() / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                    '${(File(_selectedFile!).statSync().size.clamp(0, 0x7fffffffffffffff) / (1024 * 1024)).toStringAsFixed(1)} MB',
                                     style:
                                         theme.textTheme.labelMedium?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,

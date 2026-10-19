@@ -117,8 +117,9 @@ class PdfThumbnailCache {
       return image;
     }
 
+    final trace =
+        kDebugMode ? (TimelineTask()..start('PdfThumbnailCache.decode')) : null;
     try {
-      if (kDebugMode) Timeline.startSync('PdfThumbnailCache.decode');
       final doc = await PdfDocument.openFile(pdfPath);
       if (doc.pages.isEmpty) {
         doc.dispose();
@@ -138,7 +139,6 @@ class PdfThumbnailCache {
       );
 
       doc.dispose();
-      if (kDebugMode) Timeline.finishSync();
 
       if (pdfImage != null) {
         final image = await pdfImage.createImage();
@@ -159,6 +159,8 @@ class PdfThumbnailCache {
       final redactedPath = pdfPath.split('/').lastOrNull ?? 'unknown_file';
       AppLogger.error(
           'Failed to generate thumbnail for $redactedPath', e, stackTrace);
+    } finally {
+      trace?.finish();
     }
     return null;
   }

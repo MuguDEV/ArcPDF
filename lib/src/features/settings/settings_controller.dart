@@ -101,37 +101,7 @@ class AppSettings {
 // ─── Controller ──────────────────────────────────────────────────────────────
 
 class SettingsController extends StateNotifier<AppSettings> {
-  SettingsController(this._box)
-      : super(AppSettings(
-          themeMode:
-              ThemeMode.values[_box.get('themeMode', defaultValue: 0) as int],
-          useBlurEffect: _box.get('useBlurEffect', defaultValue: true) as bool,
-          useLiquidGlass:
-              _box.get('useLiquidGlass', defaultValue: false) as bool,
-          animationIntensity:
-              ((_box.get('anim', defaultValue: 1.0) as num).toDouble())
-                  .clamp(0.01, 1.0),
-          animationSpeed:
-              ((_box.get('animSpeed', defaultValue: 1.0) as num).toDouble())
-                  .clamp(0.5, 2.0),
-          thumbnailQuality:
-              ((_box.get('thumbQ', defaultValue: 0.8) as num).toDouble())
-                  .clamp(0.01, 1.0),
-          fontFamily: AppFontFamily
-              .values[_box.get('fontFamily', defaultValue: 1) as int],
-          useHaptics: _box.get('useHaptics', defaultValue: true) as bool,
-          keepScreenAwake:
-              _box.get('keepScreenAwake', defaultValue: false) ?? false,
-          compressionThreads:
-              ((_box.get('compressionThreads', defaultValue: 2) as num).toInt())
-                  .clamp(1, 5),
-          lowPowerMode: _box.get('lowPowerMode', defaultValue: false) ?? false,
-          enableGyroCards:
-              _box.get('enableGyroCards', defaultValue: false) ?? false,
-          enableMeshBackground:
-              _box.get('enableMeshBackground', defaultValue: false) ?? false,
-          skippedUpdateVersion: _box.get('skippedUpdateVersion') as String?,
-        ));
+  SettingsController(this._box) : super(_loadSettings(_box));
 
   final Box _box;
 
@@ -151,18 +121,21 @@ class SettingsController extends StateNotifier<AppSettings> {
   }
 
   Future<void> setAnimationIntensity(double value) async {
-    state = state.copyWith(animationIntensity: value);
-    await _box.put('anim', value);
+    final valid = _finiteRange(value, state.animationIntensity, 0.01, 1);
+    state = state.copyWith(animationIntensity: valid);
+    await _box.put('anim', valid);
   }
 
   Future<void> setAnimationSpeed(double value) async {
-    state = state.copyWith(animationSpeed: value);
-    await _box.put('animSpeed', value);
+    final valid = _finiteRange(value, state.animationSpeed, 0.5, 2);
+    state = state.copyWith(animationSpeed: valid);
+    await _box.put('animSpeed', valid);
   }
 
   Future<void> setThumbnailQuality(double value) async {
-    state = state.copyWith(thumbnailQuality: value);
-    await _box.put('thumbQ', value);
+    final valid = _finiteRange(value, state.thumbnailQuality, 0.01, 1);
+    state = state.copyWith(thumbnailQuality: valid);
+    await _box.put('thumbQ', valid);
   }
 
   Future<void> setFontFamily(AppFontFamily family) async {
@@ -205,6 +178,45 @@ class SettingsController extends StateNotifier<AppSettings> {
     state = state.copyWith(skippedUpdateVersion: version);
     await _box.put('skippedUpdateVersion', version);
   }
+}
+
+double _finiteRange(Object? value, double fallback, double min, double max) {
+  if (value is! num || !value.isFinite) return fallback;
+  return value.toDouble().clamp(min, max);
+}
+
+AppSettings _loadSettings(Box box) {
+  bool flag(String key, bool fallback) {
+    final value = box.get(key, defaultValue: fallback);
+    return value is bool ? value : fallback;
+  }
+
+  T choice<T>(String key, List<T> values, int fallback) {
+    final index = box.get(key, defaultValue: fallback);
+    return index is int && index >= 0 && index < values.length
+        ? values[index]
+        : values[fallback];
+  }
+
+  double number(String key, double fallback, double min, double max) =>
+      _finiteRange(box.get(key, defaultValue: fallback), fallback, min, max);
+  final skippedVersion = box.get('skippedUpdateVersion');
+  return AppSettings(
+    themeMode: choice('themeMode', ThemeMode.values, 0),
+    fontFamily: choice('fontFamily', AppFontFamily.values, 1),
+    useBlurEffect: flag('useBlurEffect', true),
+    useLiquidGlass: flag('useLiquidGlass', false),
+    animationIntensity: number('anim', 1, 0.01, 1),
+    animationSpeed: number('animSpeed', 1, 0.5, 2),
+    thumbnailQuality: number('thumbQ', 0.8, 0.01, 1),
+    useHaptics: flag('useHaptics', true),
+    keepScreenAwake: flag('keepScreenAwake', false),
+    compressionThreads: number('compressionThreads', 2, 1, 5).toInt(),
+    lowPowerMode: flag('lowPowerMode', false),
+    enableGyroCards: flag('enableGyroCards', false),
+    enableMeshBackground: flag('enableMeshBackground', false),
+    skippedUpdateVersion: skippedVersion is String ? skippedVersion : null,
+  );
 }
 
 final settingsControllerProvider =

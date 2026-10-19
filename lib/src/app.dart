@@ -178,23 +178,21 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           scrolledUnderElevation: 0,
         ),
         cardTheme: CardThemeData(
-          shape:
-              RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(ArcColors.cardRadius)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.cardRadius)),
           clipBehavior: Clip.antiAlias,
           color: colorScheme.surfaceContainerLow,
           elevation: 0,
         ),
         dialogTheme: DialogThemeData(
-          shape:
-              RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(ArcColors.dialogRadius)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.dialogRadius)),
           backgroundColor: colorScheme.surfaceContainerHigh,
           elevation: 0,
         ),
         bottomSheetTheme: BottomSheetThemeData(
           backgroundColor: colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
+          shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(ArcColors.sheetRadius),
             ),
@@ -202,9 +200,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
           elevation: 0,
         ),
         chipTheme: ChipThemeData(
-          shape:
-              RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(ArcColors.pillRadius)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.pillRadius)),
           side: BorderSide.none,
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -233,9 +230,8 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: colorScheme.surfaceContainerLow,
-          indicatorShape:
-              RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
+          indicatorShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
         ),
         dividerTheme: const DividerThemeData(
           color: ArcColors.divider,

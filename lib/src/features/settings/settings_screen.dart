@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,6 +28,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _version = 'Loading...';
+  bool _checkingForUpdates = false;
+  DialogRoute<void>? _updateLoadingRoute;
 
   @override
   void initState() {
@@ -34,32 +38,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    if (context.mounted) {
-      setState(() {
-        _version = 'v${info.version} (${info.buildNumber})';
-      });
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _version = 'v${info.version} (${info.buildNumber})');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _version = 'Version unavailable');
     }
   }
 
+  @override
+  void dispose() {
+    final loading = _updateLoadingRoute;
+    _updateLoadingRoute = null;
+    // Disposal can occur while the Navigator is updating its route stack.
+    scheduleMicrotask(() {
+      if (loading?.isActive == true && loading?.navigator?.mounted == true) {
+        loading!.navigator!.removeRoute(loading);
+      }
+    });
+    super.dispose();
+  }
+
   Future<void> _checkForUpdates() async {
-    showDialog(
+    if (!mounted || _checkingForUpdates) return;
+    final client = ref.read(updaterHttpClientProvider);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final owner = ModalRoute.of(context);
+    final loading = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: ArcProgressIndicator()),
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(child: ArcProgressIndicator()),
+      ),
     );
-
-    final release = await UpdaterService.checkForUpdates();
-
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // dismiss loading
-
-    if (release != null) {
-      _showUpdateDialog(release);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You are on the latest version!')),
-      );
+    setState(() => _checkingForUpdates = true);
+    _updateLoadingRoute = loading;
+    unawaited(navigator.push(loading));
+    try {
+      final result = await UpdaterService.checkForUpdateResult(client: client);
+      final wasCurrent = loading.isCurrent;
+      if (loading.isActive && navigator.mounted) navigator.removeRoute(loading);
+      _updateLoadingRoute = null;
+      if (!mounted || !wasCurrent || owner?.isCurrent == false) return;
+      switch (result.status) {
+        case UpdateCheckStatus.updateAvailable:
+          _showUpdateDialog(result.release!);
+        case UpdateCheckStatus.upToDate:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You are on the latest version!')),
+          );
+        case UpdateCheckStatus.unavailable:
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not check for updates. Check your connection and try again.'),
+          ));
+        case UpdateCheckStatus.failure:
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Could not read update information. Please try again later.'),
+          ));
+      }
+    } finally {
+      if (loading.isActive && navigator.mounted) navigator.removeRoute(loading);
+      _updateLoadingRoute = null;
+      if (mounted) setState(() => _checkingForUpdates = false);
     }
   }
 
@@ -157,10 +202,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16)),
                       ),
-                      onPressed: () {
-                        launchUrl(Uri.parse(release.url),
-                            mode: LaunchMode.externalApplication);
-                        Navigator.of(context).pop();
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final route = ModalRoute.of(context);
+                        final navigator = Navigator.of(context);
+                        var opened = false;
+                        try {
+                          opened = await launchUrl(Uri.parse(release.url),
+                              mode: LaunchMode.externalApplication);
+                        } catch (_) {
+                          // Keep the release dialog available for another attempt.
+                        }
+                        if (!context.mounted) return;
+                        if (opened) {
+                          if (route != null &&
+                              route.isActive &&
+                              navigator.mounted) {
+                            navigator.removeRoute(route);
+                          }
+                        } else if (messenger.mounted) {
+                          messenger.showSnackBar(const SnackBar(
+                            content: Text(
+                                'Could not open the download page. Please try again.'),
+                          ));
+                        }
                       },
                       icon: const Icon(HugeIcons.strokeRoundedDownload04,
                           size: 20),
@@ -391,64 +456,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               : null),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
-                      title: const Text('Animation intensity'),
-                      subtitle: Text(
-                          '${(settings.animationIntensity * 100).round()}%'),
-                      trailing: SizedBox(
-                        width: 160,
-                        child: Slider.adaptive(
-                          value: settings.animationIntensity,
-                          min: 0.01,
-                          max: 1.0,
-                          onChanged: ctrl.setAnimationIntensity,
-                        ),
-                      ),
+                    _SliderSetting(
+                      title: 'Animation intensity',
+                      valueLabel:
+                          '${(settings.animationIntensity * 100).round()}%',
+                      value: settings.animationIntensity,
+                      min: 0.01,
+                      max: 1,
+                      onChanged: ctrl.setAnimationIntensity,
                     ),
-                    ListTile(
-                      title: const Text('Animation Speed'),
-                      subtitle: Text(
-                          '${settings.animationSpeed.toStringAsFixed(1)}x'),
-                      trailing: SizedBox(
-                        width: 160,
-                        child: Slider.adaptive(
-                          value: settings.animationSpeed,
-                          min: 0.5,
-                          max: 2.0,
-                          divisions: 15,
-                          onChanged: ctrl.setAnimationSpeed,
-                        ),
-                      ),
+                    _SliderSetting(
+                      title: 'Animation speed',
+                      valueLabel:
+                          '${settings.animationSpeed.toStringAsFixed(1)}x',
+                      value: settings.animationSpeed,
+                      min: 0.5,
+                      max: 2,
+                      divisions: 15,
+                      onChanged: ctrl.setAnimationSpeed,
                     ),
-                    ListTile(
-                      title: const Text('Thumbnail quality'),
-                      subtitle:
-                          Text('${(settings.thumbnailQuality * 100).round()}%'),
-                      trailing: SizedBox(
-                        width: 160,
-                        child: Slider.adaptive(
-                          value: settings.thumbnailQuality,
-                          min: 0.01,
-                          max: 1.0,
-                          onChanged: ctrl.setThumbnailQuality,
-                        ),
-                      ),
+                    _SliderSetting(
+                      title: 'Thumbnail quality',
+                      valueLabel:
+                          '${(settings.thumbnailQuality * 100).round()}%',
+                      value: settings.thumbnailQuality,
+                      min: 0.01,
+                      max: 1,
+                      onChanged: ctrl.setThumbnailQuality,
                     ),
-                    ListTile(
-                      title: const Text('Compression threads'),
-                      subtitle: Text(
-                          '${settings.compressionThreads} parallel processes'),
-                      trailing: SizedBox(
-                        width: 160,
-                        child: Slider.adaptive(
-                          value: settings.compressionThreads.toDouble(),
-                          min: 1.0,
-                          max: 5.0,
-                          divisions: 4,
-                          onChanged: (v) =>
-                              ctrl.setCompressionThreads(v.toInt()),
-                        ),
-                      ),
+                    _SliderSetting(
+                      title: 'Compression workers',
+                      valueLabel:
+                          '${settings.compressionThreads} image encoding workers',
+                      value: settings.compressionThreads.toDouble(),
+                      min: 1,
+                      max: 5,
+                      divisions: 4,
+                      onChanged: (value) =>
+                          ctrl.setCompressionThreads(value.toInt()),
                     ),
                   ],
                 ),
@@ -495,7 +540,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+                          borderRadius:
+                              BorderRadius.circular(ArcColors.cardRadius),
                         ),
                         child:
                             const Icon(HugeIcons.strokeRoundedPdf02, size: 22),
@@ -515,7 +561,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       leading: const Icon(Icons.system_update_rounded),
                       title: const Text('Check for Updates'),
                       trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _checkForUpdates,
+                      onTap: _checkingForUpdates ? null : _checkForUpdates,
                     ),
                   ],
                 ),
@@ -557,6 +603,55 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _SliderSetting extends StatelessWidget {
+  const _SliderSetting({
+    required this.title,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.divisions,
+  });
+
+  final String title;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
+  final int? divisions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          Text(valueLabel,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              )),
+          Semantics(
+            label: title,
+            child: Slider.adaptive(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+              semanticFormatterCallback: (_) => valueLabel,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
   final Widget child;
@@ -564,12 +659,11 @@ class _SettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
+        side: BorderSide(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,

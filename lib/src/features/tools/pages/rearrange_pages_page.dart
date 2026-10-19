@@ -6,7 +6,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../tools_service.dart';
-import '../tool_action_dialog.dart';
+import '../utils/run_tool_action.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 
@@ -14,7 +14,9 @@ import '../../pdf/domain/pdf_file_item.dart';
 
 class RearrangePagesPage extends StatefulWidget {
   final PdfFileItem? initialFile;
-  const RearrangePagesPage({super.key, this.initialFile});
+  const RearrangePagesPage({super.key, this.initialFile, this.openDocument});
+
+  final Future<PdfDocument> Function(String)? openDocument;
 
   @override
   State<RearrangePagesPage> createState() => _RearrangePagesPageState();
@@ -24,6 +26,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
   String? _selectedFile;
   PdfDocument? _document;
   List<int> _pageOrder = []; // 0-based indices of original pages
+  int _loadGeneration = 0;
 
   @override
   void dispose() {
@@ -41,25 +44,34 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
 
   Future<void> _pickFile() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: false);
+    if (!mounted) return;
     if (paths != null && paths.isNotEmpty) {
-      final path = paths.first;
-      setState(() {
-        _selectedFile = path;
-        _pageOrder.clear();
-      });
-      _loadPdf(path);
+      _loadPdf(paths.first);
     }
   }
 
   Future<void> _loadPdf(String path) async {
+    final generation = ++_loadGeneration;
+    final previous = _document;
+    setState(() {
+      _selectedFile = path;
+      _document = null;
+      _pageOrder = [];
+    });
+    await previous?.dispose();
     try {
-      final doc = await PdfDocument.openFile(path);
+      final doc = await (widget.openDocument ?? PdfDocument.openFile)(path);
+      if (!mounted || generation != _loadGeneration) {
+        await doc.dispose();
+        return;
+      }
       setState(() {
         _document = doc;
         _pageOrder = List.generate(doc.pages.length, (i) => i);
       });
     } catch (e) {
-      if (context.mounted) {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _selectedFile = null);
         PdfErrorHandler.show(context, e, contextMessage: 'Failed to load PDF.');
       }
     }
@@ -67,42 +79,14 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
 
   Future<void> _processPdf() async {
     if (_selectedFile == null || _pageOrder.isEmpty) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const ToolActionDialog(
-          title: 'Processing', message: 'Saving new PDF...', isLoading: true),
-    );
-
-    final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-    final outputPath =
-        p.join(dir, 'Rearranged_${DateTime.now().millisecondsSinceEpoch}.pdf');
-
-    // pages in pageOrder are 0-based, our rearrangePdf uses 1-based lists
-    final pagesToExtract = _pageOrder.map((e) => e + 1).toList();
-    final successPath = await ToolsService.rearrangePdf(
-        _selectedFile!, outputPath, pagesToExtract);
-
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // pop loading
-
-    if (successPath != null) {
-      showDialog(
-        context: context,
-        builder: (context) => ToolActionDialog(
-            title: 'Success',
-            message: 'Saved to:\n$successPath',
-            isLoading: false,
-            outputPath: successPath),
-      );
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => const ToolActionDialog(
-            title: 'Error', message: 'Failed to save PDF.', isLoading: false),
-      );
-    }
+    await runToolAction(context, title: 'Saving PDF', action: () async {
+      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+      return ToolsService.rearrangePdf(
+          _selectedFile!,
+          p.join(
+              dir, 'Rearranged_${DateTime.now().microsecondsSinceEpoch}.pdf'),
+          _pageOrder.map((page) => page + 1).toList());
+    });
   }
 
   @override
@@ -142,9 +126,8 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 16, horizontal: 16),
                         itemCount: _pageOrder.length,
-                        onReorder: (oldIndex, newIndex) {
+                        onReorderItem: (oldIndex, newIndex) {
                           setState(() {
-                            if (newIndex > oldIndex) newIndex -= 1;
                             final item = _pageOrder.removeAt(oldIndex);
                             _pageOrder.insert(newIndex, item);
                           });

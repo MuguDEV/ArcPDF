@@ -25,6 +25,8 @@ class MetadataEditorPage extends ConsumerStatefulWidget {
 class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
   List<PdfFileItem> _selectedFiles = [];
   bool _isLoadingInfo = false;
+  bool _metadataReadFailed = false;
+  int _loadGeneration = 0;
   bool _isProcessing = false;
 
   final _titleController = TextEditingController();
@@ -50,11 +52,13 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
   }
 
   Future<void> _handleFilesSelected(List<PdfFileItem> files) async {
-    if (files.isEmpty) return;
+    if (!mounted || files.isEmpty || _isProcessing) return;
+    final generation = ++_loadGeneration;
 
     setState(() {
       _selectedFiles = files;
       _isLoadingInfo = true;
+      _metadataReadFailed = false;
 
       _titleController.text = '';
       _authorController.text = '';
@@ -64,9 +68,10 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
 
     if (files.length == 1) {
       final info = await ToolsService.readPdfMetadata(files.first.path);
-      if (context.mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _isLoadingInfo = false;
+          _metadataReadFailed = info == null;
           if (info != null) {
             _titleController.text = info.title;
             _authorController.text = info.author;
@@ -77,7 +82,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       }
     } else {
       // For batch processing, we don't prefill metadata since files likely differ.
-      if (context.mounted) {
+      if (mounted && generation == _loadGeneration) {
         setState(() {
           _isLoadingInfo = false;
         });
@@ -86,101 +91,83 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
   }
 
   Future<void> _handleSave() async {
-    if (_selectedFiles.isEmpty) return;
-
-    // Unfocus keyboard
+    if (_selectedFiles.isEmpty || _isProcessing || _isLoadingInfo) return;
     FocusScope.of(context).unfocus();
     ref.read(hapticServiceProvider).mediumImpact();
-
-    // Ask user: Overwrite or Save as Copy
-    final saveAsCopy = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => const _SaveOptionsSheet(),
-    );
-
-    if (saveAsCopy == null || !mounted) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
+    setState(() => _isProcessing = true);
+    final files = List.of(_selectedFiles);
+    final title = _titleController.text.trim();
+    final author = _authorController.text.trim();
+    final subject = _subjectController.text.trim();
+    final keywords = _keywordsController.text.trim();
     try {
-      int successCount = 0;
-      final targetDir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-
-      for (final file in _selectedFiles) {
-        final inputPath = file.path;
-        String outputPath;
-
+      final saveAsCopy = await showModalBottomSheet<bool>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const _SaveOptionsSheet(),
+      );
+      if (saveAsCopy == null || !mounted) return;
+      final targetDir = saveAsCopy
+          ? await ToolsDirectoryUtil.getDefaultOutputDirectory()
+          : p.dirname(files.first.path);
+      final results = <String>[];
+      for (final file in files) {
+        var outputPath = file.path;
         if (saveAsCopy) {
-          final baseName = p.basenameWithoutExtension(inputPath);
-          outputPath = p.join(targetDir, '${baseName}_meta.pdf');
-
-          int counter = 1;
+          final base = p.basenameWithoutExtension(file.path);
+          outputPath = p.join(targetDir, '${base}_meta.pdf');
+          var counter = 1;
           while (File(outputPath).existsSync()) {
-            outputPath = p.join(targetDir, '${baseName}_meta_$counter.pdf');
+            outputPath = p.join(targetDir, '${base}_meta_$counter.pdf');
             counter++;
           }
-        } else {
-          // Overwrite: Save to a temp file first, then move
-          final tempDir = Directory.systemTemp;
-          outputPath = p.join(tempDir.path,
-              'meta_temp_${DateTime.now().millisecondsSinceEpoch}_${file.name}.pdf');
         }
-
-        final resultPath = await ToolsService.editPdfMetadata(
-          inputPath: inputPath,
+        final result = await ToolsService.editPdfMetadata(
+          inputPath: file.path,
           outputPath: outputPath,
-          title: _titleController.text.trim(),
-          author: _authorController.text.trim(),
-          subject: _subjectController.text.trim(),
-          keywords: _keywordsController.text.trim(),
+          title: title,
+          author: author,
+          subject: subject,
+          keywords: keywords,
         );
-
-        if (resultPath != null) {
-          if (!saveAsCopy) {
-            final tempFile = File(resultPath);
-            if (await tempFile.exists()) {
-              await tempFile.copy(inputPath);
-              await tempFile.delete();
-            }
-          }
-          successCount++;
-        }
+        if (result != null) results.add(result);
       }
-
-      // Refresh library to show changes
-      ref.read(pdfLibraryControllerProvider.notifier).refresh();
-
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => ToolActionDialog(
-            title: _selectedFiles.length == 1
-                ? 'Metadata Updated!'
-                : 'Batch Update Complete!',
-            message: _selectedFiles.length == 1
-                ? 'The document properties have been successfully updated.'
-                : 'Successfully updated properties for $successCount out of ${_selectedFiles.length} files.',
-            outputPath: _selectedFiles.length == 1
-                ? (saveAsCopy
-                    ? p.join(targetDir,
-                        '${p.basenameWithoutExtension(_selectedFiles.first.path)}_meta.pdf')
-                    : _selectedFiles.first.path)
-                : targetDir,
-            isLoading: false,
-          ),
-        );
+      if (!mounted) return;
+      if (results.isNotEmpty) {
+        ref.read(pdfLibraryControllerProvider.notifier).refresh();
       }
+      await showDialog<void>(
+        context: context,
+        builder: (_) => ToolActionDialog(
+          title: results.isEmpty
+              ? 'Update Failed'
+              : results.length == files.length
+                  ? 'Metadata Updated!'
+                  : 'Partial Update',
+          message:
+              'Updated properties for ${results.length} out of ${files.length} files.',
+          outputFiles: results,
+          outputPath: results.isEmpty
+              ? null
+              : results.length == 1
+                  ? results.first
+                  : targetDir,
+          isLoading: false,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => const ToolActionDialog(
+          title: 'Update Failed',
+          message: 'Unable to save document properties.',
+          isLoading: false,
+        ),
+      );
     } finally {
-      if (context.mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -191,6 +178,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
+        enabled: !_isProcessing,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: theme.colorScheme.onSurfaceVariant),
@@ -241,10 +229,11 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                   const SizedBox(height: 12),
                   GestureDetector(
                     onTap: () async {
+                      if (_isProcessing) return;
                       ref.read(hapticServiceProvider).lightImpact();
                       final paths = await InAppPdfSelector.show(context,
                           allowMultiple: true);
-                      if (paths != null && paths.isNotEmpty) {
+                      if (mounted && paths != null && paths.isNotEmpty) {
                         _handleFilesSelected(paths
                             .map((p) => PdfFileItem.fromFile(File(p)))
                             .toList());
@@ -305,6 +294,9 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                           child: CircularProgressIndicator(),
                         ),
                       )
+                    else if (_metadataReadFailed)
+                      const Text(
+                          'Unable to read document properties. Please select a readable PDF before editing.')
                     else ...[
                       Container(
                         padding: const EdgeInsets.all(20),

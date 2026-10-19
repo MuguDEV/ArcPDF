@@ -18,12 +18,14 @@ class ToolActionDialog extends StatefulWidget {
     required this.message,
     required this.isLoading,
     this.outputPath,
+    this.outputFiles,
   });
 
   final String title;
   final String message;
   final bool isLoading;
   final String? outputPath;
+  final List<String>? outputFiles;
 
   @override
   State<ToolActionDialog> createState() => _ToolActionDialogState();
@@ -31,6 +33,8 @@ class ToolActionDialog extends StatefulWidget {
 
 class _ToolActionDialogState extends State<ToolActionDialog> {
   bool _hasVibrated = false;
+  bool _isActing = false;
+  String? _actionError;
 
   @override
   void didUpdateWidget(covariant ToolActionDialog oldWidget) {
@@ -57,25 +61,64 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     }
   }
 
-  void _openInApp() {
-    if (widget.outputPath == null) return;
-
-    // Check if it's a PDF before opening in viewer
-    if (p.extension(widget.outputPath!).toLowerCase() == '.pdf') {
-      final file = File(widget.outputPath!);
-      if (file.existsSync()) {
-        final tempItem = PdfFileItem.fromFile(file);
-        Navigator.of(context).pop();
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => PdfViewerScreen(item: tempItem)));
-        return;
+  Future<void> _performAction(Future<void> Function() action) async {
+    setState(() {
+      _isActing = true;
+      _actionError = null;
+    });
+    try {
+      await action();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _actionError =
+            'Unable to open or share the saved output. It may have been moved or deleted.');
       }
+    } finally {
+      if (mounted) setState(() => _isActing = false);
     }
-
-    // Fallback for directories or non-PDFs (like PDF to Images output dir)
-    Navigator.of(context).pop();
-    OpenFile.open(widget.outputPath!);
   }
+
+  Future<void> _share() => _performAction(() async {
+        final path = widget.outputPath!;
+        final files = <XFile>[];
+        if (widget.outputFiles != null) {
+          for (final file in widget.outputFiles!) {
+            if (!await File(file).exists()) throw StateError('Missing output');
+            files.add(XFile(file));
+          }
+        } else if (await Directory(path).exists()) {
+          await for (final entity in Directory(path).list()) {
+            if (entity is File) files.add(XFile(entity.path));
+          }
+          files.sort((a, b) => a.path.compareTo(b.path));
+        } else if (await File(path).exists()) {
+          files.add(XFile(path));
+        }
+        if (files.isEmpty) throw StateError('No output files');
+        if (!mounted) return;
+        final box = context.findRenderObject() as RenderBox?;
+        await SharePlus.instance.share(ShareParams(
+          files: files,
+          sharePositionOrigin:
+              box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+        ));
+      });
+
+  Future<void> _openInApp() => _performAction(() async {
+        final path = widget.outputPath!;
+        if (p.extension(path).toLowerCase() == '.pdf' &&
+            await File(path).exists()) {
+          final item = PdfFileItem.fromFile(File(path));
+          if (!mounted) return;
+          final navigator = Navigator.of(context);
+          navigator.pop();
+          navigator.push(MaterialPageRoute<void>(
+              builder: (_) => PdfViewerScreen(item: item)));
+          return;
+        }
+        final result = await OpenFile.open(path);
+        if (result.type != ResultType.done) throw StateError(result.message);
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -83,106 +126,110 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     final isError = !widget.isLoading && widget.outputPath == null;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      backgroundColor: theme.colorScheme.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isError
-                    ? theme.colorScheme.errorContainer
-                    : theme.colorScheme.primaryContainer,
-                shape: BoxShape.circle,
+    return PopScope(
+      canPop: !widget.isLoading,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: theme.colorScheme.surfaceContainerHigh,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isError
+                      ? theme.colorScheme.errorContainer
+                      : theme.colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: widget.isLoading
+                    ? const SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: ArcProgressIndicator(),
+                      )
+                    : Icon(
+                        isSuccess
+                            ? HugeIcons.strokeRoundedCheckmarkBadge01
+                            : HugeIcons.strokeRoundedAlert02,
+                        size: 32,
+                        color: isError
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.primary,
+                      )
+                        .animate()
+                        .scale(duration: 300.ms, curve: Curves.easeOutBack),
               ),
-              child: widget.isLoading
-                  ? const SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: ArcProgressIndicator(),
-                    )
-                  : Icon(
-                      isSuccess
-                          ? HugeIcons.strokeRoundedCheckmarkBadge01
-                          : HugeIcons.strokeRoundedAlert02,
-                      size: 32,
-                      color: isError
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary,
-                    )
-                      .animate()
-                      .scale(duration: 300.ms, curve: Curves.easeOutBack),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.message,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.4,
+              const SizedBox(height: 16),
+              Text(
+                widget.title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isSuccess) ...[
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      if (widget.outputPath != null) {
-                        SharePlus.instance.share(
-                          ShareParams(files: [XFile(widget.outputPath!)]),
-                        );
-                      }
-                    },
-                    icon: const Icon(HugeIcons.strokeRoundedShare01, size: 20),
-                    label: const Text('Share'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    onPressed: _openInApp,
-                    icon: const Icon(HugeIcons.strokeRoundedFolder01, size: 20),
-                    label: const Text('Open'),
-                  ),
-                ],
-                if (isError)
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Dismiss'),
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                widget.message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (_actionError != null) ...[
+                Text(_actionError!,
+                    style: TextStyle(color: theme.colorScheme.error)),
+                const SizedBox(height: 12),
               ],
-            ),
-          ],
+              Wrap(
+                alignment: WrapAlignment.center,
+                runSpacing: 8,
+                children: [
+                  if (isSuccess) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _isActing ? null : _share,
+                      icon:
+                          const Icon(HugeIcons.strokeRoundedShare01, size: 20),
+                      label: const Text('Share'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _isActing ? null : _openInApp,
+                      icon:
+                          const Icon(HugeIcons.strokeRoundedFolder01, size: 20),
+                      label: const Text('Open'),
+                    ),
+                  ],
+                  if (isError)
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Dismiss'),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
