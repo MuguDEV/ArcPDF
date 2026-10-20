@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'dart:ui';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -28,6 +27,8 @@ class PdfCustomCard extends ConsumerStatefulWidget {
     this.onVault,
     this.onLongPress,
     this.scrollController,
+    this.selectionMode = false,
+    this.selected = false,
   });
 
   final PdfFileItem item;
@@ -37,6 +38,8 @@ class PdfCustomCard extends ConsumerStatefulWidget {
   final VoidCallback? onVault;
   final VoidCallback? onLongPress;
   final ScrollController? scrollController;
+  final bool selectionMode;
+  final bool selected;
 
   @override
   ConsumerState<PdfCustomCard> createState() => _PdfCustomCardState();
@@ -113,9 +116,11 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
     final time = DateFormat.jm().format(widget.item.lastModified);
-    final isDark = theme.brightness == Brightness.dark;
-    final lowPowerMode =
-        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+
+    final settings = ref.watch(settingsControllerProvider);
+    final lowPowerMode = settings.lowPowerMode;
+    final reduceMotion =
+        lowPowerMode || MediaQuery.disableAnimationsOf(context);
 
     Widget innerContent = Padding(
       padding: const EdgeInsets.all(12),
@@ -140,47 +145,16 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.item.name.replaceAll(
-                            RegExp(r'\.pdf$', caseSensitive: false), ''),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Favorite Button integrated in the top right with spring micro-interaction
-                    GestureDetector(
-                      onTap: () {
-                        ref.read(hapticServiceProvider).selectionClick();
-                        widget.onFavorite();
-                      },
-                      child: Icon(
-                        isFav
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: isFav
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.5),
-                        size: 22,
-                      ).animate(key: ValueKey(isFav)).scale(
-                            begin: const Offset(0.5, 0.5),
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.elasticOut,
-                          ),
-                    ),
-                  ],
+                Text(
+                  widget.item.name
+                      .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    height: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 4),
 
@@ -195,8 +169,6 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     Expanded(
                       child: Text(
                         widget.item.locationLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant
                               .withValues(alpha: 0.7),
@@ -205,16 +177,17 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
 
-                // Badges perfectly aligned + date
+                // Badges and date reflow with enlarged text.
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Wrap(
                         spacing: 6,
-                        runSpacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           _Badge(
                               label: _fileSize(widget.item.sizeBytes),
@@ -236,6 +209,12 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                                 icon: HugeIcons.strokeRoundedAlert02,
                                 theme: theme,
                                 isError: true),
+                          Text(
+                            '$date · $time',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                           ...tags.map((t) => _Badge(
                               label: t,
                               icon: HugeIcons.strokeRoundedTag01,
@@ -243,73 +222,116 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          date,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          time,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 4),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (reduceMotion && widget.onVault != null)
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: widget.selectionMode
+                      ? null
+                      : IconButton(
+                          tooltip: 'Move to Secure Vault',
+                          onPressed: widget.onVault,
+                          icon:
+                              const Icon(HugeIcons.strokeRoundedSafe, size: 22),
+                        ),
+                ),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: widget.selectionMode
+                    ? Icon(
+                        widget.selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 24,
+                        color: widget.selected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      )
+                    : IconButton(
+                        tooltip: isFav
+                            ? 'Remove from favorites'
+                            : 'Add to favorites',
+                        onPressed: () {
+                          ref.read(hapticServiceProvider).selectionClick();
+                          widget.onFavorite();
+                        },
+                        icon: Icon(
+                          isFav
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: isFav
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                          size: 22,
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ],
       ),
     );
 
+    final decoration = BoxDecoration(
+      color: widget.selected
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+      border: Border.all(
+        color: widget.selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
+        width: 1.5,
+      ),
+    );
     Widget cardContent = ClipRRect(
       borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-      child: lowPowerMode
-          ? Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow
-                    .withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-                border: Border.all(
-                  color:
-                      theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
-                  width: 1.0,
-                ),
-              ),
-              child: innerContent,
-            )
-          : BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow
-                      .withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-                  border: Border.all(
-                    color:
-                        theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
-                    width: 1.0,
-                  ),
-                ),
-                child: innerContent,
-              ),
-            ),
+      child: Container(
+        decoration: decoration,
+        child: innerContent,
+      ),
     );
+
+    // List callers own the spacing between rows.
+    if (widget.selectionMode || reduceMotion) {
+      return Padding(
+        padding: EdgeInsets.zero,
+        child: Semantics(
+          label: widget.item.name,
+          checked: widget.selectionMode ? widget.selected : null,
+          button: true,
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+              onTap: widget.onTap,
+              onLongPress: widget.onLongPress,
+              child: widget.selectionMode
+                  ? ExcludeSemantics(child: cardContent)
+                  : cardContent,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Padding(
         key: _cardKey,
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.zero,
         child: ParticleBurst(
           burstKey: _burstKey,
           burstColor: theme.colorScheme.primary,
@@ -381,9 +403,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                           margin: const EdgeInsets.symmetric(
                               vertical: 4, horizontal: 8),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? ArcColors.surfaceVariant
-                                : ArcColors.textSecondary,
+                            color: theme.colorScheme.surfaceContainerHigh,
                             borderRadius:
                                 BorderRadius.circular(ArcColors.cardRadius),
                             border: Border.all(
@@ -462,7 +482,7 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: isError
             ? theme.colorScheme.errorContainer
@@ -480,14 +500,16 @@ class _Badge extends StatelessWidget {
                 : theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: isError
-                  ? theme.colorScheme.onErrorContainer
-                  : theme.colorScheme.onSurfaceVariant,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isError
+                    ? theme.colorScheme.onErrorContainer
+                    : theme.colorScheme.onSurfaceVariant,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

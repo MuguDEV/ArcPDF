@@ -3,6 +3,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
 import '../../data/local_boxes.dart';
+import '../../shared/theme/arc_accent.dart';
+import '../../shared/theme/arc_theme.dart' show HighContrastMode;
+
+export '../../shared/theme/arc_accent.dart' show ArcAccent, ArcAccentX;
+export '../../shared/theme/arc_theme.dart'
+    show HighContrastMode, HighContrastModeX;
+
+// ─── Performance preset ─────────────────────────────────────────────────────
+
+/// Bundles of effect settings. [custom] means the individual toggles do not
+/// match any named preset.
+enum PerformancePreset { smooth, balanced, battery, custom }
+
+extension PerformancePresetX on PerformancePreset {
+  String get displayName => switch (this) {
+        PerformancePreset.smooth => 'Smooth',
+        PerformancePreset.balanced => 'Balanced',
+        PerformancePreset.battery => 'Battery',
+        PerformancePreset.custom => 'Custom',
+      };
+
+  String get description => switch (this) {
+        PerformancePreset.smooth =>
+          'Blur, liquid glass and animated background. Largest reader cache.',
+        PerformancePreset.balanced =>
+          'Blur only. A good mix of looks and efficiency.',
+        PerformancePreset.battery =>
+          'Low power mode, no blur or animated background. Smallest cache.',
+        PerformancePreset.custom =>
+          'Your individual settings do not match a preset.',
+      };
+}
 
 // ─── Font family ────────────────────────────────────────────────────────────
 
@@ -46,6 +78,9 @@ class AppSettings {
     required this.enableGyroCards,
     required this.enableMeshBackground,
     this.skippedUpdateVersion,
+    this.performancePreset = PerformancePreset.balanced,
+    this.accent = ArcAccent.none,
+    this.highContrast = HighContrastMode.system,
   });
 
   final ThemeMode themeMode;
@@ -62,6 +97,65 @@ class AppSettings {
   final bool enableGyroCards;
   final bool enableMeshBackground;
   final String? skippedUpdateVersion;
+  final PerformancePreset performancePreset;
+  final ArcAccent accent;
+  final HighContrastMode highContrast;
+
+  /// The named preset the individual settings currently match, or
+  /// [PerformancePreset.custom] when they diverge from all of them.
+  PerformancePreset get matchingPreset {
+    for (final preset in const [
+      PerformancePreset.smooth,
+      PerformancePreset.balanced,
+      PerformancePreset.battery,
+    ]) {
+      if (_matches(preset)) return preset;
+    }
+    return PerformancePreset.custom;
+  }
+
+  bool _matches(PerformancePreset preset) => switch (preset) {
+        PerformancePreset.smooth => useBlurEffect &&
+            useLiquidGlass &&
+            enableMeshBackground &&
+            !lowPowerMode &&
+            animationSpeed == 1.0,
+        PerformancePreset.balanced => useBlurEffect &&
+            !useLiquidGlass &&
+            !enableMeshBackground &&
+            !lowPowerMode &&
+            animationSpeed == 1.0,
+        PerformancePreset.battery => lowPowerMode &&
+            !useBlurEffect &&
+            !useLiquidGlass &&
+            !enableMeshBackground,
+        PerformancePreset.custom => false,
+      };
+
+  /// Preset used for derived performance budgets. Custom setups fall back to
+  /// the closest tier based on the individual toggles.
+  PerformancePreset get _budgetTier {
+    if (performancePreset != PerformancePreset.custom) return performancePreset;
+    if (lowPowerMode) return PerformancePreset.battery;
+    if (useBlurEffect && (useLiquidGlass || enableMeshBackground)) {
+      return PerformancePreset.smooth;
+    }
+    return PerformancePreset.balanced;
+  }
+
+  /// Memory budget (MB) the reader may use for rendered page caching.
+  int get readerCacheMb => switch (_budgetTier) {
+        PerformancePreset.smooth => 96,
+        PerformancePreset.battery => 48,
+        _ => 80,
+      };
+
+  /// How far (in viewport heights) the reader pre-renders beyond the screen.
+  double get readerPreloadExtent => switch (_budgetTier) {
+        PerformancePreset.smooth => 1.0,
+        PerformancePreset.battery => 0.25,
+        _ => 0.5,
+      };
 
   AppSettings copyWith({
     ThemeMode? themeMode,
@@ -78,6 +172,9 @@ class AppSettings {
     bool? enableGyroCards,
     bool? enableMeshBackground,
     String? skippedUpdateVersion,
+    PerformancePreset? performancePreset,
+    ArcAccent? accent,
+    HighContrastMode? highContrast,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -94,6 +191,9 @@ class AppSettings {
       enableGyroCards: enableGyroCards ?? this.enableGyroCards,
       enableMeshBackground: enableMeshBackground ?? this.enableMeshBackground,
       skippedUpdateVersion: skippedUpdateVersion ?? this.skippedUpdateVersion,
+      performancePreset: performancePreset ?? this.performancePreset,
+      accent: accent ?? this.accent,
+      highContrast: highContrast ?? this.highContrast,
     );
   }
 }
@@ -110,14 +210,78 @@ class SettingsController extends StateNotifier<AppSettings> {
     await _box.put('themeMode', mode.index);
   }
 
+  Future<void> setAccent(ArcAccent accent) async {
+    state = state.copyWith(accent: accent);
+    await _box.put('accent', accent.index);
+  }
+
+  Future<void> setHighContrast(HighContrastMode mode) async {
+    state = state.copyWith(highContrast: mode);
+    await _box.put('highContrast', mode.index);
+  }
+
+  /// Applies [preset] by writing the underlying individual settings.
+  /// [PerformancePreset.custom] keeps the current values and only marks the
+  /// configuration as custom until the next effect change.
+  Future<void> setPerformancePreset(PerformancePreset preset) async {
+    switch (preset) {
+      case PerformancePreset.custom:
+        break;
+      case PerformancePreset.smooth:
+        state = state.copyWith(
+          useBlurEffect: true,
+          useLiquidGlass: true,
+          enableMeshBackground: true,
+          lowPowerMode: false,
+          animationSpeed: 1.0,
+        );
+      case PerformancePreset.balanced:
+        state = state.copyWith(
+          useBlurEffect: true,
+          useLiquidGlass: false,
+          enableMeshBackground: false,
+          lowPowerMode: false,
+          animationSpeed: 1.0,
+        );
+      case PerformancePreset.battery:
+        state = state.copyWith(
+          useBlurEffect: false,
+          useLiquidGlass: false,
+          enableMeshBackground: false,
+          lowPowerMode: true,
+        );
+    }
+    state = state.copyWith(performancePreset: preset);
+    if (preset != PerformancePreset.custom) {
+      await _box.put('useBlurEffect', state.useBlurEffect);
+      await _box.put('useLiquidGlass', state.useLiquidGlass);
+      await _box.put('enableMeshBackground', state.enableMeshBackground);
+      await _box.put('lowPowerMode', state.lowPowerMode);
+      if (preset != PerformancePreset.battery) {
+        await _box.put('animSpeed', state.animationSpeed);
+      }
+    }
+    await _box.put('performancePreset', preset.index);
+  }
+
+  /// Re-derives the preset after an individual effect setting changed.
+  Future<void> _syncPreset() async {
+    final matching = state.matchingPreset;
+    if (matching == state.performancePreset) return;
+    state = state.copyWith(performancePreset: matching);
+    await _box.put('performancePreset', matching.index);
+  }
+
   Future<void> setUseBlurEffect(bool value) async {
     state = state.copyWith(useBlurEffect: value);
     await _box.put('useBlurEffect', value);
+    await _syncPreset();
   }
 
   Future<void> setUseLiquidGlass(bool value) async {
     state = state.copyWith(useLiquidGlass: value);
     await _box.put('useLiquidGlass', value);
+    await _syncPreset();
   }
 
   Future<void> setAnimationIntensity(double value) async {
@@ -130,6 +294,7 @@ class SettingsController extends StateNotifier<AppSettings> {
     final valid = _finiteRange(value, state.animationSpeed, 0.5, 2);
     state = state.copyWith(animationSpeed: valid);
     await _box.put('animSpeed', valid);
+    await _syncPreset();
   }
 
   Future<void> setThumbnailQuality(double value) async {
@@ -162,6 +327,7 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setLowPowerMode(bool value) async {
     state = state.copyWith(lowPowerMode: value);
     await _box.put('lowPowerMode', value);
+    await _syncPreset();
   }
 
   Future<void> setEnableGyroCards(bool value) async {
@@ -172,6 +338,7 @@ class SettingsController extends StateNotifier<AppSettings> {
   Future<void> setEnableMeshBackground(bool value) async {
     state = state.copyWith(enableMeshBackground: value);
     await _box.put('enableMeshBackground', value);
+    await _syncPreset();
   }
 
   Future<void> setSkippedUpdateVersion(String version) async {
@@ -201,7 +368,7 @@ AppSettings _loadSettings(Box box) {
   double number(String key, double fallback, double min, double max) =>
       _finiteRange(box.get(key, defaultValue: fallback), fallback, min, max);
   final skippedVersion = box.get('skippedUpdateVersion');
-  return AppSettings(
+  final base = AppSettings(
     themeMode: choice('themeMode', ThemeMode.values, 0),
     fontFamily: choice('fontFamily', AppFontFamily.values, 1),
     useBlurEffect: flag('useBlurEffect', true),
@@ -216,6 +383,19 @@ AppSettings _loadSettings(Box box) {
     enableGyroCards: flag('enableGyroCards', false),
     enableMeshBackground: flag('enableMeshBackground', false),
     skippedUpdateVersion: skippedVersion is String ? skippedVersion : null,
+    accent: choice('accent', ArcAccent.values, 0),
+    highContrast: choice('highContrast', HighContrastMode.values, 1),
+  );
+  // Keep a stored preset only while the individual settings still match it
+  // (or it is explicitly custom); otherwise derive it. Older installs have no
+  // stored preset and are derived from their existing toggles.
+  final stored = choice('performancePreset', PerformancePreset.values, 1);
+  final matching = base.matchingPreset;
+  final hasStored = box.get('performancePreset') is int;
+  return base.copyWith(
+    performancePreset: hasStored && stored == PerformancePreset.custom
+        ? PerformancePreset.custom
+        : matching,
   );
 }
 

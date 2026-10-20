@@ -92,6 +92,41 @@ Future<void> _reveal(WidgetTester tester, ReaderAction action) async {
 }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets('controls use the host ColorScheme in ${brightness.name}',
+        (tester) async {
+      await _mount(tester, brightness: brightness, selected: true);
+      final context = tester.element(find.byType(ReaderControlsSheet));
+      final colors = Theme.of(context).colorScheme;
+      final material = tester.widget<Material>(find
+          .descendant(
+              of: find.byType(ReaderControlsSheet),
+              matching: find.byType(Material))
+          .first);
+      expect(material.color, colors.surface);
+      expect(tester.widget<Text>(find.text('Reading controls')).style?.color,
+          colors.onSurface);
+      expect(tester.widget<Text>(find.text(_filename)).style?.color,
+          colors.onSurfaceVariant);
+      final selected =
+          tester.widget<TextButton>(_action(ReaderAction.pageColors));
+      expect(selected.style?.foregroundColor?.resolve({}), colors.primary);
+      expect(selected.style?.backgroundColor?.resolve({}),
+          colors.primary.withValues(alpha: 0.10));
+      final unselected =
+          tester.widget<TextButton>(_action(ReaderAction.fitWidth));
+      expect(unselected.style?.foregroundColor?.resolve({}), colors.onSurface);
+      expect(
+          unselected.style?.backgroundColor?.resolve({}), Colors.transparent);
+      final toggle =
+          tester.widget<SwitchListTile>(_action(ReaderAction.keepAwake));
+      expect(toggle.activeThumbColor, colors.onPrimary);
+      expect(toggle.activeTrackColor, colors.primary);
+      expect(toggle.inactiveThumbColor, colors.onSurfaceVariant);
+      expect(toggle.inactiveTrackColor, colors.surfaceContainerHighest);
+    });
+  }
+
   for (final width in [320.0, 700.0, 1200.0]) {
     for (final scale in [1.0, 2.0]) {
       for (final brightness in Brightness.values) {
@@ -123,7 +158,9 @@ void main() {
               ? 4
               : effectiveWidth >= 520
                   ? 3
-                  : 2;
+                  : effectiveWidth >= 260
+                      ? 2
+                      : 1;
           final viewActions = [
             ReaderAction.pageColors,
             ReaderAction.fitWidth,
@@ -157,6 +194,19 @@ void main() {
       }
     }
   }
+
+  testWidgets('quick actions use compact inline labels and shared surfaces',
+      (tester) async {
+    await _mount(tester, width: 390);
+    final button = _action(ReaderAction.fitWidth);
+    final icon = find.descendant(
+        of: button, matching: find.byIcon(Icons.fit_screen_outlined));
+    final label = find.descendant(of: button, matching: find.text('Fit width'));
+    expect(tester.getSize(button).height, lessThanOrEqualTo(56));
+    expect(tester.getCenter(icon).dy, tester.getCenter(label).dy);
+    expect(tester.getTopRight(icon).dx, lessThan(tester.getTopLeft(label).dx));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
       'every action delegates once without dismissing or changing state',

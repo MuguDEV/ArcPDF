@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/app.dart';
 import 'src/bootstrap.dart';
+import 'src/core/utils/app_diagnostics.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppDiagnostics.instance.install();
 
   // Edge to Edge immersive look
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -19,5 +21,8 @@ Future<void> main() async {
   );
 
   await bootstrap();
-  runApp(const ProviderScope(child: ArcPdfApp()));
+  runApp(ProviderScope(
+    observers: [AppLogProviderObserver()],
+    child: const ArcPdfApp(),
+  ));
 }

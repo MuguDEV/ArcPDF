@@ -1,15 +1,14 @@
-import 'package:hugeicons/hugeicons.dart';
-import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'pdf_thumbnail_cache.dart';
 import '../../../settings/settings_controller.dart';
 
-class PdfThumbnail extends ConsumerWidget {
+class PdfThumbnail extends ConsumerStatefulWidget {
   const PdfThumbnail(
       {super.key,
       required this.path,
@@ -20,17 +19,34 @@ class PdfThumbnail extends ConsumerWidget {
   final bool isCorrupted;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PdfThumbnail> createState() => _PdfThumbnailState();
+}
+
+class _PdfThumbnailState extends ConsumerState<PdfThumbnail> {
+  (String, bool, bool, bool)? _request;
+  Future<ui.Image?>? _thumbnail;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lowPowerMode =
         ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
-    if (isCorrupted) {
+    final request =
+        (widget.path, lowPowerMode, widget.isEncrypted, widget.isCorrupted);
+    if (_request != request) {
+      _request = request;
+      _thumbnail = widget.isEncrypted || widget.isCorrupted
+          ? null
+          : PdfThumbnailCache.getThumbnail(widget.path,
+              lowPowerMode: lowPowerMode);
+    }
+    final reduceMotion =
+        lowPowerMode || MediaQuery.disableAnimationsOf(context);
+
+    if (widget.isCorrupted) {
       return _CorruptedFallback(theme: theme);
     }
-
-    final file = File(path);
-    if (!file.existsSync()) return const _Fallback();
 
     return SizedBox(
       width: 52,
@@ -39,16 +55,23 @@ class PdfThumbnail extends ConsumerWidget {
         borderRadius: BorderRadius.circular(8),
         child: ColoredBox(
           color: theme.colorScheme.surfaceContainerHighest,
-          child: isEncrypted
+          child: widget.isEncrypted
               ? _LockedState(theme: theme)
               : FutureBuilder<ui.Image?>(
-                  initialData: PdfThumbnailCache.getCached(path),
-                  future: PdfThumbnailCache.getThumbnail(path,
+                  key: ValueKey(_request),
+                  initialData: PdfThumbnailCache.getCached(widget.path,
                       lowPowerMode: lowPowerMode),
+                  future: _thumbnail,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting &&
                         !snapshot.hasData) {
+                      if (reduceMotion) {
+                        return ColoredBox(
+                            color: theme.colorScheme.surfaceContainer);
+                      }
                       return Shimmer.fromColors(
+                        // Do not keep ticking while slow I/O or queued work waits.
+                        loop: 1,
                         baseColor: theme.colorScheme.surfaceContainer,
                         highlightColor:
                             theme.colorScheme.surfaceContainerHighest,

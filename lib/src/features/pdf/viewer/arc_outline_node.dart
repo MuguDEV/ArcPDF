@@ -52,6 +52,7 @@ class _ArcOutlineNodeState extends State<ArcOutlineNode> {
                     child: Text(
                       widget.node.title,
                       style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface,
                         fontWeight:
                             hasChildren ? FontWeight.w600 : FontWeight.normal,
                       ),

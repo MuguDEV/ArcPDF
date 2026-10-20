@@ -22,10 +22,10 @@ class AppBottomSheet extends StatelessWidget {
               Container(
                 width: 100,
                 height: ArcColors.space4,
-                decoration: const BoxDecoration(
-                  color: ArcColors.handle,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   borderRadius:
-                      BorderRadius.all(Radius.circular(ArcColors.space4)),
+                      const BorderRadius.all(Radius.circular(ArcColors.space4)),
                 ),
               ),
               const SizedBox(height: ArcColors.space12),
@@ -38,7 +38,8 @@ class AppBottomSheet extends StatelessWidget {
 }
 
 class SheetSectionHeader extends StatelessWidget {
-  const SheetSectionHeader({super.key, required this.title, this.first = false});
+  const SheetSectionHeader(
+      {super.key, required this.title, this.first = false});
   final String title;
   final bool first;
 
@@ -46,8 +47,10 @@ class SheetSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         decoration: first
             ? null
-            : const BoxDecoration(
-                border: Border(top: BorderSide(color: ArcColors.divider)),
+            : BoxDecoration(
+                border: Border(
+                    top: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant)),
               ),
         padding: const EdgeInsets.fromLTRB(
           ArcColors.screenPadding,
@@ -80,10 +83,11 @@ class SheetActionRow extends StatelessWidget {
     final color = destructive ? Theme.of(context).colorScheme.error : null;
     return InkWell(
       onTap: onTap,
-      child: SizedBox(
-        height: ArcColors.minRowHeight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: ArcColors.minRowHeight),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
+          padding:
+              const EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
           child: Row(
             children: [
               Icon(icon, size: 28, color: color),
@@ -124,10 +128,11 @@ class SheetRadioRow<T> extends StatelessWidget {
     final selected = value == groupValue;
     return InkWell(
       onTap: () => onChanged(value),
-      child: SizedBox(
-        height: ArcColors.minRowHeight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: ArcColors.minRowHeight),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
+          padding:
+              const EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
           child: Row(
             children: [
               Icon(
@@ -135,10 +140,14 @@ class SheetRadioRow<T> extends StatelessWidget {
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked,
                 size: 24,
-                color: selected ? ArcColors.active : ArcColors.outlineToken,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: ArcColors.space12),
-              Text(label, style: Theme.of(context).textTheme.bodyLarge),
+              Expanded(
+                  child: Text(label,
+                      style: Theme.of(context).textTheme.bodyLarge)),
             ],
           ),
         ),

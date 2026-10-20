@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/logger.dart';
+
 final splashDoneProvider = StateProvider<bool>((ref) => false);
 
 class NavigationState {
@@ -10,7 +12,27 @@ class NavigationState {
 class NavigationController extends StateNotifier<NavigationState> {
   NavigationController() : super(const NavigationState(0));
 
-  void setIndex(int index) => state = NavigationState(index);
+  static const _destinations = [
+    'home',
+    'favorites',
+    'recent',
+    'tools',
+    'settings'
+  ];
+
+  void setIndex(int index) {
+    if (index < 0 || index >= _destinations.length) {
+      AppLogger.warning('navigation.invalid_destination');
+      return;
+    }
+    if (index == state.index) return;
+    final previous = state.index;
+    state = NavigationState(index);
+    AppLogger.event('navigation.destination', fields: {
+      'from': _destinations[previous],
+      'to': _destinations[index],
+    });
+  }
 }
 
 final navigationControllerProvider =

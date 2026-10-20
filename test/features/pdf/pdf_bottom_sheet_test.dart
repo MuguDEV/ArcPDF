@@ -5,6 +5,7 @@ import 'package:arcpdf/src/features/pdf/application/pdf_library_controller.dart'
 import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:arcpdf/src/features/pdf/home/widgets/pdf_bottom_sheet.dart';
+import 'package:arcpdf/src/features/settings/settings_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,6 +64,8 @@ void main() {
     container = ProviderContainer(overrides: [
       pdfLibraryControllerProvider.overrideWith((ref) => library),
       openTabsProvider.overrideWith((ref) => tabs),
+      settingsControllerProvider
+          .overrideWith((ref) => SettingsController(session)),
     ]);
   });
 

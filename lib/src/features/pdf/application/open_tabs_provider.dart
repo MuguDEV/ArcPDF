@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../data/local_boxes.dart';
+import '../../../core/utils/logger.dart';
 import '../domain/pdf_file_item.dart';
 
 class OpenTabsState {
@@ -26,6 +28,14 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
   }
 
   void _loadSession() {
+    try {
+      _restoreSession();
+    } catch (error, stack) {
+      AppLogger.error('tabs.restore.failed', error, stack);
+    }
+  }
+
+  void _restoreSession() {
     final activeIndex = _sessionBox.get('activeIndex') as int? ?? 0;
     final List<dynamic>? pathsDynamic = _sessionBox.get('paths');
 
@@ -51,11 +61,25 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
         );
       }
     }
+    AppLogger.event('tabs.restored', fields: {
+      'count': state.tabs.length,
+      'missing': (pathsDynamic?.length ?? 0) - state.tabs.length,
+      'activeIndex': state.activeIndex,
+    });
   }
 
   void _saveSession() {
-    _sessionBox.put('activeIndex', state.activeIndex);
-    _sessionBox.put('paths', state.tabs.map((e) => e.path).toList());
+    final activeIndex = state.activeIndex;
+    final paths = state.tabs.map((e) => e.path).toList();
+    unawaited(_persistSession(activeIndex, paths));
+  }
+
+  Future<void> _persistSession(int activeIndex, List<String> paths) async {
+    try {
+      await _sessionBox.putAll({'activeIndex': activeIndex, 'paths': paths});
+    } catch (error, stack) {
+      await AppLogger.error('tabs.session_save.failed', error, stack);
+    }
   }
 
   void openTab(PdfFileItem item) {
@@ -68,12 +92,18 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
       tabs.add(item);
       state = state.copyWith(tabs: tabs, activeIndex: tabs.length - 1);
     }
+    AppLogger.event(index == -1 ? 'tabs.opened' : 'tabs.activated', fields: {
+      'documentId': AppLogger.documentId(item.path),
+      'count': state.tabs.length,
+      'activeIndex': state.activeIndex,
+    });
     _saveSession();
   }
 
   void closeTab(int index) {
     if (index < 0 || index >= state.tabs.length) return;
 
+    final closed = state.tabs[index];
     final tabs = List<PdfFileItem>.from(state.tabs)..removeAt(index);
     int newIndex = state.activeIndex;
 
@@ -86,12 +116,21 @@ class OpenTabsNotifier extends StateNotifier<OpenTabsState> {
       }
       state = state.copyWith(tabs: tabs, activeIndex: newIndex);
     }
+    AppLogger.event('tabs.closed', fields: {
+      'documentId': AppLogger.documentId(closed.path),
+      'count': state.tabs.length,
+      'activeIndex': state.activeIndex,
+    });
     _saveSession();
   }
 
   void setActiveIndex(int index) {
     if (index >= 0 && index < state.tabs.length && index != state.activeIndex) {
       state = state.copyWith(activeIndex: index);
+      AppLogger.event('tabs.activated', fields: {
+        'documentId': AppLogger.documentId(state.tabs[index].path),
+        'activeIndex': index,
+      });
       _saveSession();
     }
   }

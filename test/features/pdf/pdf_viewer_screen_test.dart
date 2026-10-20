@@ -8,6 +8,8 @@ import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
 import 'package:arcpdf/src/features/pdf/data/reading_progress_repository.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:arcpdf/src/features/pdf/viewer/pdf_viewer_screen.dart';
+import 'package:arcpdf/src/features/pdf/viewer/reader_controls_sheet.dart';
+import 'package:arcpdf/src/features/pdf/viewer/route_observer.dart';
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
 import 'package:arcpdf/src/shared/widgets/arc_bouncy_button.dart';
 import 'package:flutter/material.dart';
@@ -28,8 +30,20 @@ class _MockScanner extends Mock implements PdfScannerService {}
 void main() {
   late _MockProgress progress;
   late ProviderContainer container;
+  late List<MethodCall> platformCalls;
+
+  setUpAll(() {
+    registerFallbackValue(
+        const ReadingViewport(page: 1, pageCount: 1, zoom: 1, x: 0.5, y: 0.5));
+  });
 
   setUp(() {
+    platformCalls = [];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      platformCalls.add(call);
+      return null;
+    });
     final box = _MockBox();
     when(() => box.get(any(), defaultValue: any(named: 'defaultValue')))
         .thenAnswer((call) => call.namedArguments[#defaultValue]);
@@ -41,6 +55,13 @@ void main() {
     when(() => progress.saveLastReadPage(any(), any()))
         .thenAnswer((_) async {});
     when(() => progress.addReadTime(any(), any())).thenAnswer((_) async {});
+    when(() => progress.saveViewport(any(), any())).thenAnswer((call) async {
+      final path = call.positionalArguments[0] as String;
+      final viewport = call.positionalArguments[1] as ReadingViewport;
+      when(() => progress.getLastReadPage(path)).thenReturn(viewport.page);
+      when(() => progress.getLastZoom(path)).thenReturn(viewport.zoom);
+      when(() => progress.getLastViewport(path)).thenReturn(viewport);
+    });
     container = ProviderContainer(overrides: [
       settingsControllerProvider.overrideWith((ref) => SettingsController(box)),
       readingProgressRepositoryProvider.overrideWithValue(progress),
@@ -96,7 +117,10 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: ThemeData(brightness: brightness),
+        theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.grey, brightness: brightness)),
+        navigatorObservers: [pdfRouteObserver],
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             disableAnimations: true,
@@ -107,7 +131,17 @@ void main() {
         home: PdfViewerScreen(item: item, isActive: isActive),
       ),
     ));
-    await tester.pump();
+    // File IO completes outside the fake clock; its FutureBuilder continuation
+    // still needs a pump inside the test zone.
+    for (var i = 0; i < 100; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump();
+      if (find.byType(PdfViewer).evaluate().isNotEmpty ||
+          find.text('Unable to open PDF').evaluate().isNotEmpty) {
+        break;
+      }
+    }
   }
 
   Future<void> disposeViewer(WidgetTester tester) async {
@@ -143,10 +177,11 @@ void main() {
     expect(opacity.every((widget) => widget.opacity == 1), isTrue);
     verifyNever(() => progress.addReadTime(any(), any()));
     verifyNever(() => progress.saveLastReadPage(any(), any()));
+    verifyNever(() => progress.saveViewport(any(), any()));
     await disposeViewer(tester);
   });
 
-  testWidgets('real PDF becomes ready before search is constructed',
+  testWidgets('real PDF restores progress and keeps reader actions consistent',
       (tester) async {
     final directory = Directory.systemTemp.createTempSync('arcpdf_viewer_test');
     final file = File('${directory.path}/test.pdf');
@@ -180,9 +215,102 @@ void main() {
     );
     expect(search.onPressed, isNotNull);
     expect(viewer.controller!.pageCount, 3);
+    expect(viewer.controller!.currentZoom, closeTo(1.5, 0.001));
+    final colors = Theme.of(tester.element(find.byType(PdfViewer))).colorScheme;
+    expect(viewer.params.backgroundColor, colors.surface);
+    expect(viewer.params.scrollPhysics, isA<BouncingScrollPhysics>());
+    expect(viewer.params.scrollPhysicsScale, isA<ClampingScrollPhysics>());
+    expect(viewer.params.scrollByMouseWheel, 1);
+    expect(viewer.params.maxImageBytesCachedOnMemory, 80 * 1024 * 1024);
+    expect(viewer.params.pageDropShadow, isNull);
+    expect(
+        viewer.params.matchTextColor, colors.primary.withValues(alpha: 0.16));
+    expect(viewer.params.activeMatchTextColor,
+        colors.primary.withValues(alpha: 0.32));
     expect(viewer.controller!.pageNumber, 3); // Saved page 7 is clamped.
+    final initialCheckpoint =
+        verify(() => progress.saveViewport(file.path, captureAny()))
+            .captured
+            .last as ReadingViewport;
+    expect(initialCheckpoint.page, 3);
+    expect(initialCheckpoint.pageCount, 3);
     final originalDocument = viewer.controller!.document;
     expect(find.byType(PopupMenuButton<String>), findsNothing);
+
+    // Zoom gestures should not write Hive history on every rendered frame.
+    await tester.pump(const Duration(milliseconds: 350));
+    clearInteractions(progress);
+    for (final zoom in [1.6, 1.7, 1.8]) {
+      viewer.controller!.setZoom(viewer.controller!.centerPosition, zoom,
+          duration: Duration.zero);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    verifyNever(() => progress.saveViewport(any(), any()));
+    await tester.pump(const Duration(milliseconds: 350));
+    final saved = verify(() => progress.saveViewport(file.path, captureAny()))
+        .captured
+        .single as ReadingViewport;
+    expect(saved.zoom, closeTo(1.8, 0.001));
+    expect(saved.pageCount, 3);
+
+    // Auto-hide and document taps must never imply system fullscreen.
+    platformCalls.clear();
+    await tester.pump(const Duration(seconds: 5));
+    expect(
+        platformCalls.where(
+            (call) => call.method == 'SystemChrome.setEnabledSystemUIMode'),
+        isEmpty);
+    Future<void> tapDocument() async {
+      await tester.tapAt(const Offset(195, 450));
+      // pdfrx distinguishes single taps from double-tap zoom gestures.
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+    }
+
+    await tapDocument();
+    final cachedViewer = tester.widget<PdfViewer>(find.byType(PdfViewer));
+    await tapDocument();
+    await tapDocument();
+    expect(
+        tester.widget<PdfViewer>(find.byType(PdfViewer)), same(cachedViewer));
+
+    Future<void> selectFullscreen() async {
+      await tester.tap(find.byTooltip('Reading controls'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester
+          .ensureVisible(find.byKey(const ValueKey(ReaderAction.fullscreen)));
+      await tester.tap(find.byKey(const ValueKey(ReaderAction.fullscreen)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+    }
+
+    await selectFullscreen();
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.immersiveSticky');
+
+    await tapDocument();
+    await selectFullscreen();
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.edgeToEdge');
+    platformCalls.clear();
+    await tester.pump(const Duration(seconds: 5));
+    await tapDocument();
+    await tapDocument();
+    expect(
+        platformCalls.where(
+            (call) => call.method == 'SystemChrome.setEnabledSystemUIMode'),
+        isEmpty);
+    await tapDocument();
+
     await tester.tap(find.byTooltip('Reading controls'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -231,16 +359,274 @@ void main() {
         1);
     await tester.tap(find.byTooltip('Close search'));
     await tester.pump();
+
+    // Fullscreen belongs to the active reader, not covered routes or old tabs.
+    await selectFullscreen();
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Covered reader'))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.edgeToEdge');
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.immersiveSticky');
+    platformCalls.clear();
+    await pumpViewer(tester, path: file.path, isActive: false);
+    expect(
+        platformCalls.where(
+            (call) => call.method == 'SystemChrome.setEnabledSystemUIMode'),
+        isEmpty);
+    await pumpViewer(tester, path: file.path);
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.immersiveSticky');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(
+        platformCalls
+            .lastWhere(
+                (call) => call.method == 'SystemChrome.setEnabledSystemUIMode')
+            .arguments,
+        'SystemUiMode.immersiveSticky');
+    expect(viewer.controller!.document, same(originalDocument));
+
     await pumpViewer(tester, path: file.path, isActive: false);
     clearInteractions(progress);
     await tester.pump(const Duration(seconds: 12));
     verifyNever(() => progress.addReadTime(any(), any()));
     final loadedDocument = viewer.controller!.document;
+    platformCalls.clear();
     await disposeViewer(tester);
+    expect(
+        platformCalls.where(
+            (call) => call.method == 'SystemChrome.setEnabledSystemUIMode'),
+        isEmpty);
     await tester.runAsync(loadedDocument.dispose);
     // Drain pdfrx's trailing-page delay after native work has completed.
     await tester.pump(const Duration(seconds: 1));
-    directory.deleteSync(recursive: true);
+    // PDFium can release its last Windows file handle on a trailing render
+    // task, after document.dispose has already completed.
+    for (var attempt = 0;; attempt++) {
+      try {
+        directory.deleteSync(recursive: true);
+        break;
+      } on FileSystemException catch (error) {
+        if (error.osError?.errorCode != 32 || attempt == 19) rethrow;
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fast flings travel farther across pages than slow swipes',
+      (tester) async {
+    final directory = Directory.systemTemp.createTempSync('arcpdf_fling_test');
+    final file = File('${directory.path}/many_pages.pdf');
+    final document = pdf.PdfDocument();
+    for (var i = 0; i < 40; i++) {
+      document.pages.add();
+    }
+    file.writeAsBytesSync(document.saveSync());
+    document.dispose();
+    Pdfrx.cacheDirectoryPath ??= Directory.systemTemp.path;
+    await tester.runAsync(pdfrxFlutterInitialize);
+    await pumpViewer(tester, path: file.path);
+    final viewer = tester.widget<PdfViewer>(find.byType(PdfViewer));
+    final controller = viewer.controller!;
+    for (var i = 0; i < 100 && !controller.isReady; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(controller.isReady, isTrue);
+    await tester.pump();
+
+    Future<double> travel(double speed) async {
+      await controller.goToPage(pageNumber: 10, duration: Duration.zero);
+      await tester.pump();
+      final start = controller.centerPosition.dy;
+      await tester.flingFrom(
+          const Offset(195, 650), const Offset(0, -220), speed);
+      // Sample actual frames, not one giant fake-clock step.
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      return controller.centerPosition.dy - start;
+    }
+
+    final slow = await travel(700);
+    final fast = await travel(6500);
+    expect(slow, greaterThan(0));
+    expect(fast, greaterThan(slow * 2));
+    expect(fast, greaterThan(controller.layout.pageLayouts.first.height * 2));
+    expect(tester.takeException(), isNull);
+    final loaded = controller.document;
+    await disposeViewer(tester);
+    await tester.runAsync(loaded.dispose);
+    await tester.pump(const Duration(seconds: 1));
+    for (var attempt = 0;; attempt++) {
+      try {
+        directory.deleteSync(recursive: true);
+        break;
+      } on FileSystemException catch (error) {
+        if (error.osError?.errorCode != 32 || attempt == 19) rethrow;
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+  });
+
+  testWidgets(
+      'leaving before the next frame saves page zoom and exact position',
+      (tester) async {
+    final directory = Directory.systemTemp.createTempSync('arcpdf_resume_test');
+    final file = File('${directory.path}/resume.pdf');
+    final document = pdf.PdfDocument();
+    for (var i = 0; i < 5; i++) {
+      document.pages.add();
+    }
+    file.writeAsBytesSync(document.saveSync());
+    document.dispose();
+    Pdfrx.cacheDirectoryPath ??= Directory.systemTemp.path;
+    await tester.runAsync(pdfrxFlutterInitialize);
+
+    Future<PdfViewerController> open({bool active = true}) async {
+      await pumpViewer(tester, path: file.path, isActive: active);
+      final controller =
+          tester.widget<PdfViewer>(find.byType(PdfViewer)).controller!;
+      for (var i = 0; i < 100; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump(const Duration(milliseconds: 20));
+        if (controller.isReady && find.text('Not loaded').evaluate().isEmpty) {
+          break;
+        }
+      }
+      expect(controller.isReady, isTrue);
+      return controller;
+    }
+
+    Future<void> close(PdfViewerController controller) async {
+      final loaded = controller.document;
+      await disposeViewer(tester);
+      await tester.runAsync(loaded.dispose);
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    final controller = await open();
+    final rect = controller.layout.pageLayouts[2];
+    final target =
+        Offset(rect.left + rect.width * 0.6, rect.top + rect.height * 0.7);
+    clearInteractions(progress);
+    await controller.goTo(controller.calcMatrixFor(target, zoom: 2),
+        duration: Duration.zero);
+    // No pump: the coalesced controller listener has not captured this frame.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    final saved = verify(() => progress.saveViewport(file.path, captureAny()))
+        .captured
+        .single as ReadingViewport;
+    expect(saved.page, 3);
+    expect(saved.pageCount, 5);
+    expect(saved.zoom, closeTo(2, 0.001));
+    expect(saved.x, closeTo(0.6, 0.001));
+    expect(saved.y, closeTo(0.7, 0.001));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await close(controller);
+
+    clearInteractions(progress);
+    final reopened = await open();
+    expect(reopened.pageNumber, 3);
+    expect(reopened.currentZoom, closeTo(2, 0.001));
+    expect((reopened.centerPosition - target).distance, lessThan(0.01));
+    final restoredWrites =
+        verify(() => progress.saveViewport(file.path, captureAny()))
+            .captured
+            .cast<ReadingViewport>();
+    expect(restoredWrites, isNotEmpty);
+    expect(restoredWrites.every((value) => value.page == 3), isTrue);
+    await close(reopened);
+
+    // Adjacent, preloaded tabs must not rewrite progress before selection.
+    clearInteractions(progress);
+    final inactive = await open(active: false);
+    await close(inactive);
+    verifyNever(() => progress.saveViewport(any(), any()));
+
+    // A changed document count invalidates the old offset, not the saved page.
+    when(() => progress.getLastViewport(file.path)).thenReturn(
+        const ReadingViewport(page: 3, pageCount: 99, zoom: 2, x: 0.1, y: 0.1));
+    final changed = await open();
+    expect(changed.pageNumber, 3);
+    expect(changed.currentZoom, closeTo(2, 0.001));
+    final changedRect = changed.layout.pageLayouts[2];
+    expect(changed.centerPosition.dy,
+        isNot(closeTo(changedRect.top + changedRect.height * 0.1, 0.01)));
+    await close(changed);
+
+    // Invalid legacy values fall back to a valid first-page, fitted viewport.
+    when(() => progress.getLastReadPage(file.path)).thenReturn(-9);
+    when(() => progress.getLastZoom(file.path)).thenReturn(double.nan);
+    when(() => progress.getLastViewport(file.path)).thenReturn(null);
+    final corrupt = await open();
+    expect(corrupt.pageNumber, 1);
+    expect(corrupt.currentZoom.isFinite, isTrue);
+    expect(corrupt.currentZoom, greaterThan(0));
+    await close(corrupt);
+
+    when(() => progress.getLastReadPage(file.path)).thenReturn(1);
+    when(() => progress.getLastZoom(file.path)).thenReturn(1e100);
+    when(() => progress.getLastViewport(file.path)).thenReturn(
+        const ReadingViewport(
+            page: 1, pageCount: 5, zoom: 1e100, x: 1e300, y: 1e300));
+    final extreme = await open();
+    expect(extreme.currentZoom, closeTo(extreme.maxScale, 0.001));
+    expect(extreme.centerPosition.dx.isFinite, isTrue);
+    expect(extreme.centerPosition.dy.isFinite, isTrue);
+    expect(extreme.pageNumber, 1);
+    clearInteractions(progress);
+    await extreme.goToPage(pageNumber: 5, duration: Duration.zero);
+    expect(extreme.pageNumber, 5);
+    await close(extreme);
+    final completedCheckpoint =
+        verify(() => progress.saveViewport(file.path, captureAny()))
+            .captured
+            .last as ReadingViewport;
+    expect(completedCheckpoint.page, 5);
+    final completed = await open();
+    expect(completed.pageNumber, 5);
+    expect(completed.pageCount, 5);
+    await close(completed);
+
+    for (var attempt = 0;; attempt++) {
+      try {
+        directory.deleteSync(recursive: true);
+        break;
+      } on FileSystemException catch (error) {
+        if (error.osError?.errorCode != 32 || attempt == 19) rethrow;
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
     expect(tester.takeException(), isNull);
   });
 
@@ -252,6 +638,21 @@ void main() {
         await pumpViewer(tester,
             width: width, textScale: 2, brightness: brightness);
         expect(tester.takeException(), isNull);
+        final context = tester.element(find.byType(PdfViewerScreen));
+        final colors = Theme.of(context).colorScheme;
+        expect(tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+            colors.surface);
+        final bars = tester
+            .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+            .map((box) => box.decoration)
+            .whereType<BoxDecoration>()
+            .where((decoration) =>
+                decoration.border is Border && decoration.color != null);
+        expect(bars, isNotEmpty);
+        expect(
+            bars.every((bar) =>
+                bar.color!.withValues(alpha: 1) == colors.surfaceContainerLow),
+            isTrue);
         await disposeViewer(tester);
         expect(tester.takeException(), isNull);
       });

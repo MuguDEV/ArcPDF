@@ -16,12 +16,13 @@ class TabSwitcherScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tabsState = ref.watch(openTabsProvider);
     final theme = Theme.of(context);
-    final primary = ArcColors.primary(context);
+    final colors = theme.colorScheme;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final titleStyle = theme.textTheme.titleSmall?.copyWith(
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       fontSize: 14,
-      color: ArcColors.onSurface(context),
+      height: 1.35,
+      color: colors.onSurface,
     );
     final indicesByPath = {
       for (var index = 0; index < tabsState.tabs.length; index++)
@@ -29,54 +30,91 @@ class TabSwitcherScreen extends ConsumerWidget {
     };
 
     return Scaffold(
-      backgroundColor: ArcColors.surface(context),
+      backgroundColor: colors.surface,
       appBar: AppBar(
-        backgroundColor: ArcColors.surface(context),
-        foregroundColor: ArcColors.onSurface(context),
-        title: const Text('Open Tabs',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: true,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.onSurface,
+        surfaceTintColor: Colors.transparent,
+        title: Text('Open tabs',
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        centerTitle: false,
         leading: IconButton(
           tooltip: 'Close tab switcher',
-          icon: const Icon(HugeIcons.strokeRoundedCancel01,
-              semanticLabel: 'Close tab switcher'),
+          icon: const Icon(HugeIcons.strokeRoundedCancel01),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: ArcColors.screenPadding),
+            child: Semantics(
+              label: '${tabsState.tabs.length} open documents',
+              child: ExcludeSemantics(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(ArcColors.pillRadius),
+                  ),
+                  child: Text('${tabsState.tabs.length}',
+                      style: theme.textTheme.labelLarge),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
         child: tabsState.tabs.isEmpty
             ? Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('No open tabs'),
-                const SizedBox(height: ArcColors.space16),
-                FilledButton(
-                    onPressed: () => Navigator.of(context)
-                        .popUntil((route) => route.isFirst),
-                    child: const Text('Go Home'))
-              ]))
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(ArcColors.space24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(HugeIcons.strokeRoundedPdf02,
+                        size: 40, color: colors.onSurfaceVariant),
+                    const SizedBox(height: ArcColors.space16),
+                    Text('No open tabs', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: ArcColors.space8),
+                    Text('Open a PDF from your library to start reading.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: colors.onSurfaceVariant)),
+                    const SizedBox(height: ArcColors.space24),
+                    FilledButton(
+                        onPressed: () => Navigator.of(context)
+                            .popUntil((route) => route.isFirst),
+                        child: const Text('Go Home')),
+                  ]),
+                ),
+              )
             : LayoutBuilder(builder: (context, constraints) {
-                const spacing = ArcColors.space16;
+                const spacing = ArcColors.space12;
                 final availableWidth = math.max(
                     0.0, constraints.maxWidth - ArcColors.screenPadding * 2);
-                final columns = math.max(
-                    1, ((availableWidth + spacing) / (220 + spacing)).floor());
+                final scaler = MediaQuery.textScalerOf(context);
+                final scale = scaler.scale(14) / 14;
+                final columns = ((availableWidth + spacing) /
+                        (128 * scale.clamp(1.0, 1.8) + spacing))
+                    .floor()
+                    .clamp(1, 6);
                 final cardWidth =
                     (availableWidth - spacing * (columns - 1)) / columns;
-                final headerHeight = math.max(
-                    64.0,
-                    MediaQuery.textScalerOf(context).scale(14) *
-                            (titleStyle?.height ?? 1.5) *
-                            2 +
-                        ArcColors.space16);
+                // Paragraph line boxes round up to logical pixels; match that
+                // rounding so scaled text cannot overflow the footer.
+                final footerHeight =
+                    (scaler.scale(14) * 1.35).ceilToDouble() * 2 +
+                        (scaler.scale(11) * 1.4).ceilToDouble() +
+                        28;
 
-                return GridView.builder(
+                Widget grid = GridView.builder(
                   padding: const EdgeInsets.all(ArcColors.screenPadding),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
                     mainAxisSpacing: spacing,
                     crossAxisSpacing: spacing,
-                    mainAxisExtent: cardWidth * 1.1 + headerHeight,
+                    mainAxisExtent: cardWidth * 0.95 + 48 + footerHeight,
                   ),
                   itemCount: tabsState.tabs.length,
                   findChildIndexCallback: (key) =>
@@ -98,14 +136,15 @@ class TabSwitcherScreen extends ConsumerWidget {
                       Navigator.of(context).pop();
                     }
 
-                    Widget card = Material(
-                      color: theme.colorScheme.surfaceContainerLow,
+                    return Material(
+                      key: ValueKey(item.path),
+                      color: colors.surfaceContainerLow,
                       clipBehavior: Clip.antiAlias,
                       shape: RoundedRectangleBorder(
                         borderRadius: radius,
                         side: BorderSide(
                           color:
-                              isActive ? primary : ArcColors.outline(context),
+                              isActive ? colors.primary : colors.outlineVariant,
                           width: isActive ? 2 : 1,
                         ),
                       ),
@@ -120,33 +159,61 @@ class TabSwitcherScreen extends ConsumerWidget {
                               child: InkWell(
                                 onTap: selectTab,
                                 borderRadius: radius,
-                                focusColor: primary.withValues(alpha: 0.16),
-                                hoverColor: primary.withValues(alpha: 0.08),
+                                focusColor:
+                                    colors.primary.withValues(alpha: 0.16),
+                                hoverColor:
+                                    colors.primary.withValues(alpha: 0.08),
                                 child: ExcludeSemantics(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      Container(
-                                        height: headerHeight,
-                                        padding: const EdgeInsets.fromLTRB(
-                                            ArcColors.space16,
-                                            ArcColors.space8,
-                                            ArcColors.space4,
-                                            ArcColors.space8),
-                                        color: isActive
-                                            ? primary.withValues(alpha: 0.06)
-                                            : null,
-                                        child: Row(
-                                          children: [
-                                            if (isActive) ...[
-                                              Icon(Icons.check_circle_outline,
-                                                  size: 20, color: primary),
-                                              const SizedBox(
-                                                  width: ArcColors.space8),
-                                            ],
-                                            Expanded(
-                                              child: Text(
+                                      SizedBox(
+                                        height: 48,
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16),
+                                            child: Icon(
+                                              isActive
+                                                  ? Icons.check_circle_rounded
+                                                  : Icons.tab_outlined,
+                                              size: 20,
+                                              color: isActive
+                                                  ? colors.primary
+                                                  : colors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: PdfThumbnail(
+                                              path: item.path,
+                                              isEncrypted: item.isEncrypted,
+                                              isCorrupted: item.isCorrupted,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: footerHeight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
                                                 item.name.replaceAll(
                                                     RegExp(r'\.pdf$',
                                                         caseSensitive: false),
@@ -155,22 +222,24 @@ class TabSwitcherScreen extends ConsumerWidget {
                                                 overflow: TextOverflow.ellipsis,
                                                 style: titleStyle,
                                               ),
-                                            ),
-                                            const SizedBox(
-                                                width:
-                                                    ArcColors.minTouchTarget),
-                                          ],
-                                        ),
-                                      ),
-                                      Divider(
-                                          height: 1,
-                                          color: ArcColors.outlineVariant(
-                                              context)),
-                                      Expanded(
-                                        child: PdfThumbnail(
-                                          path: item.path,
-                                          isEncrypted: item.isEncrypted,
-                                          isCorrupted: item.isCorrupted,
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                isActive
+                                                    ? 'Reading now'
+                                                    : 'PDF document',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                  fontSize: 11,
+                                                  height: 1.4,
+                                                  color:
+                                                      colors.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -179,19 +248,19 @@ class TabSwitcherScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          Positioned(
-                            top: ArcColors.space8,
-                            right: ArcColors.space4,
+                          PositionedDirectional(
+                            top: 0,
+                            end: 0,
                             child: IconButton(
                               tooltip: 'Close ${item.name}',
                               constraints: const BoxConstraints(
                                 minWidth: ArcColors.minTouchTarget,
                                 minHeight: ArcColors.minTouchTarget,
                               ),
-                              color: ArcColors.onSurfaceVariant(context),
+                              color: colors.onSurfaceVariant,
                               icon: Icon(HugeIcons.strokeRoundedCancel01,
-                                  size: 20,
-                                  semanticLabel: 'Close ${item.name}'),
+                                  semanticLabel: 'Close ${item.name}',
+                                  size: 18),
                               onPressed: () {
                                 final currentTabs =
                                     ref.read(openTabsProvider).tabs;
@@ -211,13 +280,13 @@ class TabSwitcherScreen extends ConsumerWidget {
                         ],
                       ),
                     );
-
-                    if (!reduceMotion) {
-                      card = card.animate().fadeIn(duration: 200.ms);
-                    }
-                    return KeyedSubtree(key: ValueKey(item.path), child: card);
                   },
                 );
+                // One short entrance effect, not a ticker for every preview.
+                if (!reduceMotion) {
+                  grid = grid.animate().fadeIn(duration: 160.ms);
+                }
+                return grid;
               }),
       ),
     );

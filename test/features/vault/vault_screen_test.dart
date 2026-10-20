@@ -32,9 +32,13 @@ class _Security extends SecurityController {
   _Security(super.settings);
 
   Completer<bool> authentication = Completer<bool>();
+  int prompts = 0;
 
   @override
-  Future<bool> authenticateBiometric() => authentication.future;
+  Future<bool> authenticateBiometric() {
+    prompts++;
+    return authentication.future;
+  }
 }
 
 void main() {
@@ -147,6 +151,43 @@ void main() {
     expect(container.read(vaultControllerProvider).isUnlocked, false);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('biometric cancel stays locked until explicit overlay retry',
+      (tester) async {
+    await mount(tester);
+    expect(security.prompts, 1);
+    await tester.runAsync(() async {
+      security.authentication.complete(false);
+      await Future<void>.delayed(Duration.zero);
+    });
+    // The transparent manual route leaves the locked vault's spinner running.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Unlock Vault'), findsOneWidget);
+    expect(container.read(vaultControllerProvider).isUnlocked, false);
+    expect(find.text('secret.pdf'), findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(seconds: 1));
+    expect(security.prompts, 1);
+
+    security.authentication = Completer<bool>();
+    await tester.ensureVisible(find.text('Use Biometrics'));
+    await tester.tap(find.text('Use Biometrics'));
+    await tester.pump();
+    expect(security.prompts, 2);
+    await tester.runAsync(() async {
+      security.authentication.complete(true);
+      await Future<void>.delayed(Duration.zero);
+      await vault.loadVaultFiles();
+    });
+    await tester.pumpAndSettle();
+    expect(container.read(vaultControllerProvider).isUnlocked, true);
+    expect(find.text('secret.pdf'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets('disabled app lock never exposes a previous vault session',

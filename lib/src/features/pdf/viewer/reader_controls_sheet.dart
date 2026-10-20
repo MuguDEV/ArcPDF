@@ -56,8 +56,8 @@ class ReaderControlsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = ArcColors.primary(context);
-    final background = ArcColors.surface(context);
+    final foreground = theme.colorScheme.onSurface;
+    final background = theme.colorScheme.surface;
     final pageLabel = ready && pageCount > 0
         ? 'Page ${page.clamp(1, pageCount)} of $pageCount'
         : 'Document not ready';
@@ -79,6 +79,20 @@ class ReaderControlsSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Center(
+                  child: ExcludeSemantics(
+                    child: Container(
+                      width: 32,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.outline,
+                        borderRadius:
+                            BorderRadius.circular(ArcColors.pillRadius),
+                      ),
+                    ),
+                  ),
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -89,7 +103,7 @@ class ReaderControlsSheet extends StatelessWidget {
                           header: true,
                           child: Text(
                             'Reading controls',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: foreground,
                               fontWeight: FontWeight.w700,
                             ),
@@ -116,7 +130,7 @@ class ReaderControlsSheet extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: ArcColors.secondary(context),
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -124,7 +138,7 @@ class ReaderControlsSheet extends StatelessWidget {
                 Text(
                   pageLabel,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: ArcColors.secondary(context),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const _SectionHeading('View'),
@@ -189,7 +203,7 @@ class ReaderControlsSheet extends StatelessWidget {
                 // Material owns the ink for every ListTile, including in apps
                 // whose ListTileTheme requests a tile background color.
                 Material(
-                  color: foreground.withValues(alpha: 0.04),
+                  color: theme.colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -290,13 +304,13 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 18, bottom: 8),
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
         child: Semantics(
           header: true,
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: ArcColors.secondary(context),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -318,18 +332,30 @@ class _ActionGrid extends StatelessWidget {
               ? 4
               : effectiveWidth >= 520
                   ? 3
-                  : 2;
-          const gap = ArcColors.space8;
-          final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-          // Wrap lets labels determine height instead of imposing a grid aspect
-          // ratio that would clip at large text sizes. There is just one scroll.
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [
-              for (final child in children)
-                SizedBox(width: width, child: child),
-            ],
+                  : effectiveWidth >= 260
+                      ? 2
+                      : 1;
+          // Natural row heights keep labels intact at large text sizes, without
+          // adding nested scrolling or fixed-aspect-ratio button tiles.
+          return Material(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                children: [
+                  for (final child in children)
+                    SizedBox(
+                      width: (constraints.maxWidth - 8 - 4 * (columns - 1)) /
+                          columns,
+                      child: child,
+                    ),
+                ],
+              ),
+            ),
           );
         },
       );
@@ -356,7 +382,8 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = ArcColors.primary(context);
+    final colors = Theme.of(context).colorScheme;
+    final foreground = colors.onSurface;
     final active = selected == true && enabled;
     return Tooltip(
       message: tooltip ?? label,
@@ -365,9 +392,10 @@ class _QuickAction extends StatelessWidget {
         key: ValueKey(action),
         onPressed: enabled ? () => onSelected(action) : null,
         style: TextButton.styleFrom(
-          foregroundColor: active ? ArcColors.surface(context) : foreground,
-          backgroundColor:
-              active ? foreground : foreground.withValues(alpha: 0.04),
+          foregroundColor: active ? colors.primary : foreground,
+          backgroundColor: active
+              ? colors.primary.withValues(alpha: 0.10)
+              : Colors.transparent,
           disabledForegroundColor: foreground.withValues(alpha: 0.38),
           minimumSize: const Size(
             ArcColors.minTouchTarget,
@@ -375,21 +403,23 @@ class _QuickAction extends StatelessWidget {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+            borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+          animationDuration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
+          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
         ),
         child: Semantics(
           selected: selected,
           tooltip: tooltip,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              Icon(icon, size: 22),
-              const SizedBox(height: 6),
-              Text(label, textAlign: TextAlign.center),
+              Icon(icon, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(label)),
             ],
           ),
         ),
@@ -417,19 +447,21 @@ class _ReadingToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = ArcColors.primary(context);
+    final colors = Theme.of(context).colorScheme;
+    final foreground = colors.onSurface;
     return Tooltip(
       message: '$label: ${value ? 'On' : 'Off'}',
       child: SwitchListTile(
         key: ValueKey(action),
         value: value,
         onChanged: enabled ? (_) => onSelected(action) : null,
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        dense: false,
+        tileColor: Colors.transparent,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         secondary: Icon(
           icon,
-          size: 22,
-          color: foreground.withValues(alpha: enabled ? 1 : 0.38),
+          size: 20,
+          color: colors.onSurfaceVariant.withValues(alpha: enabled ? 1 : 0.38),
         ),
         title: Text(
           label,
@@ -437,10 +469,10 @@ class _ReadingToggle extends StatelessWidget {
                 color: foreground.withValues(alpha: enabled ? 1 : 0.38),
               ),
         ),
-        activeThumbColor: ArcColors.surface(context),
-        activeTrackColor: foreground,
-        inactiveThumbColor: ArcColors.secondary(context),
-        inactiveTrackColor: foreground.withValues(alpha: 0.08),
+        activeThumbColor: colors.onPrimary,
+        activeTrackColor: colors.primary,
+        inactiveThumbColor: colors.onSurfaceVariant,
+        inactiveTrackColor: colors.surfaceContainerHighest,
       ),
     );
   }

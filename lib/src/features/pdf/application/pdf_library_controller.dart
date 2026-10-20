@@ -9,7 +9,6 @@ import 'package:hive/hive.dart';
 import 'dart:io';
 
 import '../../../data/local_boxes.dart';
-import 'package:flutter/services.dart';
 
 import '../data/pdf_scanner_service.dart';
 import '../domain/pdf_file_item.dart';
@@ -92,12 +91,13 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     this._tagsBox,
   ) : super(const PdfLibraryState()) {
     _loadSavedState();
-    // Delay initial refresh to allow the splash screen and initial UI to animate smoothly
-    _initialRefresh = Timer(const Duration(milliseconds: 500), refresh);
+    // Yield to the initial UI without adding a fixed delay before the isolate scan.
+    _initialRefresh = Timer(Duration.zero, refresh);
   }
 
   Timer? _initialRefresh;
   int _refreshGeneration = 0;
+  Future<void>? _activeRefresh;
   Future<void> _pendingMutation = Future<void>.value();
 
   // Serialize metadata read-modify-write operations, including scan commits.
@@ -155,15 +155,60 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
     );
   }
 
-  Future<void> refresh({bool requestPermission = false}) async {
+  Future<void> refresh({bool requestPermission = false}) {
     _initialRefresh?.cancel();
-    if (!mounted) return;
+    if (!mounted) return Future<void>.value();
+    // Share only live work, never a completed/cached library. An explicit
+    // permission request must still run even while a passive scan is pending.
+    if (!requestPermission && _activeRefresh != null) return _activeRefresh!;
     final generation = ++_refreshGeneration;
+    final refresh = _refresh(generation, requestPermission: requestPermission);
+    _activeRefresh = refresh;
+    unawaited(refresh.then((_) {
+      if (identical(_activeRefresh, refresh)) _activeRefresh = null;
+    }));
+    return refresh;
+  }
+
+  Future<void> _refresh(int generation,
+      {required bool requestPermission}) async {
+    // A partial index is useful for an empty library, but must not shrink an
+    // existing list on routine refresh. Keep loading until the fresh full result;
+    // do not merge/re-expose unchecked old paths as if they had been revalidated.
+    final allowIndexed = state.items.isEmpty;
+    var scanCompleted = false;
     state = state.copyWith(loading: true);
     try {
-      final result = await _scanner.scan(requestPermission: requestPermission);
+      final result = await _scanner.scan(
+        requestPermission: requestPermission,
+        onIndexed: (indexed) => _mutate(() async {
+          if (!mounted ||
+              generation != _refreshGeneration ||
+              scanCompleted ||
+              !allowIndexed ||
+              indexed.files.isEmpty) {
+            return;
+          }
+          // An empty index cannot establish an empty library; only the full
+          // result may end loading without files. Never merge unchecked rows.
+          state = state.copyWith(
+            loading: false,
+            items: indexed.files,
+            permissionStatus: indexed.permissionStatus,
+          );
+        }),
+      );
+      scanCompleted = true;
+      if (generation == _refreshGeneration) _activeRefresh = null;
       await _mutate(() async {
         if (!mounted || generation != _refreshGeneration) return;
+        // The validated library is usable before optional auto-tag persistence.
+        // A slow or failed metadata write must not hold the PDF list hostage.
+        state = state.copyWith(
+          loading: false,
+          items: result.files,
+          permissionStatus: result.permissionStatus,
+        );
         final currentTags = Map<String, List<String>>.from(state.tags);
         const heuristics = {
           'invoice': 'Invoice',
@@ -193,18 +238,14 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         // even if a newer scan started while a Hive write was in flight.
         if (!mounted) return;
         state = state.copyWith(tags: currentTags);
-        if (generation != _refreshGeneration) return;
-        state = state.copyWith(
-          loading: false,
-          items: result.files,
-          permissionStatus: result.permissionStatus,
-        );
       });
     } catch (_) {
       // Keep the last usable library on transient filesystem/plugin failures.
       AppLogger.warning('PDF library refresh failed');
     } finally {
+      scanCompleted = true;
       if (mounted && generation == _refreshGeneration) {
+        _activeRefresh = null;
         state = state.copyWith(loading: false);
       }
     }
@@ -259,7 +300,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 
   Future<void> toggleFavorite(PdfFileItem item) => _mutate(() async {
         if (!mounted) return;
-        HapticFeedback.selectionClick();
+
         final favorites = {...state.favorites};
         if (favorites.contains(item.path)) {
           favorites.remove(item.path);
@@ -373,6 +414,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   void _invalidateScans() {
     _initialRefresh?.cancel();
     _refreshGeneration++;
+    _activeRefresh = null;
     if (mounted) state = state.copyWith(loading: false);
   }
 

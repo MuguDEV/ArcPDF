@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter/services.dart';
+import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/empty_state.dart';
@@ -29,7 +29,7 @@ class FavoritesScreen extends ConsumerWidget {
       slivers: [
         CupertinoSliverRefreshControl(
           onRefresh: () async {
-            HapticFeedback.mediumImpact();
+            ref.read(hapticServiceProvider).mediumImpact();
             await ctrl.refresh();
           },
         ),

@@ -58,6 +58,9 @@ class SecurityController extends StateNotifier<SecurityState> {
   final Box _settingsBox;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final LocalAuthentication _auth = LocalAuthentication();
+  Future<bool>? _biometricAuthentication;
+
+  bool get isAuthenticating => _biometricAuthentication != null;
 
   Future<void> setLockEnabled(bool enabled, {String? pinOrPattern}) async {
     if (enabled && pinOrPattern != null) {
@@ -100,7 +103,14 @@ class SecurityController extends StateNotifier<SecurityState> {
     return isValid;
   }
 
-  Future<bool> authenticateBiometric() async {
+  Future<bool> authenticateBiometric() {
+    return _biometricAuthentication ??=
+        _authenticateBiometric().whenComplete(() {
+      _biometricAuthentication = null;
+    });
+  }
+
+  Future<bool> _authenticateBiometric() async {
     try {
       final canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
       final canAuthenticate =
@@ -110,12 +120,12 @@ class SecurityController extends StateNotifier<SecurityState> {
       final didAuthenticate = await _auth.authenticate(
         localizedReason: 'Please authenticate to unlock ArcPDF',
         options: const AuthenticationOptions(
-          stickyAuth: true,
+          stickyAuth: false,
           biometricOnly: true,
         ),
       );
 
-      if (didAuthenticate) {
+      if (didAuthenticate && mounted) {
         state = state.copyWith(isLocked: false);
       }
       return didAuthenticate;

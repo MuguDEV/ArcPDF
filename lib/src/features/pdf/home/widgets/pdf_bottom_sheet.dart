@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../application/pdf_error_handler.dart';
-import 'package:flutter/services.dart';
+import '../../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../application/pdf_library_controller.dart';
@@ -175,7 +175,9 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                         ...tags.map((tag) => InputChip(
                               label: Text(tag),
                               onDeleted: () {
-                                HapticFeedback.selectionClick();
+                                ref
+                                    .read(hapticServiceProvider)
+                                    .selectionClick();
                                 ctrl.removeTag(widget.item, tag);
                               },
                               shape: RoundedRectangleBorder(
@@ -211,7 +213,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                           ),
                           onSubmitted: (val) {
                             if (val.trim().isNotEmpty) {
-                              HapticFeedback.selectionClick();
+                              ref.read(hapticServiceProvider).selectionClick();
                               ctrl.addTag(widget.item, val.trim());
                               _tagController.clear();
                             }
@@ -222,7 +224,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                       IconButton.filled(
                         onPressed: () {
                           if (_tagController.text.trim().isNotEmpty) {
-                            HapticFeedback.selectionClick();
+                            ref.read(hapticServiceProvider).selectionClick();
                             ctrl.addTag(
                                 widget.item, _tagController.text.trim());
                             _tagController.clear();
@@ -249,7 +251,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   title: 'Rearrange / Delete Pages',
                   color: theme.colorScheme.onSurface,
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    ref.read(hapticServiceProvider).lightImpact();
                     Navigator.pop(context);
                     Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) =>
@@ -262,7 +264,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   title: 'Edit Metadata',
                   color: theme.colorScheme.onSurface,
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    ref.read(hapticServiceProvider).lightImpact();
                     Navigator.pop(context);
                     Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) =>
@@ -281,7 +283,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   title: 'Delete File',
                   color: theme.colorScheme.error,
                   onTap: () async {
-                    HapticFeedback.mediumImpact();
+                    ref.read(hapticServiceProvider).mediumImpact();
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) {
@@ -374,7 +376,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                         throw StateError('The file could not be deleted.');
                       }
                       _closeOpenTab();
-                      HapticFeedback.selectionClick();
+                      ref.read(hapticServiceProvider).selectionClick();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('File deleted')),
                       );

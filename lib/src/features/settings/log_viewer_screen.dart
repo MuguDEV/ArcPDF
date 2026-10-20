@@ -1,10 +1,46 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/utils/logger.dart';
+import '../diagnostics/diagnostic_bundle_builder.dart';
+import '../diagnostics/diagnostic_sources.dart';
+
+/// Creates the bug-report builder for the current context. Injectable so the
+/// screen can be tested without plugins or providers.
+typedef DiagnosticBuilderFactory = DiagnosticBundleBuilder Function(
+    BuildContext context);
+
+typedef DiagnosticShare = Future<ShareResult> Function(ShareParams params);
+
+DiagnosticBundleBuilder _defaultBuilder(BuildContext context) {
+  ProviderContainer? container;
+  try {
+    container = ProviderScope.containerOf(context, listen: false);
+  } catch (_) {
+    // No ProviderScope: app-state sections are reported as unavailable.
+  }
+  return DiagnosticSources.builder(
+    container: container,
+    media: MediaQuery.maybeOf(context),
+  );
+}
 
 class LogViewerScreen extends StatefulWidget {
-  const LogViewerScreen({super.key});
+  const LogViewerScreen({
+    super.key,
+    this.bundleBuilder = _defaultBuilder,
+    this.share,
+  });
+
+  final DiagnosticBuilderFactory bundleBuilder;
+
+  /// Defaults to `SharePlus.instance.share`.
+  final DiagnosticShare? share;
 
   @override
   State<LogViewerScreen> createState() => _LogViewerScreenState();
@@ -12,6 +48,14 @@ class LogViewerScreen extends StatefulWidget {
 
 class _LogViewerScreenState extends State<LogViewerScreen> {
   List<LogEntry> _logs = [];
+  bool _exporting = false;
+  bool _bundling = false;
+  final _bugReportKey = GlobalKey();
+
+  bool get _busy => _exporting || _bundling;
+
+  Future<ShareResult> _share(ShareParams params) =>
+      (widget.share ?? SharePlus.instance.share)(params);
 
   @override
   void initState() {
@@ -20,14 +64,98 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _loadLogs() {
+    if (!mounted) return;
     setState(() {
       _logs = AppLogger.getLogs();
     });
   }
 
   Future<void> _clearLogs() async {
-    await AppLogger.clearLogs();
-    _loadLogs();
+    try {
+      await AppLogger.clearLogs();
+      _loadLogs();
+    } catch (error, stack) {
+      await AppLogger.error('diagnostics.clear.failed', error, stack);
+      _showMessage('Some saved logs could not be cleared.');
+      _loadLogs();
+    }
+  }
+
+  void _showMessage(String message, {VoidCallback? retry}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      action: retry == null
+          ? null
+          : SnackBarAction(label: 'Retry', onPressed: retry),
+    ));
+  }
+
+  Future<void> _exportLogs() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final output = await AppLogger.exportLogs();
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      final result = await _share(ShareParams(
+        files: [
+          XFile.fromData(Uint8List.fromList(utf8.encode(output)),
+              mimeType: 'application/x-ndjson',
+              name: 'arcpdf-diagnostics.jsonl'),
+        ],
+        fileNameOverrides: const ['arcpdf-diagnostics.jsonl'],
+        sharePositionOrigin:
+            box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+      ));
+      await AppLogger.event('diagnostics.export',
+          fields: {'status': result.status.name});
+    } catch (error, stack) {
+      await AppLogger.error('diagnostics.export.failed', error, stack);
+      _showMessage('Could not export diagnostic logs.');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  /// One file with app, device, settings, runtime counts, previous-session
+  /// health and redacted logs. Only metadata about the export is logged.
+  Future<void> _shareBugReport() async {
+    if (_busy) return;
+    // Resolve everything that needs the context before the first await.
+    final builder = widget.bundleBuilder(context);
+    setState(() => _bundling = true);
+    try {
+      final bundle = await builder.build();
+      if (!mounted) return;
+      final box = _bugReportKey.currentContext?.findRenderObject();
+      Rect? origin;
+      if (box is RenderBox && box.attached && box.hasSize) {
+        final rect = box.localToGlobal(Offset.zero) & box.size;
+        if (!rect.isEmpty) origin = rect;
+      }
+      final bytes = bundle.bytes;
+      final result = await _share(ShareParams(
+        files: [
+          XFile.fromData(bytes, mimeType: 'text/plain', name: bundle.fileName),
+        ],
+        fileNameOverrides: [bundle.fileName],
+        subject: 'ArcPDF bug report',
+        sharePositionOrigin: origin,
+      ));
+      await AppLogger.event('diagnostics.bundle.shared', fields: {
+        'status': result.status.name,
+        'bytes': bytes.length,
+        'logEntries': bundle.includedLogEntries,
+        'truncated': bundle.truncated,
+        'degradedSections': bundle.unavailableSections.length,
+      });
+    } catch (error, stack) {
+      await AppLogger.error('diagnostics.bundle.failed', error, stack);
+      _showMessage('Could not create the bug report.', retry: _shareBugReport);
+    } finally {
+      if (mounted) setState(() => _bundling = false);
+    }
   }
 
   @override
@@ -39,33 +167,69 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       appBar: AppBar(
         title: const Text('Diagnostics & Logs',
             style: TextStyle(fontWeight: FontWeight.w700)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: _bundling
+              ? const LinearProgressIndicator(
+                  minHeight: 2,
+                  semanticsLabel: 'Preparing bug report',
+                )
+              : const SizedBox(height: 2),
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh logs',
+            onPressed: _loadLogs,
+          ),
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded),
+            tooltip: 'Export saved logs',
+            onPressed: _busy ? null : _exportLogs,
+          ),
+          KeyedSubtree(
+            key: _bugReportKey,
+            child: IconButton(
+              icon: _bundling
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.bug_report_outlined),
+              tooltip: _bundling
+                  ? 'Preparing bug report'
+                  : 'Share bug report (logs, device info, app version)',
+              onPressed: _busy ? null : _shareBugReport,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.delete_sweep_rounded),
             tooltip: 'Clear logs',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Clear Logs?'),
-                  content: const Text(
-                      'This will permanently delete all diagnostic logs.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text('Clear'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                await _clearLogs();
-              }
-            },
+            onPressed: _busy
+                ? null
+                : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Clear Logs?'),
+                        content: const Text(
+                            'This will permanently delete all diagnostic logs.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Clear'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await _clearLogs();
+                    }
+                  },
           ),
         ],
       ),
@@ -101,15 +265,13 @@ class _LogEntryCard extends StatelessWidget {
     final isError = log.level == 'ERROR';
     final isWarning = log.level == 'WARNING';
 
-    final borderColor = isError
-        ? theme.colorScheme.error
-        : (isWarning
-            ? Colors.orange
-            : theme.colorScheme.outlineVariant.withValues(alpha: 0.5));
+    final borderColor = isError || isWarning
+        ? theme.colorScheme.outline
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.5);
 
-    final iconColor = isError
-        ? theme.colorScheme.error
-        : (isWarning ? Colors.orange : theme.colorScheme.onSurfaceVariant);
+    final iconColor = isError || isWarning
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant;
 
     final icon = isError
         ? Icons.error_outline_rounded
@@ -117,7 +279,8 @@ class _LogEntryCard extends StatelessWidget {
             ? Icons.warning_amber_rounded
             : Icons.info_outline_rounded);
 
-    final timeStr = DateFormat('MMM d, y HH:mm:ss').format(log.timestamp);
+    final timeStr =
+        DateFormat('MMM d, y HH:mm:ss').format(log.timestamp.toLocal());
 
     return Container(
       width: double.infinity,

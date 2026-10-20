@@ -4,7 +4,7 @@ import 'dart:developer';
 
 class TracedZoomPageTransitionsBuilder extends ZoomPageTransitionsBuilder {
   const TracedZoomPageTransitionsBuilder(
-      {super.allowEnterRouteSnapshotting = false});
+      {super.allowEnterRouteSnapshotting = true});
 
   @override
   Widget buildTransitions<T>(

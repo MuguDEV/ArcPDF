@@ -5,11 +5,14 @@ import 'package:arcpdf/src/features/pdf/application/pdf_library_controller.dart'
 import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 
 class MockScanner extends Mock implements PdfScannerService {}
+
+class MockTagsBox extends Mock implements Box<List<String>> {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -45,16 +48,338 @@ void main() {
     timestamps = await Hive.openBox<int>('timestamps');
     tags = await Hive.openBox<List<String>>('tags');
     scanner = MockScanner();
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
+    when(() => scanner.scan(
+            requestPermission: any(named: 'requestPermission'),
+            onIndexed: any(named: 'onIndexed')))
         .thenAnswer((_) async => result([]));
     controller =
         PdfLibraryController(scanner, favorites, recents, timestamps, tags);
+    // Explicit refresh cancels startup scheduling so each test controls scans.
+    await controller.refresh();
+    clearInteractions(scanner);
   });
 
   tearDown(() async {
     if (controller.mounted) controller.dispose();
     await Hive.close();
     await directory.delete(recursive: true);
+  });
+
+  test('overlapping passive refreshes share live scan, not completed results',
+      () async {
+    final scan = Completer<ScanResult>();
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
+    final first = controller.refresh();
+    final second = controller.refresh();
+    expect(identical(first, second), isTrue);
+    verify(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).called(1);
+    scan.complete(result([]));
+    await Future.wait([first, second]);
+    await controller.refresh();
+    verify(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).called(1);
+  });
+
+  test('empty library publishes indexed items before final reconciliation',
+      () async {
+    final indexed = await createPdf('indexed.pdf');
+    final unindexed = await createPdf('unindexed.pdf');
+    final full = Completer<ScanResult>();
+    final published = Completer<void>();
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) async {
+      final publish = invocation.namedArguments[#onIndexed] as Future<void>
+          Function(ScanResult);
+      await publish(result([indexed]));
+      published.complete();
+      return full.future;
+    });
+    final refresh = controller.refresh();
+    await published.future;
+    expect(controller.state.items.map((file) => file.path), [indexed.path]);
+    expect(controller.state.loading, isFalse);
+    expect(identical(controller.refresh(), refresh), isTrue);
+    full.complete(result([indexed, unindexed]));
+    await refresh;
+    expect(controller.state.items.map((file) => file.path),
+        [indexed.path, unindexed.path]);
+  });
+
+  test('empty index keeps first-load loading until unindexed full result',
+      () async {
+    final unindexed = await createPdf('unindexed.pdf');
+    final full = Completer<ScanResult>();
+    final indexHandled = Completer<void>();
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) async {
+      final publish = invocation.namedArguments[#onIndexed] as Future<void>
+          Function(ScanResult);
+      await publish(result([]));
+      indexHandled.complete();
+      return full.future;
+    });
+    final refresh = controller.refresh();
+    await indexHandled.future;
+    expect(controller.state.items, isEmpty);
+    expect(controller.state.loading, isTrue);
+    expect(identical(controller.refresh(), refresh), isTrue);
+    full.complete(result([unindexed]));
+    await refresh;
+    expect(controller.state.items.map((file) => file.path), [unindexed.path]);
+    expect(controller.state.loading, isFalse);
+  });
+
+  test('routine refresh keeps full items until authoritative reconciliation',
+      () async {
+    final indexed = await createPdf('indexed.pdf');
+    final unindexed = await createPdf('unindexed.pdf');
+    when(() => scanner.scan(
+            requestPermission: false, onIndexed: any(named: 'onIndexed')))
+        .thenAnswer((_) async => result([indexed, unindexed]));
+    await controller.refresh();
+    final full = Completer<ScanResult>();
+    late Future<void> Function(ScanResult) publish;
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) {
+      publish = invocation.namedArguments[#onIndexed] as Future<void> Function(
+          ScanResult);
+      return full.future;
+    });
+    final refresh = controller.refresh();
+    await File(unindexed.path).delete();
+    await publish(result([indexed]));
+    // Stored state does not shrink to the index, but remains loading: unchecked
+    // previous rows are not republished as a newly validated/usable library.
+    expect(controller.state.items.map((file) => file.path),
+        [indexed.path, unindexed.path]);
+    expect(controller.state.loading, isTrue);
+    full.complete(result([indexed]));
+    await refresh;
+    expect(controller.state.items.map((file) => file.path), [indexed.path]);
+    expect(controller.state.loading, isFalse);
+  });
+
+  test('late indexed callback cannot overwrite a completed full refresh',
+      () async {
+    final indexed = await createPdf('indexed.pdf');
+    final unindexed = await createPdf('unindexed.pdf');
+    late Future<void> Function(ScanResult) publish;
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) async {
+      publish = invocation.namedArguments[#onIndexed] as Future<void> Function(
+          ScanResult);
+      return result([indexed, unindexed]);
+    });
+    await controller.refresh();
+    await publish(result([indexed]));
+    expect(controller.state.items.map((file) => file.path),
+        [indexed.path, unindexed.path]);
+    expect(controller.state.loading, isFalse);
+  });
+
+  for (final mutation in ['rename', 'delete', 'vault']) {
+    test('$mutation invalidates both late indexed and full publications',
+        () async {
+      final item = await createPdf('invoice.pdf');
+      await seedMetadata(item);
+      final full = Completer<ScanResult>();
+      late Future<void> Function(ScanResult) publish;
+      when(() => scanner.scan(
+          requestPermission: false,
+          onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) {
+        publish = invocation.namedArguments[#onIndexed] as Future<void>
+            Function(ScanResult);
+        return full.future;
+      });
+      final refresh = controller.refresh();
+      await publish(result([item]));
+      switch (mutation) {
+        case 'rename':
+          expect(await controller.renameFile(item, 'renamed'), isTrue);
+        case 'delete':
+          expect(await controller.deleteFile(item), isTrue);
+        case 'vault':
+          await File(item.path).delete();
+          expect(await controller.removeMissingFile(item), isTrue);
+      }
+      await publish(result([item]));
+      full.complete(result([item]));
+      await refresh;
+      expect(
+          controller.state.items.map((file) => file.path),
+          mutation == 'rename'
+              ? [p.join(directory.path, 'renamed.pdf')]
+              : isEmpty);
+      expect(tags.containsKey(item.path), isFalse);
+      expect(controller.state.loading, isFalse);
+    });
+  }
+
+  test('new permission refresh rejects older indexed publication', () async {
+    final stale = await createPdf('invoice.pdf');
+    final current = await createPdf('current.pdf');
+    final older = Completer<ScanResult>();
+    late Future<void> Function(ScanResult) publishOlder;
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((invocation) {
+      publishOlder = invocation.namedArguments[#onIndexed] as Future<void>
+          Function(ScanResult);
+      return older.future;
+    });
+    final first = controller.refresh();
+    when(() => scanner.scan(
+            requestPermission: true, onIndexed: any(named: 'onIndexed')))
+        .thenAnswer((_) async => result([current]));
+    await controller.refresh(requestPermission: true);
+    await publishOlder(result([stale]));
+    older.complete(result([stale]));
+    await first;
+    expect(controller.state.items.single.path, current.path);
+    expect(tags.containsKey(stale.path), isFalse);
+  });
+
+  test('favorite mutations do not emit UI feedback', () async {
+    final calls = <MethodCall>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      calls.add(call);
+      return null;
+    });
+    addTearDown(() =>
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    final item = await createPdf('favorite.pdf');
+    await controller.toggleFavorite(item);
+    expect(controller.state.favorites, contains(item.path));
+    await controller.toggleFavorite(item);
+    expect(controller.state.favorites, isNot(contains(item.path)));
+    expect(calls.where((call) => call.method == 'HapticFeedback.vibrate'),
+        isEmpty);
+  });
+
+  testWidgets('startup starts scanning on the next event without a fixed delay',
+      (tester) async {
+    controller.dispose();
+    final scan = Completer<ScanResult>();
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
+    controller =
+        PdfLibraryController(scanner, favorites, recents, timestamps, tags);
+    verifyNever(() => scanner.scan(
+        requestPermission: false, onIndexed: any(named: 'onIndexed')));
+    await tester.pump(Duration.zero);
+    verify(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).called(1);
+    expect(controller.state.loading, isTrue);
+    scan.complete(result([]));
+    await tester.pump();
+    expect(controller.state.loading, isFalse);
+  });
+
+  test('publishes scanned library before slow auto-tag writes finish',
+      () async {
+    final item = await createPdf('invoice.pdf');
+    final entered = Completer<void>();
+    final saved = Completer<void>();
+    final slowTags = MockTagsBox();
+    when(() => slowTags.keys).thenReturn([]);
+    when(() => slowTags.put(item.path, ['Invoice'])).thenAnswer((_) {
+      entered.complete();
+      return saved.future;
+    });
+    controller.dispose();
+    controller =
+        PdfLibraryController(scanner, favorites, recents, timestamps, slowTags);
+    when(() => scanner.scan(
+            requestPermission: false, onIndexed: any(named: 'onIndexed')))
+        .thenAnswer((_) async => result([item]));
+    final refresh = controller.refresh();
+    await entered.future;
+    expect(controller.state.items.single.path, item.path);
+    expect(controller.state.loading, isFalse);
+    expect(controller.state.tags, isEmpty);
+    saved.complete();
+    await refresh;
+    expect(controller.state.tags[item.path], ['Invoice']);
+  });
+
+  test('late auto-tag completion cannot overwrite a newer pending refresh',
+      () async {
+    final older = await createPdf('invoice.pdf');
+    final current = await createPdf('current.pdf');
+    final entered = Completer<void>();
+    final saved = Completer<void>();
+    final newerScan = Completer<ScanResult>();
+    final slowTags = MockTagsBox();
+    when(() => slowTags.keys).thenReturn([]);
+    when(() => slowTags.put(older.path, ['Invoice'])).thenAnswer((_) {
+      entered.complete();
+      return saved.future;
+    });
+    controller.dispose();
+    controller =
+        PdfLibraryController(scanner, favorites, recents, timestamps, slowTags);
+    var calls = 0;
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) async {
+      if (calls++ == 0) return result([older]);
+      return newerScan.future;
+    });
+    final first = controller.refresh();
+    await entered.future;
+    final second = controller.refresh();
+    saved.complete();
+    await first;
+    expect(controller.state.loading, isTrue);
+    newerScan.complete(result([current]));
+    await second;
+    expect(controller.state.items.single.path, current.path);
+    expect(controller.state.loading, isFalse);
+    expect(controller.state.tags[older.path], ['Invoice']);
+  });
+
+  test('auto-tag failure does not prevent publishing the scanned library',
+      () async {
+    final item = await createPdf('invoice.pdf');
+    await tags.close();
+    when(() => scanner.scan(
+            requestPermission: false, onIndexed: any(named: 'onIndexed')))
+        .thenAnswer((_) async => result([item]));
+    await controller.refresh();
+    expect(controller.state.items.single.path, item.path);
+    expect(controller.state.loading, isFalse);
+  });
+
+  test('vault cleanup invalidates an in-flight scan of the removed source',
+      () async {
+    final item = await createPdf('invoice.pdf');
+    await seedMetadata(item);
+    final scan = Completer<ScanResult>();
+    when(() => scanner.scan(
+        requestPermission: false,
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
+    final refresh = controller.refresh();
+    await File(item.path).delete();
+    expect(await controller.removeMissingFile(item), isTrue);
+    scan.complete(result([item]));
+    await refresh;
+    expect(controller.state.items, isEmpty);
+    expect(controller.state.tags, isEmpty);
+    expect(tags.containsKey(item.path), isFalse);
+    expect(controller.state.loading, isFalse);
   });
 
   test('vault metadata cleanup never deletes a replacement source file',
@@ -89,7 +414,9 @@ void main() {
     final older = Completer<ScanResult>();
     final newer = Completer<ScanResult>();
     var calls = 0;
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
+    when(() => scanner.scan(
+            requestPermission: any(named: 'requestPermission'),
+            onIndexed: any(named: 'onIndexed')))
         .thenAnswer((_) => calls++ == 0 ? older.future : newer.future);
     final stale = await createPdf('invoice.pdf');
     final current = await createPdf('current.pdf');
@@ -102,7 +429,8 @@ void main() {
     expect(controller.state.items.single.path, current.path);
     expect(controller.state.loading, isFalse);
     expect(tags.containsKey(stale.path), isFalse);
-    verify(() => scanner.scan(requestPermission: true)).called(1);
+    verify(() => scanner.scan(
+        requestPermission: true, onIndexed: any(named: 'onIndexed'))).called(1);
   });
 
   test('older completion cannot clear loading for a newer pending scan',
@@ -110,10 +438,12 @@ void main() {
     final older = Completer<ScanResult>();
     final newer = Completer<ScanResult>();
     var calls = 0;
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
+    when(() => scanner.scan(
+            requestPermission: any(named: 'requestPermission'),
+            onIndexed: any(named: 'onIndexed')))
         .thenAnswer((_) => calls++ == 0 ? older.future : newer.future);
     final first = controller.refresh();
-    final second = controller.refresh();
+    final second = controller.refresh(requestPermission: true);
     older.complete(result([]));
     await first;
     expect(controller.state.loading, isTrue);
@@ -126,7 +456,9 @@ void main() {
     final item = await createPdf('current.pdf');
     await controller.markRecent(item);
     controller.setSelectedTag('Custom');
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
+    when(() => scanner.scan(
+            requestPermission: any(named: 'requestPermission'),
+            onIndexed: any(named: 'onIndexed')))
         .thenThrow(StateError('scanner unavailable'));
     await controller.refresh();
     expect(controller.state.items.single.path, item.path);
@@ -165,8 +497,9 @@ void main() {
   test('refresh auto-tags merge with concurrent manual edits', () async {
     final item = await createPdf('invoice.pdf');
     final scan = Completer<ScanResult>();
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
-        .thenAnswer((_) => scan.future);
+    when(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
     final refresh = controller.refresh();
     final manual = controller.addTag(item, 'Custom');
     scan.complete(result([item]));
@@ -201,8 +534,9 @@ void main() {
     for (final box in <Box>[favorites, recents, timestamps, tags]) {
       expect(box.containsKey(item.path), isFalse);
     }
-    verifyNever(
-        () => scanner.scan(requestPermission: any(named: 'requestPermission')));
+    verifyNever(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed')));
   });
 
   test('rename rejects traversal, invalid names and existing destinations',
@@ -240,8 +574,9 @@ void main() {
     final item = await createPdf('old.pdf');
     await seedMetadata(item);
     final scan = Completer<ScanResult>();
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
-        .thenAnswer((_) => scan.future);
+    when(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
     final refresh = controller.refresh();
     expect(await controller.renameFile(item, 'new'), isTrue);
     scan.complete(result([item]));
@@ -276,8 +611,9 @@ void main() {
     final item = await createPdf('missing.pdf');
     await seedMetadata(item);
     final scan = Completer<ScanResult>();
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
-        .thenAnswer((_) => scan.future);
+    when(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
     final refresh = controller.refresh();
     await File(item.path).delete();
     expect(await controller.deleteFile(item), isTrue);
@@ -312,7 +648,9 @@ void main() {
   test('permission denial never prunes saved metadata', () async {
     final item = await createPdf('saved.pdf');
     await seedMetadata(item);
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
+    when(() => scanner.scan(
+            requestPermission: any(named: 'requestPermission'),
+            onIndexed: any(named: 'onIndexed')))
         .thenAnswer((_) async => const ScanResult(
             files: [], permissionStatus: StoragePermissionStatus.denied));
     await controller.refresh();
@@ -360,13 +698,15 @@ void main() {
       () async {
     controller.dispose();
     await Future<void>.delayed(const Duration(milliseconds: 550));
-    verifyNever(
-        () => scanner.scan(requestPermission: any(named: 'requestPermission')));
+    verifyNever(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed')));
     controller =
         PdfLibraryController(scanner, favorites, recents, timestamps, tags);
     final scan = Completer<ScanResult>();
-    when(() => scanner.scan(requestPermission: any(named: 'requestPermission')))
-        .thenAnswer((_) => scan.future);
+    when(() => scanner.scan(
+        requestPermission: any(named: 'requestPermission'),
+        onIndexed: any(named: 'onIndexed'))).thenAnswer((_) => scan.future);
     final refresh = controller.refresh();
     controller.dispose();
     scan.complete(result([]));

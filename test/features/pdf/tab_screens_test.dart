@@ -1,9 +1,11 @@
+import 'dart:io';
+
 import 'package:arcpdf/src/features/pdf/application/open_tabs_provider.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:arcpdf/src/features/pdf/viewer/multi_tab_viewer_screen.dart';
 import 'package:arcpdf/src/features/pdf/viewer/tab_switcher_screen.dart';
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
-import 'package:arcpdf/src/shared/theme/arc_colors.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -50,6 +52,7 @@ void main() {
     when(() => box.get(any(), defaultValue: any(named: 'defaultValue')))
         .thenAnswer((call) => call.namedArguments[#defaultValue]);
     when(() => box.put(any(), any())).thenAnswer((_) async {});
+    when(() => box.putAll(any())).thenAnswer((_) async {});
     tabs = OpenTabsNotifier(box);
     final settings = SettingsController(box);
     container = ProviderContainer(overrides: [
@@ -98,6 +101,51 @@ void main() {
       of: find.byKey(ValueKey(item.path)), matching: find.byType(_TestViewer));
 
   const viewer = MultiTabViewerScreen(viewerBuilder: _buildViewer);
+
+  testWidgets('reopened viewer displays the persisted active document',
+      (tester) async {
+    final directory = Directory.systemTemp.createTempSync('arcpdf_tabs_resume');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final a = File('${directory.path}${Platform.pathSeparator}a.pdf')
+      ..writeAsStringSync('a');
+    final b = File('${directory.path}${Platform.pathSeparator}b.pdf')
+      ..writeAsStringSync('b');
+    final values = <String, dynamic>{};
+    final box = _MockBox();
+    when(() => box.get(any(), defaultValue: any(named: 'defaultValue')))
+        .thenAnswer((call) =>
+            values[call.positionalArguments[0]] ??
+            call.namedArguments[#defaultValue]);
+    when(() => box.putAll(any())).thenAnswer((call) async {
+      values.addAll(
+          Map<String, dynamic>.from(call.positionalArguments[0] as Map));
+    });
+
+    void restoreSession() {
+      container.dispose();
+      tabs = OpenTabsNotifier(box);
+      container = ProviderContainer(overrides: [
+        openTabsProvider.overrideWith((ref) => tabs),
+        settingsControllerProvider
+            .overrideWith((ref) => SettingsController(box)),
+      ]);
+    }
+
+    restoreSession();
+    tabs.openTab(PdfFileItem.fromFile(a));
+    tabs.openTab(PdfFileItem.fromFile(b));
+    await pumpScreen(tester, viewer);
+    expect(pageController(tester).page, 1);
+    await disposeScreen(tester);
+
+    restoreSession();
+    await pumpScreen(tester, viewer);
+    expect(tabs.state.tabs[tabs.state.activeIndex].path, b.path);
+    expect(pageController(tester).page, 1);
+    expect(find.text('b.pdf'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeScreen(tester);
+  });
 
   testWidgets('earlier removal preserves active path, page, and viewer state',
       (tester) async {
@@ -284,7 +332,18 @@ void main() {
             delegate.crossAxisCount, width == 320 ? 1 : (width == 700 ? 2 : 4));
         final context = tester.element(find.byType(TabSwitcherScreen));
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-        expect(scaffold.backgroundColor, ArcColors.surface(context));
+        final colors = Theme.of(context).colorScheme;
+        expect(scaffold.backgroundColor, colors.surface);
+        final appBar = tester.widget<AppBar>(find.byType(AppBar));
+        expect(appBar.backgroundColor, colors.surface);
+        expect(appBar.foregroundColor, colors.onSurface);
+        final selectedCard = tester
+            .widgetList<Material>(find.byType(Material))
+            .where((material) => material.shape is RoundedRectangleBorder)
+            .firstWhere((material) =>
+                (material.shape! as RoundedRectangleBorder).side.width == 2);
+        expect((selectedCard.shape! as RoundedRectangleBorder).side.color,
+            colors.primary);
         expect(tester.takeException(), isNull);
         await disposeScreen(tester);
       });
@@ -331,8 +390,45 @@ void main() {
     await disposeScreen(tester);
   });
 
+  testWidgets('switcher shows compact previews and marks the current document',
+      (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    await pumpScreen(tester, const TabSwitcherScreen(), width: 320);
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 2);
+    expect(find.text('Reading now'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    expect(find.byTooltip('Close a.pdf').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('Close b.pdf').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeScreen(tester);
+  });
+
+  testWidgets(
+      'selecting a preview activates its document and returns to reader',
+      (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    await pumpScreen(tester, const Scaffold(body: Text('Reader')));
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(
+        MaterialPageRoute<void>(builder: (_) => const TabSwitcherScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('a'));
+    await tester.pumpAndSettle();
+    expect(tabs.state.activeIndex, 0);
+    expect(find.byType(TabSwitcherScreen), findsNothing);
+    expect(find.text('Reader'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await disposeScreen(tester);
+  });
+
   testWidgets('reduced motion skips switcher entrance effects', (tester) async {
     tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
     await pumpScreen(tester, const TabSwitcherScreen());
     expect(find.byType(Animate), findsNothing);
     await pumpScreen(tester, const TabSwitcherScreen(), reducedMotion: false);

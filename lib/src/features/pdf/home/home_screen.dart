@@ -3,16 +3,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../application/pdf_error_handler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+
 import 'package:hugeicons/hugeicons.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:install_plugin/install_plugin.dart';
 import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
 import '../../../shared/widgets/empty_state.dart';
-import 'package:flutter/services.dart';
+import '../../../shared/theme/arc_colors.dart';
+import '../../settings/haptic_service.dart';
 import 'dart:async';
 import '../application/pdf_library_controller.dart';
 import '../application/open_tabs_provider.dart';
@@ -42,13 +44,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
-  bool _searchActive = false;
+
   final _scrollController = ScrollController();
   bool _showScrollToTop = false;
   Timer? _debounceTimer;
 
   bool _isSelectionMode = false;
   final Set<String> _selectedPaths = {};
+  bool _bulkBusy = false;
 
   GitHubRelease? _availableUpdate;
   bool _isDownloadingUpdate = false;
@@ -157,7 +160,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.watch(pdfLibraryControllerProvider.select((s) => s.query));
     final filter =
         ref.watch(pdfLibraryControllerProvider.select((s) => s.filter));
-    ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
+    final libraryItems =
+        ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
+    final favorites =
+        ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites));
+    // A refresh, rename, or vault move must not leave actionable stale paths.
+    if (_selectedPaths.isNotEmpty) {
+      _selectedPaths.retainAll(libraryItems.map((item) => item.path));
+    }
+    ref.watch(pdfLibraryControllerProvider.select((s) => s.tags));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortField));
     ref.watch(pdfLibraryControllerProvider.select((s) => s.sortDirection));
     final selectedTag =
@@ -175,45 +186,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final settings = ref.watch(settingsControllerProvider);
 
-    return Scaffold(
+    final reduceMotion =
+        settings.lowPowerMode || MediaQuery.disableAnimationsOf(context);
+    final selectedItems = _isSelectionMode
+        ? libraryItems
+            .where((item) => _selectedPaths.contains(item.path))
+            .toList()
+        : const <PdfFileItem>[];
+    final tags = ctrl.getAllTags();
+
+    final scaffold = Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      appBar: _isSelectionMode
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(72),
+              child: SafeArea(
+                bottom: false,
+                child: _buildBulkActions(items, selectedItems, favorites,
+                    reduceMotion: reduceMotion),
+              ),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: _isSelectionMode
-          ? FloatingActionButton.extended(
-              onPressed: _selectedPaths.length > 1
-                  ? () => _handleQuickCombine(context)
-                  : null,
-              backgroundColor: _selectedPaths.length > 1
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.surfaceContainerHighest,
-              foregroundColor: _selectedPaths.length > 1
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurfaceVariant,
-              icon: const Icon(HugeIcons.strokeRoundedLayers01),
-              label: Text('Combine (${_selectedPaths.length})'),
-            ).animate().slideY(
-                begin: 1.0,
-                duration: 250.ms,
-                curve: Curves.easeOutBack,
-              )
-          : _showScrollToTop
-              ? FloatingActionButton(
-                  onPressed: () {
-                    _scrollController.animateTo(
-                      0,
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.fastOutSlowIn,
-                    );
-                  },
-                  backgroundColor: theme.colorScheme.secondaryContainer,
-                  foregroundColor: theme.colorScheme.onSecondaryContainer,
-                  elevation: 4,
-                  child: const Icon(Icons.arrow_upward_rounded),
-                )
-              : null,
+      floatingActionButton: !_isSelectionMode && _showScrollToTop
+          ? FloatingActionButton(
+              tooltip: 'Scroll to top',
+              onPressed: () {
+                if (reduceMotion) {
+                  _scrollController.jumpTo(0);
+                  return;
+                }
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.fastOutSlowIn,
+                );
+              },
+              backgroundColor: theme.colorScheme.secondaryContainer,
+              foregroundColor: theme.colorScheme.onSecondaryContainer,
+              elevation: 4,
+              child: const Icon(Icons.arrow_upward_rounded),
+            )
+          : null,
       body: Stack(
         children: [
-          if (settings.enableMeshBackground)
+          if (settings.enableMeshBackground && !reduceMotion)
             const Positioned.fill(child: AnimatedMeshBackground()),
           SafeArea(
             top: false,
@@ -237,7 +254,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final isRefreshing = controller.isLoading;
                           final isSettling = controller.isSettling;
 
-                          if (controller.isIdle) return const SizedBox.shrink();
+                          if (controller.isIdle) {
+                            return const SizedBox.shrink();
+                          }
 
                           final double value = controller.value;
                           const double containerSize = 48.0;
@@ -272,12 +291,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         width: 24,
                                         height: 24,
                                         child: CircularProgressIndicator(
+                                          value: reduceMotion ? 0.5 : null,
                                           strokeWidth: 2.5,
                                           color: theme.colorScheme.primary,
                                         ),
                                       )
                                     : Transform.rotate(
-                                        angle: value * 2 * 3.14159,
+                                        angle: reduceMotion
+                                            ? 0
+                                            : value * 2 * 3.14159,
                                         child: Icon(
                                           HugeIcons.strokeRoundedRefresh,
                                           color: theme.colorScheme.primary
@@ -288,16 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         ),
                                       ),
                               ),
-                            )
-                                .animate(
-                                  target: controller.isArmed ? 1 : 0,
-                                )
-                                .scale(
-                                  begin: const Offset(0.5, 0.5),
-                                  end: const Offset(1.0, 1.0),
-                                  duration: 200.ms,
-                                  curve: Curves.easeOutBack,
-                                ),
+                            ),
                           );
                         },
                       ),
@@ -312,7 +325,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
                   // Unified app bar (no large duplication)
-                  if (_availableUpdate != null)
+                  if (_availableUpdate != null && !_isSelectionMode)
                     SliverToBoxAdapter(
                       child: Material(
                         color: theme.colorScheme.primaryContainer,
@@ -354,10 +367,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ? null
                                       : _downloadAndInstallUpdate,
                                   child: _isDownloadingUpdate
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 16,
                                           height: 16,
                                           child: CircularProgressIndicator(
+                                              value: reduceMotion ? 0.5 : null,
                                               strokeWidth: 2))
                                       : const Text('Update'),
                                 ),
@@ -365,54 +379,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                         ),
-                      ).animate().slideY(
-                          begin: -1,
-                          duration: 300.ms,
-                          curve: Curves.easeOutBack),
+                      ),
                     ),
 
                   // Unified app bar (no large duplication)
-                  GlassSliverAppBar(
-                    title: Padding(
-                      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                      child: _isSelectionMode
-                          ? Text('${_selectedPaths.length} Selected',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w800))
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('ArcPDF',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w800)),
-                                Text(
-                                  'Your local PDF workspace',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                        height: 1.1,
-                                      ),
-                                ),
-                              ],
+                  if (!_isSelectionMode)
+                    GlassSliverAppBar(
+                      title: Padding(
+                        padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('ArcPDF',
+                                style: TextStyle(fontWeight: FontWeight.w800)),
+                            Text(
+                              'Your local PDF workspace',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    height: 1.1,
+                                  ),
                             ),
-                    ),
-                    actions: [
-                      if (_isSelectionMode)
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            setState(() {
-                              _isSelectionMode = false;
-                              _selectedPaths.clear();
-                            });
-                          },
-                        )
-                      else
+                          ],
+                        ),
+                      ),
+                      actions: [
                         IconButton(
                           icon:
                               const Icon(HugeIcons.strokeRoundedFolderSecurity),
@@ -424,94 +420,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     builder: (_) => const VaultScreen()));
                           },
                         ),
-                      IconButton(
-                        icon: const Icon(
-                            HugeIcons.strokeRoundedMoreVerticalCircle01),
-                        tooltip: 'Menu',
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          _showGlassMenu(context, ref, ctrl);
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // Resume Session Banner
-                  if (ref.watch(openTabsProvider).tabs.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const MultiTabViewerScreen()),
-                            );
+                        IconButton(
+                          icon: const Icon(
+                              HugeIcons.strokeRoundedMoreVerticalCircle01),
+                          tooltip: 'Menu',
+                          onPressed: () {
+                            ref.read(hapticServiceProvider).lightImpact();
+                            _showGlassMenu(context, ref, ctrl);
                           },
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.restore_page_rounded,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Resume Reading',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimaryContainer,
-                                            ),
-                                      ),
-                                      Text(
-                                        'You have ${ref.read(openTabsProvider).tabs.length} tabs open',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimaryContainer
-                                                  .withValues(alpha: 0.8),
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right_rounded,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer),
-                              ],
-                            ),
-                          ),
                         ),
-                      )
-                          .animate()
-                          .slideY(
-                              begin: -0.2,
-                              duration: 300.ms,
-                              curve: Curves.easeOutBack)
-                          .fadeIn(),
+                      ],
                     ),
+
+                  if (!_isSelectionMode)
+                    const SliverToBoxAdapter(child: _HomeResumeCard()),
 
                   // Search + filter chips
                   SliverToBoxAdapter(
@@ -520,169 +442,158 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Animated search bar
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOutCubic,
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (val) {
-                                if (_debounceTimer?.isActive ?? false) {
-                                  _debounceTimer!.cancel();
-                                }
-                                _debounceTimer = Timer(
-                                    const Duration(milliseconds: 300), () {
-                                  ctrl.setQuery(val);
-                                });
-                              },
-                              onTap: () => setState(() => _searchActive = true),
-                              onTapOutside: (_) =>
-                                  setState(() => _searchActive = false),
-                              decoration: InputDecoration(
-                                hintText: 'Search PDFs…',
-                                filled: true,
-                                fillColor: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHigh,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 20, vertical: 16),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: BorderSide.none,
+                          TextField(
+                            controller: _searchController,
+                            onChanged: (val) {
+                              if (_debounceTimer?.isActive ?? false) {
+                                _debounceTimer!.cancel();
+                              }
+                              _debounceTimer =
+                                  Timer(const Duration(milliseconds: 300), () {
+                                ctrl.setQuery(val);
+                              });
+                            },
+                            onTapOutside: (_) =>
+                                FocusManager.instance.primaryFocus?.unfocus(),
+                            decoration: InputDecoration(
+                              hintText: 'Search PDFs…',
+                              filled: true,
+                              fillColor: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHigh,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(28),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.5),
+                                  width: 1.5,
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                  borderSide: BorderSide(
+                              ),
+                              prefixIcon: Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 8, right: 4),
+                                child: Icon(Icons.search_rounded,
                                     color: Theme.of(context)
                                         .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.5),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                prefixIcon: Padding(
-                                  padding:
-                                      const EdgeInsets.only(left: 8, right: 4),
-                                  child: Icon(Icons.search_rounded,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant),
-                                ),
-                                suffixIcon: _searchActive &&
-                                        _searchController.text.isNotEmpty
-                                    ? Padding(
-                                        padding:
-                                            const EdgeInsets.only(right: 8),
-                                        child: IconButton(
-                                          icon: const Icon(Icons.clear_rounded,
-                                              size: 20),
-                                          onPressed: () {
-                                            _searchController.clear();
-                                            ctrl.setQuery('');
-                                            setState(() {});
-                                          },
-                                        ),
-                                      )
-                                    : null,
+                                        .onSurfaceVariant),
+                              ),
+                              suffixIcon:
+                                  ValueListenableBuilder<TextEditingValue>(
+                                valueListenable: _searchController,
+                                builder: (context, value, _) =>
+                                    value.text.isEmpty
+                                        ? const SizedBox.shrink()
+                                        : IconButton(
+                                            tooltip: 'Clear search',
+                                            icon: const Icon(
+                                                Icons.clear_rounded,
+                                                size: 20),
+                                            onPressed: () {
+                                              _debounceTimer?.cancel();
+                                              _searchController.clear();
+                                              ctrl.setQuery('');
+                                            },
+                                          ),
                               ),
                             ),
-                          )
-                              .animate()
-                              .fadeIn(duration: 260.ms)
-                              .slideY(begin: -0.1, curve: Curves.easeOutCubic),
+                          ),
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
 
-                          // Tags
-                          if (ctrl.getAllTags().isNotEmpty) ...[
+                          // Tags and library filters share the same sizing and shape.
+                          if (tags.isNotEmpty) ...[
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(),
                               child: Row(
-                                children: ctrl.getAllTags().map((tag) {
+                                children: tags.map((tag) {
                                   final isSelected = selectedTag == tag;
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 8),
-                                    child: FilterChip(
-                                      label: Text(tag),
+                                    child: _HomeFilterControl(
+                                      label: tag,
                                       selected: isSelected,
                                       onSelected: (selected) {
-                                        HapticFeedback.selectionClick();
+                                        ref
+                                            .read(hapticServiceProvider)
+                                            .selectionClick();
                                         ctrl.setSelectedTag(
                                             selected ? tag : null);
                                       },
-                                      backgroundColor: Theme.of(context)
-                                          .colorScheme
-                                          .surfaceContainerHigh,
-                                      selectedColor: Theme.of(context)
-                                          .colorScheme
-                                          .primaryContainer,
-                                      checkmarkColor: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimaryContainer,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20)),
-                                      side: BorderSide.none,
-                                      labelStyle: TextStyle(
-                                        color: isSelected
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .onPrimaryContainer
-                                            : Theme.of(context)
-                                                .colorScheme
-                                                .onSurface,
-                                      ),
                                     ),
                                   );
                                 }).toList(),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 4),
                           ],
 
                           // Filter chips
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: PdfFilter.values.map((f) {
-                                final selected = filter == f;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: AnimatedScale(
-                                    scale: selected ? 1.05 : 1.0,
-                                    duration: const Duration(milliseconds: 200),
-                                    curve: Curves.easeOutBack,
-                                    child: FilterChip(
-                                      selected: selected,
-                                      onSelected: (_) {
-                                        HapticFeedback.lightImpact();
-                                        ctrl.setFilter(f);
-                                      },
-                                      label: Text(_label(f)),
-                                      labelStyle: const TextStyle(height: 1.0),
-                                      showCheckmark: false,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ).animate().fadeIn(delay: 80.ms, duration: 280.ms),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: PdfFilter.values.map((f) {
+                              final selected = filter == f;
+                              return _HomeFilterControl(
+                                selected: selected,
+                                onSelected: (_) {
+                                  ref.read(hapticServiceProvider).lightImpact();
+                                  ctrl.setFilter(f);
+                                },
+                                label: _label(f),
+                              );
+                            }).toList(),
+                          ),
                         ],
                       ),
                     ),
                   ),
 
-                  // Content
-                  if (loading)
+                  // Keep indexed documents usable while discovery continues.
+                  SliverToBoxAdapter(
+                    child: loading && libraryItems.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: Semantics(
+                              key: const ValueKey('home-library-progress'),
+                              liveRegion: true,
+                              label: 'Refreshing PDF library',
+                              excludeSemantics: true,
+                              child: LinearProgressIndicator(
+                                minHeight: 2,
+                                value: reduceMotion ? 0.5 : null,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  if (loading && libraryItems.isEmpty)
                     SliverPadding(
+                      key: const ValueKey('home-initial-loading'),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       sliver: SliverList.builder(
                         itemCount: 8,
-                        itemBuilder: (_, __) => const PdfCardShimmer(),
+                        itemBuilder: (_, __) => reduceMotion
+                            ? Container(
+                                height: 136,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              )
+                            : const PdfCardShimmer(),
                       ),
                     )
-                  else if (items.isEmpty)
+                  else if (items.isEmpty && !loading)
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: ArcEmptyState(
@@ -693,7 +604,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         subtitle: query.isNotEmpty
                             ? 'Try a different search term or filter.'
                             : 'No PDFs found. Add a PDF to start reading',
-                        animated: true,
+                        animated: !reduceMotion,
                       ),
                     )
                   else if (filter == PdfFilter.folders)
@@ -738,41 +649,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   else
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      sliver: SliverMasonryGrid.count(
-                        crossAxisCount: 1,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
+                      sliver: SliverList.builder(
                         itemBuilder: (context, index) {
                           final item = items[index];
-                          return _buildListItem(context, ref, item, index,
-                                  key: ValueKey('list_${item.path}'))
-                              .animate(key: ValueKey('anim_${item.path}'))
-                              .fadeIn(
-                                delay: (index > 20 ? 0 : index * 20).ms,
-                                duration: 400.ms,
-                                curve: Curves.easeOut,
-                              )
-                              .slideY(
-                                begin: 0.15,
-                                delay: (index > 20 ? 0 : index * 20).ms,
-                                duration: 400.ms,
-                                curve: Curves.easeOutCubic,
-                              )
-                              .scaleXY(
-                                begin: 0.92,
-                                end: 1.0,
-                                delay: (index > 20 ? 0 : index * 20).ms,
-                                duration: 400.ms,
-                                curve: Curves.easeOutBack,
-                              );
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildListItem(context, ref, item, index,
+                                key: ValueKey('list_${item.path}')),
+                          );
                         },
-                        childCount: items.length,
+                        itemCount: items.length,
                       ),
                     ),
 
-                  const SliverSafeArea(
-                    minimum: EdgeInsets.only(bottom: 140),
-                    sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+                  SliverSafeArea(
+                    minimum: EdgeInsets.only(
+                      bottom: _isSelectionMode
+                          ? 24
+                          : 88 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
                   ),
                 ],
               ),
@@ -781,6 +677,377 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+    return PopScope(
+      canPop: !_isSelectionMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isSelectionMode && !_bulkBusy) _clearSelection();
+      },
+      child: scaffold,
+    );
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedPaths.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  Widget _buildBulkActions(List<PdfFileItem> visibleItems,
+      List<PdfFileItem> selectedItems, Set<String> favorites,
+      {required bool reduceMotion}) {
+    final theme = Theme.of(context);
+    final hasSelection = selectedItems.isNotEmpty && !_bulkBusy;
+    final allVisibleSelected = visibleItems.isNotEmpty &&
+        visibleItems.every((item) => _selectedPaths.contains(item.path));
+    final allFavorites = selectedItems.isNotEmpty &&
+        selectedItems.every((item) => favorites.contains(item.path));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Material(
+            key: const ValueKey('home-selection-toolbar'),
+            color: theme.colorScheme.surfaceContainerHigh,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(28),
+              side: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    final showLabels = constraints.maxWidth >= 560 &&
+                        MediaQuery.textScalerOf(context).scale(14) <= 20;
+                    Widget action(
+                        String label, IconData icon, VoidCallback? onPressed,
+                        {bool emphasized = false}) {
+                      final style = IconButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                        visualDensity: VisualDensity.standard,
+                        foregroundColor: emphasized
+                            ? theme.colorScheme.onPrimary
+                            : theme.colorScheme.onSurface,
+                        backgroundColor:
+                            emphasized ? theme.colorScheme.primary : null,
+                        disabledBackgroundColor: emphasized
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: 0.12)
+                            : null,
+                      );
+                      return showLabels
+                          ? Tooltip(
+                              message: label,
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(44, 44),
+                                  foregroundColor: emphasized
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                  backgroundColor: emphasized
+                                      ? theme.colorScheme.primary
+                                      : null,
+                                  disabledBackgroundColor: emphasized
+                                      ? theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.12)
+                                      : null,
+                                ),
+                                onPressed: onPressed,
+                                icon: Icon(icon, size: 20),
+                                label: Text(label),
+                              ),
+                            )
+                          : IconButton(
+                              style: style,
+                              tooltip: label,
+                              onPressed: onPressed,
+                              icon: Icon(icon, size: 22),
+                            );
+                    }
+
+                    return Row(
+                      children: [
+                        IconButton(
+                          constraints:
+                              const BoxConstraints(minWidth: 44, minHeight: 44),
+                          tooltip: 'Exit selection',
+                          onPressed: _bulkBusy ? null : _clearSelection,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                        Expanded(
+                          child: Semantics(
+                            liveRegion: true,
+                            label: '${selectedItems.length} PDFs selected',
+                            excludeSemantics: true,
+                            child: Text(
+                              '${selectedItems.length}',
+                              key: const ValueKey('home-selection-count'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Builder(
+                            builder: (context) => action(
+                                  'Share',
+                                  Icons.share_outlined,
+                                  hasSelection
+                                      ? () async {
+                                          final box = context.findRenderObject()
+                                              as RenderBox;
+                                          await _shareSelected(
+                                              selectedItems,
+                                              box.localToGlobal(Offset.zero) &
+                                                  box.size);
+                                        }
+                                      : null,
+                                )),
+                        action(
+                          allFavorites ? 'Unfavorite' : 'Favorite',
+                          allFavorites
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          hasSelection
+                              ? () => _favoriteSelected(
+                                  selectedItems, !allFavorites)
+                              : null,
+                        ),
+                        action(
+                          'Merge',
+                          HugeIcons.strokeRoundedLayers01,
+                          hasSelection && selectedItems.length > 1
+                              ? () => _handleQuickCombine(context)
+                              : null,
+                          emphasized: true,
+                        ),
+                        PopupMenuButton<_HomeSelectionAction>(
+                          tooltip: 'More selection actions',
+                          enabled: !_bulkBusy,
+                          constraints: const BoxConstraints(
+                              minWidth: 220, maxWidth: 300),
+                          icon: const Icon(Icons.more_horiz_rounded),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            visualDensity: VisualDensity.standard,
+                          ),
+                          popUpAnimationStyle:
+                              reduceMotion ? AnimationStyle.noAnimation : null,
+                          onSelected: (action) {
+                            if (_bulkBusy) return;
+                            switch (action) {
+                              case _HomeSelectionAction.selectAll:
+                                setState(() => _selectedPaths.addAll(
+                                    visibleItems.map((item) => item.path)));
+                              case _HomeSelectionAction.clear:
+                                setState(_selectedPaths.clear);
+                              case _HomeSelectionAction.delete:
+                                final currentItems = ref
+                                    .read(pdfLibraryControllerProvider)
+                                    .items;
+                                _deleteSelected(currentItems
+                                    .where((item) =>
+                                        _selectedPaths.contains(item.path))
+                                    .toList());
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: _HomeSelectionAction.selectAll,
+                              enabled: visibleItems.isNotEmpty &&
+                                  !allVisibleSelected,
+                              child: const ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.select_all_rounded),
+                                title: Text('Select all'),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: _HomeSelectionAction.clear,
+                              enabled: selectedItems.isNotEmpty,
+                              child: const ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.deselect_rounded),
+                                title: Text('Clear selection'),
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: _HomeSelectionAction.delete,
+                              enabled: hasSelection,
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.delete_outline_rounded,
+                                    color: hasSelection
+                                        ? theme.colorScheme.error
+                                        : null),
+                                title: Text('Delete',
+                                    style: TextStyle(
+                                        color: hasSelection
+                                            ? theme.colorScheme.error
+                                            : null)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+                if (_bulkBusy)
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 0,
+                    child: Semantics(
+                      liveRegion: true,
+                      label: 'Working on selected PDFs',
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        value: reduceMotion ? 0.5 : null,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _bulkMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _shareSelected(List<PdfFileItem> items, Rect origin) async {
+    if (_bulkBusy || items.isEmpty) return;
+    setState(() => _bulkBusy = true);
+    try {
+      // Do not silently share only part of the user's selection.
+      for (final item in items) {
+        if (!await File(item.path).exists()) {
+          throw FileSystemException(
+              'Selected PDF is no longer available', item.path);
+        }
+      }
+      if (!mounted) return;
+      await SharePlus.instance.share(ShareParams(
+        files: items.map((item) => XFile(item.path)).toList(),
+        sharePositionOrigin: origin,
+      ));
+    } catch (_) {
+      _bulkMessage(
+          'Could not share the selected PDFs. Check that the files are available and try again.');
+    } finally {
+      if (mounted) setState(() => _bulkBusy = false);
+    }
+  }
+
+  Future<void> _favoriteSelected(List<PdfFileItem> items, bool favorite) async {
+    if (_bulkBusy || items.isEmpty) return;
+    ref.read(hapticServiceProvider).selectionClick();
+    setState(() => _bulkBusy = true);
+    final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
+    var failed = 0;
+    try {
+      for (final item in items) {
+        if (!mounted) return;
+        if (ref
+                .read(pdfLibraryControllerProvider)
+                .favorites
+                .contains(item.path) ==
+            favorite) {
+          continue;
+        }
+        try {
+          await ctrl.toggleFavorite(item);
+        } catch (_) {
+          failed++;
+        }
+      }
+      _bulkMessage(failed == 0
+          ? (favorite
+              ? 'Selected PDFs added to favorites'
+              : 'Selected PDFs removed from favorites')
+          : 'Could not update $failed PDFs. Selection kept for retry.');
+    } finally {
+      if (mounted) setState(() => _bulkBusy = false);
+    }
+  }
+
+  Future<void> _deleteSelected(List<PdfFileItem> items) async {
+    if (_bulkBusy || items.isEmpty) return;
+    setState(() => _bulkBusy = true);
+    final ctrl = ref.read(pdfLibraryControllerProvider.notifier);
+    final deleted = <String>{};
+    try {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: Text(
+              'Delete ${items.length} ${items.length == 1 ? 'PDF' : 'PDFs'}?'),
+          content: Text(
+            'Permanently delete these files from your device? This cannot be undone.\n\n${items.map((item) => item.name).join('\n')}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      for (final item in items) {
+        if (!mounted) return;
+        try {
+          if (!await ctrl.deleteFile(item)) continue;
+          deleted.add(item.path);
+          if (!mounted) return;
+          final index = ref
+              .read(openTabsProvider)
+              .tabs
+              .indexWhere((tab) => tab.path == item.path);
+          if (index >= 0) ref.read(openTabsProvider.notifier).closeTab(index);
+        } catch (_) {
+          // Keep failed files selected; successful deletions must not be retried.
+        }
+      }
+      final failed = items.length - deleted.length;
+      _bulkMessage(failed == 0
+          ? 'Deleted ${deleted.length} PDFs'
+          : 'Deleted ${deleted.length} PDFs. $failed could not be deleted; still selected.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _selectedPaths.removeAll(deleted);
+          if (deleted.isNotEmpty && _selectedPaths.isEmpty) {
+            _isSelectionMode = false;
+          }
+          _bulkBusy = false;
+        });
+      }
+    }
   }
 
   void _showGlassMenu(
@@ -874,85 +1141,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // In selection mode, wrap with custom selection tap
     if (_isSelectionMode) {
       final isSelected = _selectedPaths.contains(item.path);
-      content = GestureDetector(
+      content = PdfCustomCard(
+        key: key,
+        item: item,
+        index: index,
+        selectionMode: true,
+        selected: isSelected,
+        scrollController: _scrollController,
+        onFavorite: () {},
         onTap: () {
+          if (_bulkBusy) return;
           setState(() {
             if (isSelected) {
               _selectedPaths.remove(item.path);
-              if (_selectedPaths.isEmpty) _isSelectionMode = false;
             } else {
               _selectedPaths.add(item.path);
             }
           });
         },
-        child: Stack(
-          children: [
-            AbsorbPointer(
-              child: AnimatedScale(
-                scale: isSelected ? 0.95 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                child: PdfCustomCard(
-                  key: key,
-                  item: item,
-                  index: index,
-                  scrollController: _scrollController,
-                  onFavorite: () {},
-                  onTap: () {},
-                ),
-              ),
-            ),
-            if (isSelected)
-              Positioned.fill(
-                bottom: 12, // match the bottom padding of PdfCustomCard
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withValues(alpha: 0.5),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.check_rounded,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          size: 24,
-                        ),
-                      ).animate().scale(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.elasticOut,
-                          ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
       );
     } else {
       content = PdfCustomCard(
@@ -963,7 +1169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onFavorite: () => ctrl.toggleFavorite(item),
         // Delegate long press logic for the Multi-Select (Quick Combine) directly into the card
         onLongPress: () {
-          HapticFeedback.selectionClick();
+          ref.read(hapticServiceProvider).selectionClick();
           setState(() {
             _isSelectionMode = true;
             _selectedPaths.add(item.path);
@@ -1005,7 +1211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _handleQuickCombine(BuildContext context) async {
-    HapticFeedback.lightImpact();
+    if (_bulkBusy || _selectedPaths.length < 2) return;
+    ref.read(hapticServiceProvider).lightImpact();
     final paths = _selectedPaths.toList();
     setState(() {
       _isSelectionMode = false;
@@ -1016,5 +1223,135 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => MergePdfsPage(initialFiles: paths),
     ));
+  }
+}
+
+enum _HomeSelectionAction { selectAll, clear, delete }
+
+class _HomeFilterControl extends StatelessWidget {
+  const _HomeFilterControl({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      showCheckmark: false,
+      // Reserve the selection indicator so toggling a chip never shifts labels.
+      avatar: selected
+          ? Icon(Icons.check_rounded, size: 18, color: colors.onPrimary)
+          : const SizedBox(width: 18, height: 18),
+      avatarBoxConstraints:
+          const BoxConstraints.tightFor(width: 18, height: 18),
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      backgroundColor: colors.surfaceContainerLow,
+      selectedColor: colors.primary,
+      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: selected ? colors.onPrimary : colors.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
+      side: BorderSide(color: selected ? colors.primary : colors.outline),
+    );
+  }
+}
+
+class _HomeResumeCard extends ConsumerWidget {
+  const _HomeResumeCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(openTabsProvider);
+    if (session.tabs.isEmpty) return const SizedBox.shrink();
+    final active =
+        session.tabs[session.activeIndex.clamp(0, session.tabs.length - 1)];
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final tabCount = session.tabs.length;
+    void resume() => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const MultiTabViewerScreen(),
+        ));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Material(
+        color: colors.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+          side: BorderSide(color: colors.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Semantics(
+          button: true,
+          label:
+              'Resume reading ${active.name}. $tabCount ${tabCount == 1 ? 'open tab' : 'open tabs'}',
+          excludeSemantics: true,
+          onTap: resume,
+          child: InkWell(
+            key: const ValueKey('home-resume-reading'),
+            excludeFromSemantics: true,
+            onTap: resume,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.restore_page_rounded,
+                            size: 20, color: colors.onSurface),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text('Resume reading',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            )),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded,
+                          size: 20, color: colors.onSurface),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(active.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colors.onSurface,
+                      )),
+                  const SizedBox(height: 4),
+                  Text('$tabCount ${tabCount == 1 ? 'open tab' : 'open tabs'}',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: colors.onSurfaceVariant)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

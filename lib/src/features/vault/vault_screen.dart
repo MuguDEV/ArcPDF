@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../pdf/application/pdf_error_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
+import '../settings/haptic_service.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'vault_controller.dart';
@@ -152,7 +152,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                   onPressed: () {
                     Navigator.pop(context);
                     // Provide a nice feedback interaction and close the page
-                    HapticFeedback.selectionClick();
+                    ref.read(hapticServiceProvider).selectionClick();
                   },
                   icon: const Icon(Icons.arrow_back),
                   label: const Text('Go Back'),
@@ -246,7 +246,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                           trailing: IconButton(
                             icon: const Icon(Icons.restore),
                             onPressed: () async {
-                              HapticFeedback.mediumImpact();
+                              ref.read(hapticServiceProvider).mediumImpact();
                               final downloads =
                                   await getDownloadsDirectory(); // path_provider
                               // Fallback to Download dir
@@ -259,7 +259,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                   // Initialization errors use the same safe failure UI.
                                 }
                                 if (success && context.mounted) {
-                                  HapticFeedback.selectionClick();
+                                  ref
+                                      .read(hapticServiceProvider)
+                                      .selectionClick();
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -267,7 +269,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                                                 'Restored to Downloads folder')));
                                   }
                                 } else if (!success && context.mounted) {
-                                  HapticFeedback.heavyImpact();
+                                  ref.read(hapticServiceProvider).heavyImpact();
                                   PdfErrorHandler.show(
                                       context, 'restore_failed',
                                       contextMessage: 'Failed to restore file');

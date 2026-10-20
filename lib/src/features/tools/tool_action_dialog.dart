@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings/haptic_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
@@ -11,7 +12,7 @@ import '../pdf/viewer/pdf_viewer_screen.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../../shared/widgets/arc_progress_indicator.dart';
 
-class ToolActionDialog extends StatefulWidget {
+class ToolActionDialog extends ConsumerStatefulWidget {
   const ToolActionDialog({
     super.key,
     required this.title,
@@ -28,10 +29,10 @@ class ToolActionDialog extends StatefulWidget {
   final List<String>? outputFiles;
 
   @override
-  State<ToolActionDialog> createState() => _ToolActionDialogState();
+  ConsumerState<ToolActionDialog> createState() => _ToolActionDialogState();
 }
 
-class _ToolActionDialogState extends State<ToolActionDialog> {
+class _ToolActionDialogState extends ConsumerState<ToolActionDialog> {
   bool _hasVibrated = false;
   bool _isActing = false;
   String? _actionError;
@@ -47,7 +48,7 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     if (isSuccess && !_hasVibrated) {
       _hasVibrated = true;
-      HapticFeedback.lightImpact();
+      ref.read(hapticServiceProvider).lightImpact();
     }
   }
 
@@ -57,7 +58,7 @@ class _ToolActionDialogState extends State<ToolActionDialog> {
     final isSuccess = !widget.isLoading && widget.outputPath != null;
     if (isSuccess) {
       _hasVibrated = true;
-      HapticFeedback.lightImpact();
+      ref.read(hapticServiceProvider).lightImpact();
     }
   }
 

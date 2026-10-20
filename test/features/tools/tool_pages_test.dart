@@ -18,6 +18,19 @@ class _MockBox extends Mock implements Box<dynamic> {}
 class _Document extends Mock implements rx.PdfDocument {}
 
 void main() {
+  Future<void> pumpWithSettings(WidgetTester tester, Widget child) async {
+    final box = _MockBox();
+    when(() => box.get(any(), defaultValue: any(named: 'defaultValue')))
+        .thenAnswer((call) => call.namedArguments[#defaultValue]);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        settingsControllerProvider
+            .overrideWith((ref) => SettingsController(box)),
+      ],
+      child: child,
+    ));
+  }
+
   PdfFileItem initialFile() => PdfFileItem(
       path: '/missing/initial.pdf',
       name: 'initial.pdf',
@@ -101,14 +114,16 @@ void main() {
   testWidgets('loading blocks back and exceptions dismiss it with a failure',
       (tester) async {
     final completer = Completer<String?>();
-    await tester.pumpWidget(MaterialApp(
-        home: Builder(
-            builder: (context) => Scaffold(
-                  body: TextButton(
-                      onPressed: () => runToolAction(context,
-                          title: 'Working', action: () => completer.future),
-                      child: const Text('Run')),
-                ))));
+    await pumpWithSettings(
+        tester,
+        MaterialApp(
+            home: Builder(
+                builder: (context) => Scaffold(
+                      body: TextButton(
+                          onPressed: () => runToolAction(context,
+                              title: 'Working', action: () => completer.future),
+                          child: const Text('Run')),
+                    ))));
     await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -129,15 +144,17 @@ void main() {
       (tester) async {
     final completer = Completer<String?>();
     final key = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(
-      navigatorKey: key,
-      home: Builder(
-          builder: (context) => TextButton(
-                onPressed: () => runToolAction(context,
-                    title: 'Working', action: () => completer.future),
-                child: const Text('Run'),
-              )),
-    ));
+    await pumpWithSettings(
+        tester,
+        MaterialApp(
+          navigatorKey: key,
+          home: Builder(
+              builder: (context) => TextButton(
+                    onPressed: () => runToolAction(context,
+                        title: 'Working', action: () => completer.future),
+                    child: const Text('Run'),
+                  )),
+        ));
     await tester.tap(find.text('Run'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -156,8 +173,10 @@ void main() {
       (tester) async {
     final completer = Completer<String?>();
     final key = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(
-        navigatorKey: key, home: const Scaffold(body: Text('Home'))));
+    await pumpWithSettings(
+        tester,
+        MaterialApp(
+            navigatorKey: key, home: const Scaffold(body: Text('Home'))));
     final page = MaterialPageRoute<void>(
         builder: (context) => Scaffold(
                 body: TextButton(
@@ -181,14 +200,16 @@ void main() {
 
   testWidgets('missing output share is actionable and keeps the dialog open',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-            body: ToolActionDialog(
-      title: 'Saved',
-      message: 'Done',
-      isLoading: false,
-      outputPath: '/missing/output.pdf',
-    ))));
+    await pumpWithSettings(
+        tester,
+        const MaterialApp(
+            home: Scaffold(
+                body: ToolActionDialog(
+          title: 'Saved',
+          message: 'Done',
+          isLoading: false,
+          outputPath: '/missing/output.pdf',
+        ))));
     await tester.runAsync(() async {
       await tester.tap(find.text('Share'));
       await Future<void>.delayed(const Duration(milliseconds: 100));

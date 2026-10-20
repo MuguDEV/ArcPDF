@@ -5,6 +5,9 @@ import 'dart:ui';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter/scheduler.dart';
+import '../../../core/utils/logger.dart';
 import '../application/pdf_error_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +19,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 import '../../settings/settings_controller.dart';
-import '../../../shared/widgets/arc_progress_indicator.dart';
+import '../../settings/haptic_service.dart';
+
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 import '../application/open_tabs_provider.dart';
@@ -41,12 +45,20 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
-    with WidgetsBindingObserver, RouteAware {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   final PdfViewerController _pdfViewerController = PdfViewerController();
+  final GlobalKey _viewerKey = GlobalKey();
   PdfTextSearcher? _textSearcher;
   late final ReadingProgressRepository _progressRepository;
   late final int _initialPage;
   late final double? _initialZoom;
+  late final ReadingViewport? _initialViewport;
+  late final Future<bool> _fileExists;
+  Timer? _progressSaveTimer;
+  ReadingViewport? _lastSavedViewport;
+  bool _restoringProgress = false;
+  bool _progressWritable = false;
+
   bool _documentReady = false;
   bool _routeVisible = true;
   bool _appActive = true;
@@ -56,14 +68,19 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   Timer? _hideTimer;
   bool _showToolbar = true;
   int _page = 1;
-  int _pageCount = 1;
+  int _pageCount = 0;
   Timer? _readingTimer;
   int _pendingReadingTime = 0;
 
   bool _pdfDarkMode = false;
   bool _isFullscreen = false;
   bool _isHorizontalScroll = false;
-  Timer? _autoScrollTimer;
+  late final Ticker _autoScrollTicker;
+  Duration? _lastAutoScrollFrame;
+  final Stopwatch _openStopwatch = Stopwatch();
+  Object? _documentSurfaceKey;
+  Widget? _documentSurface;
+  bool _loadFailureLogged = false;
   bool _isAutoScrolling = false;
   int _rotationQuarterTurns = 0;
 
@@ -76,9 +93,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   @override
   void initState() {
     super.initState();
+    _autoScrollTicker = createTicker(_onAutoScrollFrame);
+    _openStopwatch.start();
+    _logReader('open');
     _progressRepository = ref.read(readingProgressRepositoryProvider);
     _initialPage = _progressRepository.getLastReadPage(widget.item.path);
     _initialZoom = _progressRepository.getLastZoom(widget.item.path);
+    _initialViewport = _progressRepository.getLastViewport(widget.item.path);
+    // Check once off the UI thread, not on every page/search/chrome rebuild.
+    _fileExists = File(widget.item.path).exists();
     _keepAwake = ref.read(settingsControllerProvider).keepScreenAwake;
     WidgetsBinding.instance.addObserver(this);
     _pdfViewerController.addListener(_onPdfViewerChanged);
@@ -86,7 +109,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _startReadingTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.isActive && _keepAwake) WakelockPlus.enable();
+      if (!mounted) return;
+      _syncSystemUi();
+      if (widget.isActive && _keepAwake) WakelockPlus.enable();
     });
   }
 
@@ -95,6 +120,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
+        _syncSystemUi();
         _startReadingTimer();
         _scheduleHide();
       } else {
@@ -120,19 +146,31 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   @override
   void didPushNext() {
     _routeVisible = false;
+    _syncSystemUi();
     _pauseReading(stopAutoScroll: !_controlsOpen);
   }
 
   @override
   void didPopNext() {
     _routeVisible = true;
+    _syncSystemUi();
     _startReadingTimer();
     _scheduleHide();
   }
 
   @override
   void didPop() {
-    // We are popped
+    _routeVisible = false;
+    _syncSystemUi();
+    _pauseReading();
+  }
+
+  @override
+  void deactivate() {
+    // Descendant PDF widgets detach their controller before this state's
+    // dispose. Capture while it is still attached, including closed tabs.
+    _flushProgress();
+    super.deactivate();
   }
 
   @override
@@ -141,10 +179,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pdfViewerController.removeListener(_onPdfViewerChanged);
     _textSearcher?.removeListener(_onSearcherChanged);
+    _logReader('close', fields: {'page': _page, 'ready': _documentReady});
+    _openStopwatch.stop();
     _hideTimer?.cancel();
     _readingTimer?.cancel();
-    _autoScrollTimer?.cancel();
+    _autoScrollTicker.dispose();
     _flushReadingTime();
+    _flushProgress();
     _searchController.dispose();
     _searchFocus.dispose();
     _textSearcher?.dispose();
@@ -162,9 +203,17 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     super.dispose();
   }
 
+  void _logReader(String event, {Map<String, Object?> fields = const {}}) {
+    unawaited(AppLogger.event('reader.$event', fields: {
+      'documentId': AppLogger.documentId(widget.item.path),
+      ...fields,
+    }));
+  }
+
   void _onPdfViewerChanged() {
     if (!mounted ||
         !_documentReady ||
+        _restoringProgress ||
         !_pdfViewerController.isReady ||
         _viewerUpdateScheduled) {
       return;
@@ -172,7 +221,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _viewerUpdateScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewerUpdateScheduled = false;
-      if (!mounted || !_documentReady || !_pdfViewerController.isReady) return;
+      if (!mounted ||
+          !_documentReady ||
+          _restoringProgress ||
+          !_pdfViewerController.isReady) {
+        return;
+      }
       final newPage = _pdfViewerController.pageNumber ?? 1;
       final newPageCount = _pdfViewerController.pageCount;
       if (newPage != _page || newPageCount != _pageCount) {
@@ -180,15 +234,132 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           _page = newPage;
           _pageCount = newPageCount;
         });
-        _progressRepository.saveLastReadPage(widget.item.path, newPage);
       }
-      final zoom = _pdfViewerController.currentZoom;
-      if (zoom.isFinite &&
-          zoom > 0 &&
-          _progressRepository.getLastZoom(widget.item.path) != zoom) {
-        _progressRepository.saveLastZoom(widget.item.path, zoom);
+      if (widget.isActive && _routeVisible && _appActive) {
+        // Gesture/auto-scroll updates can arrive every frame. Persist once the
+        // view settles, and flush immediately when leaving the reader.
+        _progressSaveTimer?.cancel();
+        _progressSaveTimer =
+            Timer(const Duration(milliseconds: 300), _flushProgress);
       }
     });
+  }
+
+  ReadingViewport? _currentViewport() {
+    if (!_documentReady ||
+        _restoringProgress ||
+        !_pdfViewerController.isReady) {
+      return null;
+    }
+    final layouts = _pdfViewerController.layout.pageLayouts;
+    final center = _pdfViewerController.centerPosition;
+    // pdfrx updates pageNumber on a later frame than its transform. On an
+    // immediate exit, anchor to the page actually under the viewport center.
+    var low = 0;
+    var high = layouts.length - 1;
+    var centerPage = -1;
+    while (low <= high) {
+      final mid = (low + high) ~/ 2;
+      final rect = layouts[mid];
+      if (rect.contains(center)) {
+        centerPage = mid;
+        break;
+      }
+      final before =
+          _isHorizontalScroll ? center.dx < rect.left : center.dy < rect.top;
+      if (before) {
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    final page =
+        centerPage >= 0 ? centerPage + 1 : _pdfViewerController.pageNumber;
+    if (page == null || page < 1 || page > layouts.length) return null;
+    final rect = layouts[page - 1];
+    if (rect.isEmpty) return null;
+    final viewport = ReadingViewport(
+      page: page,
+      pageCount: _pdfViewerController.pageCount,
+      zoom: _pdfViewerController.currentZoom,
+      x: (center.dx - rect.left) / rect.width,
+      y: (center.dy - rect.top) / rect.height,
+    );
+    return viewport.isValid ? viewport : null;
+  }
+
+  void _flushProgress() {
+    _progressSaveTimer?.cancel();
+    // Read the controller now, not a pending frame callback: navigation,
+    // lifecycle changes, and tab disposal can all happen before that callback.
+    final viewport = _currentViewport();
+    if (!_progressWritable ||
+        viewport == null ||
+        viewport.matches(_lastSavedViewport)) {
+      return;
+    }
+    _progressRepository.saveViewport(widget.item.path, viewport);
+    _lastSavedViewport = viewport;
+  }
+
+  Future<void> _restoreProgress(
+      PdfDocument document, PdfViewerController controller) async {
+    if (!mounted || _restoringProgress) return;
+    _restoringProgress = true;
+    final viewport = _initialViewport;
+    final zoom = _initialZoom;
+    // Never apply an old page-relative offset to a replacement/shortened PDF.
+    final canRestorePosition = viewport != null &&
+        viewport.isValid &&
+        viewport.page == _initialPage &&
+        viewport.zoom == zoom &&
+        viewport.pageCount == document.pages.length;
+    final targetZoom = zoom != null && zoom.isFinite && zoom > 0
+        ? zoom.clamp(controller.minScale, controller.maxScale).toDouble()
+        : controller.currentZoom;
+    var center = controller.centerPosition;
+    if (canRestorePosition) {
+      final rect = controller.layout.pageLayouts[viewport.page - 1];
+      final restoredCenter = Offset(rect.left + viewport.x * rect.width,
+          rect.top + viewport.y * rect.height);
+      // Finite serialized numbers can still overflow when scaled, or point
+      // outside the document. Fall back to the saved page in that case.
+      if (restoredCenter.dx.isFinite &&
+          restoredCenter.dy.isFinite &&
+          (Offset.zero & controller.documentSize).contains(restoredCenter)) {
+        center = restoredCenter;
+      }
+    }
+    await controller.goTo(controller.calcMatrixFor(center, zoom: targetZoom),
+        duration: Duration.zero);
+    if (!mounted || !controller.isReady) return;
+    _restoringProgress = false;
+    setState(() {
+      _documentReady = true;
+      _pageCount = document.pages.length;
+      _page = controller.pageNumber ?? _initialPage.clamp(1, _pageCount);
+    });
+    // Persist the normalized page/count even if it matches the displayed page.
+    // Inactive preloaded tabs must not overwrite a checkpoint before selection.
+    _progressWritable = widget.isActive && _routeVisible && _appActive;
+    if (_progressWritable) _flushProgress();
+    _logReader('ready', fields: {
+      'pages': _pageCount,
+      'elapsedMs': _openStopwatch.elapsedMilliseconds,
+    });
+    _onPdfViewerChanged();
+    _scheduleHide();
+  }
+
+  void _syncSystemUi() {
+    // Only the selected tab may own system UI. Toolbar hiding is independent
+    // of fullscreen, so disabling fullscreen stays disabled after auto-hide.
+    if (!widget.isActive) return;
+    SystemChrome.setEnabledSystemUIMode(
+      _isFullscreen && _routeVisible
+          ? SystemUiMode.immersiveSticky
+          : SystemUiMode.edgeToEdge,
+    );
   }
 
   void _onSearcherChanged() {
@@ -203,18 +374,22 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
 
   void _pauseReading({bool stopAutoScroll = true}) {
     _readingTimer?.cancel();
-    _autoScrollTimer?.cancel();
+    _autoScrollTicker.stop();
+    _lastAutoScrollFrame = null;
     if (stopAutoScroll && _isAutoScrolling && mounted) {
       setState(() => _isAutoScrolling = false);
     }
     _hideTimer?.cancel();
     _flushReadingTime();
+    _flushProgress();
+    _progressWritable = false;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appActive = state == AppLifecycleState.resumed;
     if (_appActive) {
+      _syncSystemUi();
       _startReadingTimer();
       if (widget.isActive && _keepAwake) WakelockPlus.enable();
       _scheduleHide();
@@ -224,6 +399,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   void _startReadingTimer() {
+    _progressWritable =
+        _documentReady && widget.isActive && _routeVisible && _appActive;
     _readingTimer?.cancel();
     _readingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!widget.isActive ||
@@ -253,9 +430,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         setState(() {
           _showToolbar = false;
         });
-        if (!_isFullscreen) {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        }
       }
     });
   }
@@ -267,27 +441,41 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       _startAutoScrollTimer();
       setState(() => _showToolbar = false);
     } else {
-      _autoScrollTimer?.cancel();
+      _autoScrollTicker.stop();
+      _lastAutoScrollFrame = null;
     }
   }
 
   void _startAutoScrollTimer() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (!mounted ||
-          !widget.isActive ||
-          !_routeVisible ||
-          !_appActive ||
-          !_pdfViewerController.isReady ||
-          _controlsOpen) {
-        return;
-      }
-      final center = _pdfViewerController.centerPosition;
-      _pdfViewerController.setZoom(
-        _isHorizontalScroll ? center.translate(2, 0) : center.translate(0, 2),
-        _pdfViewerController.currentZoom,
-      );
-    });
+    _lastAutoScrollFrame = null;
+    if (!_autoScrollTicker.isActive) _autoScrollTicker.start();
+  }
+
+  void _onAutoScrollFrame(Duration elapsed) {
+    final previous = _lastAutoScrollFrame;
+    _lastAutoScrollFrame = elapsed;
+    if (previous == null ||
+        !mounted ||
+        !widget.isActive ||
+        !_routeVisible ||
+        !_appActive ||
+        !_pdfViewerController.isReady ||
+        _controlsOpen) {
+      return;
+    }
+    // Keep the reading speed independent of refresh rate; don't catch up after
+    // an interrupted frame with a large, visible jump.
+    final seconds =
+        ((elapsed - previous).inMicroseconds / 1000000).clamp(0.0, 0.05);
+    final distance = 40 * seconds;
+    final center = _pdfViewerController.centerPosition;
+    _pdfViewerController.setZoom(
+      _isHorizontalScroll
+          ? center.translate(distance, 0)
+          : center.translate(0, distance),
+      _pdfViewerController.currentZoom,
+      duration: Duration.zero,
+    );
   }
 
   void _toggleToolbar() {
@@ -298,13 +486,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           _isSearching = false;
           _searchFocus.unfocus();
           _textSearcher?.resetTextSearch();
-        }
-        if (!_isFullscreen) {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        }
-      } else {
-        if (!_isFullscreen) {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
         }
       }
     });
@@ -329,145 +510,173 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     ref.listen<bool>(
         settingsControllerProvider.select((s) => s.keepScreenAwake),
         (_, next) => _keepAwake = next);
-    final fileExists = File(widget.item.path).existsSync();
+
     final ready = _documentReady && _pdfViewerController.isReady;
     final reducedMotion = MediaQuery.disableAnimationsOf(context) ||
         ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+
+    final lowPowerMode =
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final surfaceKey = (
+      theme.colorScheme,
+      reducedMotion,
+      lowPowerMode,
+      _isHorizontalScroll,
+      _rotationQuarterTurns,
+      _pdfDarkMode,
+      _textSearcher,
+    );
+    if (_documentSurfaceKey != surfaceKey) {
+      _documentSurfaceKey = surfaceKey;
+      _documentSurface = null;
+    }
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: Stack(
         children: [
-          // 1. PDF Viewer
-          if (!fileExists)
-            _buildLoadError(
-              context,
-              'The PDF file is unavailable or empty.',
-            )
-          else
-            Builder(
-              builder: (context) {
-                final viewer = PdfViewer.file(
-                  widget.item.path,
-                  initialPageNumber: _initialPage > 0 ? _initialPage : 1,
-                  controller: _pdfViewerController,
-                  passwordProvider: () async =>
-                      mounted ? _showPasswordPrompt(context) : null,
-                  params: PdfViewerParams(
-                    onViewerReady: (document, controller) {
-                      if (!mounted) return;
-                      // pdfrx 2.6 requires an attached, ready document here.
-                      _textSearcher?.removeListener(_onSearcherChanged);
-                      _textSearcher?.dispose();
-                      final searcher = PdfTextSearcher(controller);
-                      searcher.addListener(_onSearcherChanged);
-                      _textSearcher = searcher;
-                      if (_initialZoom case final zoom?
-                          when zoom.isFinite && zoom > 0) {
-                        controller.setZoom(controller.centerPosition, zoom);
-                      }
-                      setState(() {
-                        _documentReady = true;
-                        _pageCount = document.pages.length;
-                        _page = controller.pageNumber ?? 1;
-                      });
-                      _onPdfViewerChanged();
-                      _scheduleHide();
-                    },
-                    loadingBannerBuilder:
-                        (context, bytesDownloaded, totalBytes) =>
-                            const Center(child: ArcProgressIndicator()),
-                    errorBannerBuilder:
-                        (context, error, stackTrace, documentRef) {
-                      return _buildLoadError(
-                          context,
-                          'The file could not be read. It may be damaged, '
-                          'password-protected, or no longer accessible. '
-                          'Go back and try opening it again.');
-                    },
-                    backgroundColor: theme.colorScheme.surface,
-                    pageDropShadow: const BoxShadow(color: Colors.transparent),
-                    margin: 4.0,
-                    sizeDelegateProvider:
-                        const PdfViewerSizeDelegateProviderLegacy(
-                            maxScale: 8.0),
-                    layoutPages: _isHorizontalScroll
-                        ? (pages, params) {
-                            final height = pages.fold(
-                                    0.0,
-                                    (prev, page) => prev > page.height
-                                        ? prev
-                                        : page.height) +
-                                params.margin * 2;
-                            final pageLayouts = <Rect>[];
-                            double x = params.margin;
-                            for (final page in pages) {
-                              pageLayouts.add(Rect.fromLTWH(
-                                x,
-                                (height - page.height) / 2,
-                                page.width,
-                                page.height,
-                              ));
-                              x += page.width + params.margin;
-                            }
-                            return PdfPageLayout(
-                                pageLayouts: pageLayouts,
-                                documentSize: Size(x, height));
+          // Page counters and chrome changes must not rebuild the PDF renderer.
+          _documentSurface ??= FutureBuilder<bool>(
+            future: _fileExists,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError || snapshot.data != true) {
+                return _buildLoadError(
+                    context, 'The PDF file is unavailable or empty.');
+              }
+              final viewer = PdfViewer.file(
+                widget.item.path,
+                key: _viewerKey,
+                initialPageNumber: _initialPage > 0 ? _initialPage : 1,
+                controller: _pdfViewerController,
+                passwordProvider: () async =>
+                    mounted ? _showPasswordPrompt(context) : null,
+                params: PdfViewerParams(
+                  onViewerReady: (document, controller) {
+                    if (!mounted) return;
+                    // pdfrx 2.6 requires an attached, ready document here.
+                    _textSearcher?.removeListener(_onSearcherChanged);
+                    _textSearcher?.dispose();
+                    final searcher = PdfTextSearcher(controller);
+                    searcher.addListener(_onSearcherChanged);
+                    _textSearcher = searcher;
+                    unawaited(_restoreProgress(document, controller));
+                  },
+                  loadingBannerBuilder:
+                      (context, bytesDownloaded, totalBytes) =>
+                          const Center(child: CircularProgressIndicator()),
+                  errorBannerBuilder:
+                      (context, error, stackTrace, documentRef) {
+                    unawaited(AppLogger.error(
+                        'reader.render.failed', error, stackTrace));
+                    return _buildLoadError(
+                        context,
+                        'The file could not be read. It may be damaged, '
+                        'password-protected, or no longer accessible. '
+                        'Go back and try opening it again.');
+                  },
+                  backgroundColor: theme.colorScheme.surface,
+                  pageDropShadow: null,
+                  // InteractiveViewer's default fling stops quickly. Normal
+                  // scrolling physics lets fast swipes travel across pages.
+                  scrollPhysics: const BouncingScrollPhysics(),
+                  scrollPhysicsScale: const ClampingScrollPhysics(),
+                  scrollByMouseWheel: 1.0,
+                  interactionDelegateProvider: reducedMotion
+                      ? const PdfViewerScrollInteractionDelegateProviderInstant()
+                      : const PdfViewerScrollInteractionDelegateProviderPhysics(
+                          panFriction: 20,
+                          zoomFriction: 20,
+                        ),
+                  horizontalCacheExtent: _isHorizontalScroll ? 1.0 : 0.25,
+                  verticalCacheExtent: _isHorizontalScroll ? 0.25 : 1.0,
+                  maxImageBytesCachedOnMemory:
+                      (lowPowerMode ? 48 : 80) * 1024 * 1024,
+                  onePassRenderingSizeThreshold: lowPowerMode ? 1200 : 1600,
+                  margin: 4.0,
+                  sizeDelegateProvider:
+                      const PdfViewerSizeDelegateProviderLegacy(maxScale: 8),
+                  matchTextColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.16),
+                  activeMatchTextColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.32),
+                  layoutPages: _isHorizontalScroll
+                      ? (pages, params) {
+                          final height = pages.fold(
+                                  0.0,
+                                  (prev, page) =>
+                                      prev > page.height ? prev : page.height) +
+                              params.margin * 2;
+                          final pageLayouts = <Rect>[];
+                          double x = params.margin;
+                          for (final page in pages) {
+                            pageLayouts.add(Rect.fromLTWH(
+                              x,
+                              (height - page.height) / 2,
+                              page.width,
+                              page.height,
+                            ));
+                            x += page.width + params.margin;
                           }
-                        : null,
-                    pagePaintCallbacks: [
-                      if (_textSearcher case final searcher?)
-                        searcher.pageTextMatchPaintCallback,
-                    ],
-                    viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                      GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTapUp: (details) {
-                          if (!handleLinkTap(details.localPosition)) {
-                            _toggleToolbar();
-                          }
-                        },
-                        child: SizedBox(width: size.width, height: size.height),
-                      ),
-                    ],
-                  ),
-                );
-
-                return RepaintBoundary(
-                  child: RotatedBox(
-                    quarterTurns: _rotationQuarterTurns,
-                    child: ColorFiltered(
-                      colorFilter: _pdfDarkMode
-                          ? const ColorFilter.matrix([
-                              -0.333,
-                              -0.333,
-                              -0.333,
-                              0,
-                              255,
-                              -0.333,
-                              -0.333,
-                              -0.333,
-                              0,
-                              255,
-                              -0.333,
-                              -0.333,
-                              -0.333,
-                              0,
-                              255,
-                              0,
-                              0,
-                              0,
-                              1,
-                              0,
-                            ])
-                          : const ColorFilter.mode(
-                              Colors.transparent, BlendMode.srcOver),
-                      child: viewer,
+                          return PdfPageLayout(
+                              pageLayouts: pageLayouts,
+                              documentSize: Size(x, height));
+                        }
+                      : null,
+                  pagePaintCallbacks: [
+                    if (_textSearcher case final searcher?)
+                      searcher.pageTextMatchPaintCallback,
+                  ],
+                  viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                    GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: (details) {
+                        if (!handleLinkTap(details.localPosition)) {
+                          _toggleToolbar();
+                        }
+                      },
+                      child: SizedBox(width: size.width, height: size.height),
                     ),
-                  ),
-                );
-              },
-            ),
+                  ],
+                ),
+              );
+
+              return RepaintBoundary(
+                child: RotatedBox(
+                  quarterTurns: _rotationQuarterTurns,
+                  child: _pdfDarkMode
+                      ? ColorFiltered(
+                          colorFilter: const ColorFilter.matrix([
+                            -0.333,
+                            -0.333,
+                            -0.333,
+                            0,
+                            255,
+                            -0.333,
+                            -0.333,
+                            -0.333,
+                            0,
+                            255,
+                            -0.333,
+                            -0.333,
+                            -0.333,
+                            0,
+                            255,
+                            0,
+                            0,
+                            0,
+                            1,
+                            0,
+                          ]),
+                          child: viewer,
+                        )
+                      : viewer,
+                ),
+              );
+            },
+          ),
 
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
@@ -706,7 +915,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
 
   void _goToPage(int page) {
     if (!_pdfViewerController.isReady) return;
-    _pdfViewerController.goToPage(pageNumber: page.clamp(1, _pageCount));
+    final target = page.clamp(1, _pageCount);
+    _logReader('page.jump', fields: {'from': _page, 'to': target});
+    final reducedMotion = MediaQuery.disableAnimationsOf(context) ||
+        ref.read(settingsControllerProvider).lowPowerMode;
+    _pdfViewerController.goToPage(
+      pageNumber: target,
+      duration:
+          reducedMotion ? Duration.zero : const Duration(milliseconds: 180),
+    );
     _scheduleHide();
   }
 
@@ -714,6 +931,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     if (_controlsOpen) return;
     _hideTimer?.cancel();
     _controlsOpen = true;
+    _logReader('controls.open');
     try {
       final isFavorite = ref
           .read(pdfLibraryControllerProvider)
@@ -747,12 +965,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       );
       if (!mounted || action == null) return;
       await _handleReaderAction(action);
-    } catch (error) {
+    } catch (error, stack) {
+      unawaited(AppLogger.error('reader.action.failed', error, stack));
       if (mounted) {
         PdfErrorHandler.show(context, error,
             contextMessage: 'Could not complete document action');
       }
     } finally {
+      _logReader('controls.close');
       _controlsOpen = false;
       if (mounted) {
         if (_isAutoScrolling && _routeVisible && _appActive) {
@@ -764,12 +984,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   Future<void> _handleReaderAction(ReaderAction action) async {
+    _logReader('action', fields: {'action': action.name, 'page': _page});
     final reducedMotion = MediaQuery.disableAnimationsOf(context) ||
         ref.read(settingsControllerProvider).lowPowerMode;
     switch (action) {
       case ReaderAction.pageColors:
         setState(() => _pdfDarkMode = !_pdfDarkMode);
       case ReaderAction.favorite:
+        ref.read(hapticServiceProvider).selectionClick();
         await ref
             .read(pdfLibraryControllerProvider.notifier)
             .toggleFavorite(widget.item);
@@ -794,9 +1016,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           _isFullscreen = !_isFullscreen;
           _showToolbar = !_isFullscreen;
         });
-        await SystemChrome.setEnabledSystemUIMode(_isFullscreen
-            ? SystemUiMode.immersiveSticky
-            : SystemUiMode.edgeToEdge);
+        _syncSystemUi();
       case ReaderAction.autoScroll:
         _toggleAutoScroll();
       case ReaderAction.keepAwake:
@@ -828,6 +1048,10 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   Widget _buildLoadError(BuildContext context, String message) {
+    if (!_loadFailureLogged) {
+      _loadFailureLogged = true;
+      _logReader('load.failed');
+    }
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -911,12 +1135,11 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   Future<String?> _showPasswordPrompt(BuildContext context) async {
-    final theme = Theme.of(context);
-
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
+        final theme = Theme.of(context);
         String password = '';
         return Dialog(
           shape:
@@ -988,12 +1211,15 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   Future<void> _showThumbnails() async {
-    final theme = Theme.of(context);
-    showModalBottomSheet<void>(
+    _logReader('pages.open');
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 640),
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final theme = Theme.of(context);
         return DraggableScrollableSheet(
           initialChildSize: 0.6,
           minChildSize: 0.4,
@@ -1018,76 +1244,123 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Page Thumbnails',
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Pages',
+                                  style: theme.textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w700)),
+                              Text('$_pageCount pages · Current page $_page',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  )),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close pages',
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: GridView.builder(
                       controller: scrollController,
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.fromLTRB(20, 12, 20,
+                          MediaQuery.paddingOf(context).bottom + 20),
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(200),
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 180,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
                         childAspectRatio: 0.7,
                       ),
                       itemCount: _pageCount,
                       itemBuilder: (context, index) {
                         final pageNum = index + 1;
-                        return GestureDetector(
-                          onTap: () {
-                            _pdfViewerController.goToPage(pageNumber: pageNum);
-                            Navigator.of(context).pop();
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                              border: _page == pageNum
-                                  ? Border.all(
-                                      color: theme.colorScheme.primary,
-                                      width: 3)
-                                  : null,
-                            ),
+                        return Semantics(
+                          button: true,
+                          selected: _page == pageNum,
+                          label: 'Page $pageNum',
+                          child: Material(
+                            color: theme.colorScheme.surfaceContainerHigh,
+                            borderRadius:
+                                BorderRadius.circular(ArcColors.buttonRadius),
                             clipBehavior: Clip.antiAlias,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                if (_pdfViewerController.isReady)
-                                  PdfPageView(
-                                    document: _pdfViewerController.document,
-                                    pageNumber: pageNum,
-                                  ),
-                                Positioned(
-                                  bottom: 4,
-                                  right: 4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.6),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '$pageNum',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold),
-                                    ),
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _goToPage(pageNum);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                      ArcColors.buttonRadius),
+                                  border: Border.all(
+                                    color: _page == pageNum
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.outlineVariant
+                                            .withValues(alpha: 0.5),
+                                    width: _page == pageNum ? 2 : 1,
                                   ),
                                 ),
-                              ],
+                                clipBehavior: Clip.antiAlias,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (_pdfViewerController.isReady)
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                            10, 10, 10, 34),
+                                        child: RepaintBoundary(
+                                          child: PdfPageView(
+                                            document:
+                                                _pdfViewerController.document,
+                                            pageNumber: pageNum,
+                                          ),
+                                        ),
+                                      ),
+                                    Positioned(
+                                      bottom: 8,
+                                      left: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _page == pageNum
+                                              ? theme.colorScheme.onSurface
+                                              : theme.colorScheme
+                                                  .surfaceContainerHigh,
+                                          borderRadius: BorderRadius.circular(
+                                              ArcColors.pillRadius),
+                                        ),
+                                        child: Text(
+                                          '$pageNum',
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
+                                            color: _page == pageNum
+                                                ? theme.colorScheme.surface
+                                                : theme.colorScheme
+                                                    .onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         );
@@ -1101,6 +1374,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         );
       },
     );
+    _logReader('pages.close');
   }
 
   Future<void> _showJumpToPageDialog() async {
@@ -1165,12 +1439,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       return;
     }
 
-    final theme = Theme.of(context);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final theme = Theme.of(context);
         return DraggableScrollableSheet(
           initialChildSize: 0.6,
           minChildSize: 0.4,
@@ -1239,7 +1513,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   }
 
   Future<void> _showPdfInfo() async {
-    final theme = Theme.of(context);
     final sizeStr = (widget.item.sizeBytes / (1024 * 1024)).toStringAsFixed(2);
     final dateStr =
         DateFormat.yMMMd().add_jm().format(widget.item.lastModified);
@@ -1250,13 +1523,14 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         '${(totalTimeSec / 60).floor()} min ${totalTimeSec % 60} sec';
     final completionStr = _pageCount > 0
         ? '${((_page / _pageCount) * 100).toStringAsFixed(1)}%'
-        : '0%';
+        : 'Not loaded';
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final theme = Theme.of(context);
         return SafeArea(
           top: false,
           child: SingleChildScrollView(

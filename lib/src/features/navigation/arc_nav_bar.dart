@@ -2,12 +2,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../settings/settings_controller.dart';
 import '../settings/haptic_service.dart';
 import 'navigation_controller.dart';
 import '../../shared/theme/arc_colors.dart';
+
+const _destinationRadius = BorderRadius.all(Radius.circular(28));
 
 class ArcNavBar extends ConsumerStatefulWidget {
   const ArcNavBar({super.key, required this.selectedIndex});
@@ -43,14 +44,19 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
         settings.lowPowerMode || MediaQuery.disableAnimationsOf(context);
     final isBlur = settings.useBlurEffect && !settings.lowPowerMode;
     final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
-    final double sigma = isLiquid ? 48.0 : 24.0;
+    final double sigma = isLiquid ? 20.0 : 12.0;
+    final duration = reduceMotion
+        ? Duration.zero
+        : Duration(milliseconds: (260 * settings.animationSpeed).round());
 
     final navBg = theme.colorScheme.surfaceContainerHigh;
     final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.38 : 0.64);
 
     Widget navContainer = Container(
-      height:
-          64 + (MediaQuery.textScalerOf(context).scale(11) - 11).clamp(0, 24),
+      height: 48 +
+          MediaQuery.textScalerOf(context)
+                  .scale(theme.textTheme.labelSmall?.fontSize ?? 11) *
+              (theme.textTheme.labelSmall?.height ?? 1.4),
       decoration: BoxDecoration(
         color: isBlur ? bgColor : navBg.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
@@ -72,20 +78,17 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
 
         return Stack(
           children: [
-            // Fluid Pill Indicator
             AnimatedPositioned(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 400),
-              curve: Curves.easeOutBack, // Bouncy slide
-              left: (itemWidth * widget.selectedIndex) + 12,
-              top: 10,
-              bottom: 10,
-              width: itemWidth - 24,
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              left: (itemWidth * widget.selectedIndex) + 4,
+              top: 6,
+              bottom: 6,
+              width: itemWidth - 8,
               child: Container(
                 decoration: BoxDecoration(
-                  color: ArcColors.active.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: _destinationRadius,
                 ),
               ),
             ),
@@ -99,66 +102,61 @@ class _ArcNavBarState extends ConsumerState<ArcNavBar> {
                     ? theme.colorScheme.onSurface
                     : theme.colorScheme.onSurfaceVariant;
 
-                Widget iconWidget = Icon(_icons[index], color: color, size: 24);
+                final iconWidget = Icon(_icons[index], color: color, size: 24);
 
-                if (!reduceMotion && isSelected) {
-                  // Jelly squash and stretch effect when selected
-                  iconWidget = iconWidget
-                      .animate(key: ValueKey(index))
-                      .scaleX(
-                          begin: 1.4,
-                          end: 1.0,
-                          duration: 500.ms,
-                          curve: Curves.elasticOut)
-                      .scaleY(
-                          begin: 0.6,
-                          end: 1.0,
-                          duration: 500.ms,
-                          curve: Curves.elasticOut);
-                } else if (!reduceMotion) {
-                  iconWidget =
-                      iconWidget.animate().scale(begin: const Offset(0.9, 0.9));
+                void activate() {
+                  if (index != widget.selectedIndex) {
+                    ref.read(hapticServiceProvider).selectionClick();
+                    ref
+                        .read(navigationControllerProvider.notifier)
+                        .setIndex(index);
+                  }
                 }
 
                 return Expanded(
                   child: Semantics(
+                    label: _labels[index],
                     button: true,
                     selected: isSelected,
+                    onTap: activate,
                     child: Tooltip(
                       message: _labels[index],
                       excludeFromSemantics: true,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          focusColor:
-                              theme.colorScheme.primary.withValues(alpha: 0.2),
-                          onTap: () {
-                            if (index != widget.selectedIndex) {
-                              ref.read(hapticServiceProvider).selectionClick();
-                              ref
-                                  .read(navigationControllerProvider.notifier)
-                                  .setIndex(index);
-                            }
-                          },
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                iconWidget,
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    _labels[index],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: color,
-                                      letterSpacing: 0.3,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 6),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: _destinationRadius,
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            borderRadius: _destinationRadius,
+                            excludeFromSemantics: true,
+                            focusColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.2),
+                            onTap: activate,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  iconWidget,
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4),
+                                    child: Text(
+                                      _labels[index],
+                                      semanticsLabel: '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.labelSmall?.copyWith(
+                                        color: color,
+                                        letterSpacing: 0.3,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),

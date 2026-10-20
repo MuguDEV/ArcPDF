@@ -14,7 +14,7 @@ class LockScreenWrapper extends ConsumerStatefulWidget {
 
 class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper>
     with WidgetsBindingObserver {
-  bool _isAuthenticating = false;
+  bool _hasAttemptedBiometrics = false;
 
   @override
   void initState() {
@@ -34,6 +34,10 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = ref.read(securityControllerProvider.notifier);
+    // Native authentication can itself background the app. Its lifecycle events
+    // must not create another lock session or restart the native prompt.
+    if (controller.isAuthenticating) return;
     final security = ref.read(securityControllerProvider);
     // Ignore inactive state because it's triggered by system dialogs, file pickers, etc.
     if (state == AppLifecycleState.paused ||
@@ -46,23 +50,30 @@ class _LockScreenWrapperState extends ConsumerState<LockScreenWrapper>
     }
   }
 
-  void _checkBiometrics() async {
-    if (_isAuthenticating) return;
+  void _checkBiometrics() {
+    if (!mounted || _hasAttemptedBiometrics) return;
     final security = ref.read(securityControllerProvider);
     if (security.isLockEnabled &&
         security.isLocked &&
         security.isBiometricEnabled) {
-      _isAuthenticating = true;
-      await ref
-          .read(securityControllerProvider.notifier)
-          .authenticateBiometric();
-      _isAuthenticating = false;
+      // Cancellation/failure consumes the automatic attempt for this lock
+      // session. The overlay's button remains available for explicit retries.
+      _hasAttemptedBiometrics = true;
+      ref.read(securityControllerProvider.notifier).authenticateBiometric();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final security = ref.watch(securityControllerProvider);
+    ref.listen(securityControllerProvider, (previous, next) {
+      if (!next.isLocked || !next.isLockEnabled) {
+        _hasAttemptedBiometrics = false;
+      } else if (previous?.isLocked != true ||
+          previous?.isLockEnabled != true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _checkBiometrics());
+      }
+    });
 
     return Stack(
       children: [

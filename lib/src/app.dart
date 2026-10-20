@@ -8,11 +8,12 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'dart:io';
 
 import 'features/settings/settings_controller.dart';
-import 'shared/utils/traced_page_transitions_builder.dart';
+
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
 import 'features/pdf/viewer/route_observer.dart';
-import 'shared/theme/arc_colors.dart';
+import 'shared/theme/arc_theme.dart';
+import 'core/utils/app_diagnostics.dart';
 
 class ArcPdfApp extends ConsumerStatefulWidget {
   const ArcPdfApp({super.key});
@@ -22,6 +23,33 @@ class ArcPdfApp extends ConsumerStatefulWidget {
 }
 
 class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
+  final _logNavigatorObserver = AppLogNavigatorObserver();
+  ({
+    AppFontFamily font,
+    ArcAccent accent,
+    HighContrastMode contrast
+  })? _themeKey;
+  ArcThemeSet? _themes;
+
+  /// Themes only change with font, accent or contrast, not with every
+  /// slider tick in Settings.
+  ArcThemeSet _themesFor(
+    AppFontFamily font,
+    ArcAccent accent,
+    HighContrastMode contrast,
+  ) {
+    final key = (font: font, accent: accent, contrast: contrast);
+    final cached = _themes;
+    if (cached != null && _themeKey == key) return cached;
+    _themeKey = key;
+    return _themes = buildArcThemeSet(
+      accent: accent,
+      contrast: contrast,
+      textTheme: (brightness) =>
+          ArcTypography.textTheme(brightness, family: font),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -73,256 +101,7 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       Animate.defaultDuration = (300 * settings.animationSpeed).ms;
     }
 
-    const lightColorScheme = ColorScheme(
-      brightness: Brightness.light,
-      primary: Color(0xFF303030),
-      onPrimary: Color(0xFFFFFFFF),
-      primaryContainer: Color(0xFFE0E0E0),
-      onPrimaryContainer: Color(0xFF1E1E1E),
-      secondary: Color(0xFF606060),
-      onSecondary: Color(0xFFFFFFFF),
-      secondaryContainer: Color(0xFFEBEBEB),
-      onSecondaryContainer: Color(0xFF1E1E1E),
-      tertiary: Color(0xFF757575),
-      onTertiary: Color(0xFFFFFFFF),
-      tertiaryContainer: Color(0xFFEEEEEE),
-      onTertiaryContainer: Color(0xFF1E1E1E),
-      error: Color(0xFF424242),
-      onError: Color(0xFFFFFFFF),
-      errorContainer: Color(0xFFE0E0E0),
-      onErrorContainer: Color(0xFF1E1E1E),
-      surface: Color(0xFFECECEC),
-      onSurface: Color(0xFF171717),
-      surfaceContainerHighest: Color(0xFFD0D0D0),
-      surfaceContainerHigh: Color(0xFFE0E0E0),
-      surfaceContainer: Color(0xFFE6E6E6),
-      surfaceContainerLow: Color(0xFFF7F7F7),
-      surfaceContainerLowest: Color(0xFFFFFFFF),
-      onSurfaceVariant: Color(0xFF424242),
-      outline: Color(0xFF9E9E9E),
-      outlineVariant: Color(0xFFE0E0E0),
-      shadow: Color(0xFF000000),
-      scrim: Color(0xFF000000),
-      inverseSurface: Color(0xFF303030),
-      onInverseSurface: Color(0xFFF5F5F5),
-      inversePrimary: Color(0xFFE0E0E0),
-      surfaceTint: Colors.transparent,
-    );
-
-    const darkColorScheme = ColorScheme(
-      brightness: Brightness.dark,
-      primary: Color(0xFFE0E0E0),
-      onPrimary: Color(0xFF1E1E1E),
-      primaryContainer: Color(0xFF424242),
-      onPrimaryContainer: Color(0xFFFFFFFF),
-      secondary: Color(0xFFA0A0A0),
-      onSecondary: Color(0xFF1E1E1E),
-      secondaryContainer: Color(0xFF303030),
-      onSecondaryContainer: Color(0xFFFFFFFF),
-      tertiary: Color(0xFF9E9E9E),
-      onTertiary: Color(0xFF1E1E1E),
-      tertiaryContainer: Color(0xFF424242),
-      onTertiaryContainer: Color(0xFFFFFFFF),
-      error: Color(0xFFBDBDBD),
-      onError: Color(0xFF1E1E1E),
-      errorContainer: Color(0xFF424242),
-      onErrorContainer: Color(0xFFFFFFFF),
-      surface: Color(0xFF121212),
-      onSurface: Color(0xFFE0E0E0),
-      surfaceContainerHighest: Color(0xFF383838),
-      surfaceContainerHigh: Color(0xFF2C2C2C),
-      surfaceContainer: Color(0xFF242424),
-      surfaceContainerLow: Color(0xFF1E1E1E),
-      surfaceContainerLowest: Color(0xFF0F0F0F),
-      onSurfaceVariant: Color(0xFFBDBDBD),
-      outline: Color(0xFF757575),
-      outlineVariant: Color(0xFF424242),
-      shadow: Color(0xFF000000),
-      scrim: Color(0xFF000000),
-      inverseSurface: Color(0xFFE0E0E0),
-      onInverseSurface: Color(0xFF1E1E1E),
-      inversePrimary: Color(0xFF303030),
-      surfaceTint: Colors.transparent,
-    );
-
-    ThemeData buildTheme(ColorScheme colorScheme, Brightness brightness) {
-      final textTheme = ArcTypography.textTheme(brightness, family: font);
-
-      return ThemeData(
-        useMaterial3: true,
-        colorScheme: colorScheme.copyWith(
-          primary: brightness == Brightness.light ? Colors.black : Colors.white,
-          onPrimary:
-              brightness == Brightness.light ? Colors.white : Colors.black,
-          secondary: brightness == Brightness.light
-              ? Colors.grey.shade800
-              : Colors.grey.shade300,
-        ),
-        brightness: brightness,
-        textTheme: textTheme,
-        scaffoldBackgroundColor: colorScheme.surface,
-        splashColor:
-            brightness == Brightness.light ? Colors.black12 : Colors.white12,
-        highlightColor:
-            brightness == Brightness.light ? Colors.black12 : Colors.white12,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        pageTransitionsTheme: const PageTransitionsTheme(builders: {
-          TargetPlatform.android: TracedZoomPageTransitionsBuilder(
-            allowEnterRouteSnapshotting: false,
-          )
-        }),
-        appBarTheme: AppBarTheme(
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.onSurface,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.cardRadius)),
-          clipBehavior: Clip.antiAlias,
-          color: colorScheme.surfaceContainerLow,
-          elevation: 0,
-        ),
-        dialogTheme: DialogThemeData(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.dialogRadius)),
-          backgroundColor: colorScheme.surfaceContainerHigh,
-          elevation: 0,
-        ),
-        bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: colorScheme.surfaceContainerHigh,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(ArcColors.sheetRadius),
-            ),
-          ),
-          elevation: 0,
-        ),
-        chipTheme: ChipThemeData(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.pillRadius)),
-          side: BorderSide.none,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: const BorderSide(width: 1.0),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(width: 1.0, color: colorScheme.outline),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(width: 2.0, color: colorScheme.primary),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(width: 1.0, color: colorScheme.error),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
-            borderSide: BorderSide(width: 2.0, color: colorScheme.error),
-          ),
-          filled: true,
-          fillColor: colorScheme.surfaceContainerHighest,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: colorScheme.surfaceContainerLow,
-          indicatorShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
-        ),
-        dividerTheme: const DividerThemeData(
-          color: ArcColors.divider,
-          space: 1,
-          thickness: 1,
-        ),
-        listTileTheme: const ListTileThemeData(
-          minTileHeight: ArcColors.minRowHeight,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
-          dense: true,
-          visualDensity: VisualDensity(horizontal: -1, vertical: -1),
-        ),
-        popupMenuTheme: PopupMenuThemeData(
-          color: colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-          ),
-          menuPadding: EdgeInsets.zero,
-        ),
-        radioTheme: RadioThemeData(
-          fillColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? ArcColors.active
-                : ArcColors.outlineToken,
-          ),
-        ),
-        checkboxTheme: CheckboxThemeData(
-          fillColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? ArcColors.active
-                : Colors.transparent,
-          ),
-          checkColor: const WidgetStatePropertyAll(Colors.black),
-        ),
-        switchTheme: SwitchThemeData(
-          thumbColor: const WidgetStatePropertyAll(ArcColors.active),
-          trackColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? ArcColors.active.withValues(alpha: 0.35)
-                : ArcColors.outlineToken.withValues(alpha: 0.35),
-          ),
-        ),
-        segmentedButtonTheme: SegmentedButtonThemeData(
-          style: ButtonStyle(
-            minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: ArcColors.space12),
-            ),
-            shape: WidgetStatePropertyAll(
-              RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-              ),
-            ),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(64, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-            ),
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            minimumSize: const Size(64, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-            ),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(64, 48),
-            side: BorderSide(width: 1.0, color: colorScheme.outline),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-            ),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(64, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
-            ),
-          ),
-        ),
-      );
-    }
+    final themes = _themesFor(font, settings.accent, settings.highContrast);
 
     // Create a global scroll behavior to enforce bouncing everywhere
     final scrollBehavior = const MaterialScrollBehavior().copyWith(
@@ -337,10 +116,12 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
       navigatorKey: ref.read(intentServiceProvider).navigatorKey,
       debugShowCheckedModeBanner: false,
       themeMode: settings.themeMode,
-      theme: buildTheme(lightColorScheme, Brightness.light),
-      darkTheme: buildTheme(darkColorScheme, Brightness.dark),
+      theme: themes.light,
+      darkTheme: themes.dark,
+      highContrastTheme: themes.highContrastLight,
+      highContrastDarkTheme: themes.highContrastDark,
       scrollBehavior: scrollBehavior,
-      navigatorObservers: [pdfRouteObserver],
+      navigatorObservers: [pdfRouteObserver, _logNavigatorObserver],
       home: const AppShell(),
       builder: (context, child) =>
           LockScreenWrapper(child: child ?? const SizedBox.shrink()),
