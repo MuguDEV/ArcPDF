@@ -592,8 +592,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                         ),
                   horizontalCacheExtent: _isHorizontalScroll ? 1.0 : 0.25,
                   verticalCacheExtent: _isHorizontalScroll ? 0.25 : 1.0,
-                  maxImageBytesCachedOnMemory:
-                      (lowPowerMode ? 48 : 80) * 1024 * 1024,
+                  maxImageBytesCachedOnMemory: (lowPowerMode ? 24 : 64) * 1024 * 1024,
                   onePassRenderingSizeThreshold: lowPowerMode ? 1200 : 1600,
                   margin: 4.0,
                   sizeDelegateProvider:

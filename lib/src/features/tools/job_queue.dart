@@ -1,5 +1,7 @@
 import 'dart:async';
 
+enum JobState { queued, running, cancelling, completed, failed, cancelled }
+
 class JobProgress {
   final double percentage;
   final String stage;
@@ -22,12 +24,13 @@ class JobQueue {
 
   Future<T> enqueue<T>(Job<T> job, {void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled}) {
     final completer = Completer<T>();
-    _queue.add(_JobEntry<T>(
+    final entry = _JobEntry<T>(
       job: job,
       completer: completer,
       onProgress: onProgress,
       checkCancelled: checkCancelled,
-    ));
+    );
+    _queue.add(entry);
     _processQueue();
     return completer.future;
   }
@@ -37,6 +40,7 @@ class JobQueue {
 
     _activeJobs++;
     final entry = _queue.removeAt(0);
+    entry.state = JobState.running;
 
     _runJob(entry).whenComplete(() {
       _activeJobs--;
@@ -50,8 +54,14 @@ class JobQueue {
         entry.onProgress,
         entry.checkCancelled
       );
+      if (entry.state == JobState.cancelling) {
+         entry.state = JobState.cancelled;
+      } else {
+         entry.state = JobState.completed;
+      }
       entry.completer.complete(result);
     } catch (e, st) {
+      entry.state = JobState.failed;
       entry.completer.completeError(e, st);
     }
   }
@@ -62,6 +72,7 @@ class _JobEntry<T> {
   final Completer<T> completer;
   final void Function(JobProgress progress)? onProgress;
   final Future<void> Function()? checkCancelled;
+  JobState state = JobState.queued;
 
   _JobEntry({
     required this.job,

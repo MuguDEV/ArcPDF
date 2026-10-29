@@ -131,7 +131,9 @@ class ToolsService {
   static Future<String?> _compressPdfImpl(String inputPath, String outputPath,
       {int quality = 40,
       int maxThreads = 2,
-      Future<PdfDocument> Function(String)? openDocument}) async {
+      Future<PdfDocument> Function(String)? openDocument,
+      void Function(JobProgress)? onProgress,
+      Future<void> Function()? checkCancelled}) async {
     if (maxThreads < 1 ||
         quality < 1 ||
         quality > 100 ||
@@ -153,6 +155,8 @@ class ToolsService {
           double originalHeight
         })>[];
         final end = (start + maxThreads).clamp(0, document.pages.length);
+        if (onProgress != null) onProgress(JobProgress(percentage: start / document.pages.length, stage: "Compressing pages..."));
+        if (checkCancelled != null) await checkCancelled();
         for (var index = start; index < end; index++) {
           final page = document.pages[index];
           final scale = [1.0, 1200 / page.width, 1600 / page.height]
@@ -228,8 +232,8 @@ class ToolsService {
       if (document.pages.isEmpty) return null;
       output = await Directory(outputParent).createTemp('Extracted_');
       for (var index = 0; index < document.pages.length; index++) {
-        if (onProgress != null) if (onProgress != null) onProgress(JobProgress(percentage: index / document.pages.length, stage: "Extracting pages..."));
-        if (checkCancelled != null) if (checkCancelled != null) await checkCancelled();
+        if (onProgress != null) onProgress(JobProgress(percentage: index / document.pages.length, stage: "Extracting pages..."));
+        if (checkCancelled != null) await checkCancelled();
         final page = document.pages[index];
         final image =
             await page.render(fullWidth: page.width, fullHeight: page.height);
@@ -358,9 +362,15 @@ class _ImagesToPdfJob extends Job<String?> {
         if (onProgress != null) onProgress(JobProgress(percentage: i / imagePaths.length, stage: 'Converting images...'));
         if (checkCancelled != null) await checkCancelled();
 
-        final decoded = img.decodeImage(File(path).readAsBytesSync());
-        if (decoded == null) return null;
-        final bitmap = syncfusion.PdfBitmap(img.encodePng(decoded));
+        final bytes = File(path).readAsBytesSync();
+        syncfusion.PdfBitmap bitmap;
+        try {
+          bitmap = syncfusion.PdfBitmap(bytes);
+        } catch (_) {
+          final decoded = img.decodeImage(bytes);
+          if (decoded == null) return null;
+          bitmap = syncfusion.PdfBitmap(img.encodePng(decoded));
+        }
         final size =
             Size(bitmap.width.toDouble(), bitmap.height.toDouble());
         ToolsService.addPage(document, size).graphics.drawImage(
@@ -387,7 +397,7 @@ class _CompressPdfJob extends Job<String?> {
   @override
   Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) {
     // A wrapper around the original implementation
-    return ToolsService._compressPdfImpl(inputPath, outputPath, quality: quality, maxThreads: maxThreads, openDocument: openDocument);
+    return ToolsService._compressPdfImpl(inputPath, outputPath, quality: quality, maxThreads: maxThreads, openDocument: openDocument, onProgress: onProgress, checkCancelled: checkCancelled);
   }
 }
 
