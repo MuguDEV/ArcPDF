@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import '../application/pdf_error_handler.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -319,7 +318,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               },
               child: CustomScrollView(
-                scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+                cacheExtent: 200.0,
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
@@ -1055,7 +1054,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     showGlassModalBottomSheet(
       context: context,
       builder: (context) {
-        final state = ref.watch(pdfLibraryControllerProvider);
+        final state = ref.read(pdfLibraryControllerProvider);
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(

@@ -97,14 +97,14 @@ void main() {
     var list =
         tester.widget<ReorderableListView>(find.byType(ReorderableListView));
     expect(list.itemCount, 3);
-    list.onReorderItem!(0, 2);
+    list.onReorder!(0, 2);
     await tester.pump();
     expect(tester.getTopLeft(find.text('b')).dy,
         lessThan(tester.getTopLeft(find.text('c')).dy));
     expect(tester.getTopLeft(find.text('c')).dy,
         lessThan(tester.getTopLeft(find.text('a')).dy));
     list = tester.widget<ReorderableListView>(find.byType(ReorderableListView));
-    list.onReorderItem!(2, 0);
+    list.onReorder!(2, 0);
     await tester.pump();
     expect(tester.getTopLeft(find.text('a')).dy,
         lessThan(tester.getTopLeft(find.text('b')).dy));
