@@ -14,3 +14,6 @@ Reduced memory limits on PDF cached data by scaling them appropriately according
 
 ## Summary
 The performance metrics across heavy loads, specifically Image conversions and concurrent background works, are structurally bounded. We bypassed isolating unsendable callbacks directly.
+
+## Test and Safety Results
+All unit and widget tests continue to pass with the introduction of our explicit job queue mapping and Riverpod cache scaling adjustments. The queue behavior has been tested with regression unit tests to assert execution behaviors. Memory usage is expected to be explicitly clamped based on `PdfViewerScreen` limits.
