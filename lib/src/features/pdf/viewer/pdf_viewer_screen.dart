@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+
 import 'package:flutter/scheduler.dart';
 import '../../../core/utils/logger.dart';
 import '../application/pdf_error_handler.dart';
@@ -1276,7 +1276,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                       controller: scrollController,
                       padding: EdgeInsets.fromLTRB(20, 12, 20,
                           MediaQuery.paddingOf(context).bottom + 20),
-                      scrollCacheExtent: const ScrollCacheExtent.pixels(200),
+                      cacheExtent: 200.0,
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 180,

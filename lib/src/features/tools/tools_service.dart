@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:pdfrx/pdfrx.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as syncfusion;
+import 'job_queue.dart';
 
 class PdfMetadataInfo {
   final String title;
@@ -34,7 +35,7 @@ class ToolsService {
       });
   // Stage in the destination filesystem so a failed write never truncates the
   // source. Only explicit metadata overwrite may replace an existing file.
-  static Future<String> _save(List<int> bytes, String outputPath,
+  static Future<String> save(List<int> bytes, String outputPath,
       {bool overwrite = false}) async {
     final output = File(outputPath);
     if (!overwrite && await output.exists()) {
@@ -82,28 +83,10 @@ class ToolsService {
     required String author,
     required String subject,
     required String keywords,
-  }) =>
-      Isolate.run(() async {
-        syncfusion.PdfDocument? document;
-        try {
-          document = syncfusion.PdfDocument(
-              inputBytes: File(inputPath).readAsBytesSync());
-          final info = document.documentInformation;
-          info.title = title;
-          info.author = author;
-          info.subject = subject;
-          info.keywords = keywords;
-          return await _save(document.saveSync(), outputPath,
-              overwrite:
-                  p.equals(p.absolute(inputPath), p.absolute(outputPath)));
-        } catch (_) {
-          return null;
-        } finally {
-          document?.dispose();
-        }
-      });
+    void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled
+  }) => JobQueue().enqueue(_EditMetadataJob(inputPath, outputPath, title, author, subject, keywords), onProgress: onProgress, checkCancelled: checkCancelled);
 
-  static syncfusion.PdfPage _addPage(syncfusion.PdfDocument document, Size size,
+  static syncfusion.PdfPage addPage(syncfusion.PdfDocument document, Size size,
       {syncfusion.PdfPageRotateAngle rotation =
           syncfusion.PdfPageRotateAngle.rotateAngle0}) {
     // A section owns its settings; changing document-wide settings can resize
@@ -118,63 +101,18 @@ class ToolsService {
     return section.pages.add();
   }
 
-  static void _copyPage(
+  static void copyPage(
       syncfusion.PdfDocument target, syncfusion.PdfPage source) {
-    _addPage(target, source.size, rotation: source.rotation)
+    addPage(target, source.size, rotation: source.rotation)
         .graphics
         .drawPdfTemplate(source.createTemplate(), Offset.zero);
   }
 
-  static Future<String?> mergePdfs(
-          List<String> inputPaths, String outputPath) =>
-      Isolate.run(() async {
-        final document = syncfusion.PdfDocument();
-        final sources = <syncfusion.PdfDocument>[];
-        try {
-          if (inputPaths.length < 2) return null;
-          for (final path in inputPaths) {
-            final source = syncfusion.PdfDocument(
-                inputBytes: File(path).readAsBytesSync());
-            sources.add(source);
-            for (var i = 0; i < source.pages.count; i++) {
-              _copyPage(document, source.pages[i]);
-            }
-          }
-          return await _save(document.saveSync(), outputPath);
-        } catch (_) {
-          return null;
-        } finally {
-          document.dispose();
-          for (final source in sources) {
-            source.dispose();
-          }
-        }
-      });
+  static Future<String?> mergePdfs(List<String> inputPaths, String outputPath, {void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled}) =>
+      JobQueue().enqueue(_MergePdfsJob(inputPaths, outputPath), onProgress: onProgress, checkCancelled: checkCancelled);
 
-  static Future<String?> rearrangePdf(
-          String inputPath, String outputPath, List<int> pagesToExtract) =>
-      Isolate.run(() async {
-        syncfusion.PdfDocument? source;
-        final document = syncfusion.PdfDocument();
-        try {
-          source = syncfusion.PdfDocument(
-              inputBytes: File(inputPath).readAsBytesSync());
-          if (pagesToExtract.isEmpty ||
-              pagesToExtract
-                  .any((page) => page < 1 || page > source!.pages.count)) {
-            return null;
-          }
-          for (final page in pagesToExtract) {
-            _copyPage(document, source.pages[page - 1]);
-          }
-          return await _save(document.saveSync(), outputPath);
-        } catch (_) {
-          return null;
-        } finally {
-          document.dispose();
-          source?.dispose();
-        }
-      });
+  static Future<String?> rearrangePdf(String inputPath, String outputPath, List<int> pagesToExtract, {void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled}) =>
+      JobQueue().enqueue(_RearrangePdfJob(inputPath, outputPath, pagesToExtract), onProgress: onProgress, checkCancelled: checkCancelled);
 
   static Future<String?> splitPdf(
           String inputPath, String outputDirPath, List<int> pagesToExtract) =>
@@ -185,6 +123,12 @@ class ToolsService {
           pagesToExtract);
 
   static Future<String?> compressPdf(String inputPath, String outputPath,
+      {void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled,
+      int quality = 40,
+      int maxThreads = 2,
+      Future<PdfDocument> Function(String)? openDocument}) => JobQueue().enqueue(_CompressPdfJob(inputPath, outputPath, quality, maxThreads, openDocument), onProgress: onProgress, checkCancelled: checkCancelled);
+
+  static Future<String?> _compressPdfImpl(String inputPath, String outputPath,
       {int quality = 40,
       int maxThreads = 2,
       Future<PdfDocument> Function(String)? openDocument}) async {
@@ -253,11 +197,11 @@ class ToolsService {
         try {
           output.compressionLevel = syncfusion.PdfCompressionLevel.best;
           for (final page in pages) {
-            _addPage(output, Size(page.width, page.height)).graphics.drawImage(
+            addPage(output, Size(page.width, page.height)).graphics.drawImage(
                 syncfusion.PdfBitmap(page.bytes),
                 Rect.fromLTWH(0, 0, page.width, page.height));
           }
-          return await _save(output.saveSync(), outputPath);
+          return await ToolsService.save(output.saveSync(), outputPath);
         } finally {
           output.dispose();
         }
@@ -270,7 +214,13 @@ class ToolsService {
   }
 
   static Future<String?> pdfToImages(String inputPath, String outputParent,
-      {Future<PdfDocument> Function(String)? openDocument}) async {
+      {void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled,
+      Future<PdfDocument> Function(String)? openDocument}) => JobQueue().enqueue(_PdfToImagesJob(inputPath, outputParent, openDocument), onProgress: onProgress, checkCancelled: checkCancelled);
+
+  static Future<String?> _pdfToImagesImpl(String inputPath, String outputParent,
+      {Future<PdfDocument> Function(String)? openDocument,
+      void Function(JobProgress)? onProgress,
+      Future<void> Function()? checkCancelled}) async {
     PdfDocument? document;
     Directory? output;
     try {
@@ -278,6 +228,8 @@ class ToolsService {
       if (document.pages.isEmpty) return null;
       output = await Directory(outputParent).createTemp('Extracted_');
       for (var index = 0; index < document.pages.length; index++) {
+        if (onProgress != null) if (onProgress != null) onProgress(JobProgress(percentage: index / document.pages.length, stage: "Extracting pages..."));
+        if (checkCancelled != null) if (checkCancelled != null) await checkCancelled();
         final page = document.pages[index];
         final image =
             await page.render(fullWidth: page.width, fullHeight: page.height);
@@ -315,28 +267,171 @@ class ToolsService {
     }
   }
 
-  static Future<String?> imagesToPdf(
-          List<String> imagePaths, String outputPath) =>
-      Isolate.run(() async {
-        final document = syncfusion.PdfDocument();
-        try {
-          if (imagePaths.isEmpty) return null;
-          for (final path in imagePaths) {
-            // Decode the picker-supported formats (including WebP/BMP) before
-            // passing a supported, normalized bitmap to Syncfusion.
-            final decoded = img.decodeImage(File(path).readAsBytesSync());
-            if (decoded == null) return null;
-            final bitmap = syncfusion.PdfBitmap(img.encodePng(decoded));
-            final size =
-                Size(bitmap.width.toDouble(), bitmap.height.toDouble());
-            _addPage(document, size).graphics.drawImage(
-                bitmap, Rect.fromLTWH(0, 0, size.width, size.height));
-          }
-          return await _save(document.saveSync(), outputPath);
-        } catch (_) {
-          return null;
-        } finally {
-          document.dispose();
+  static Future<String?> imagesToPdf(List<String> imagePaths, String outputPath, {void Function(JobProgress)? onProgress, Future<void> Function()? checkCancelled}) =>
+      JobQueue().enqueue(_ImagesToPdfJob(imagePaths, outputPath), onProgress: onProgress, checkCancelled: checkCancelled);
+}
+
+class _MergePdfsJob extends Job<String?> {
+  final List<String> inputPaths;
+  final String outputPath;
+
+  _MergePdfsJob(this.inputPaths, this.outputPath);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) async {
+    final document = syncfusion.PdfDocument();
+    final sources = <syncfusion.PdfDocument>[];
+    try {
+      if (inputPaths.length < 2) return null;
+      for (int i = 0; i < inputPaths.length; i++) {
+        final path = inputPaths[i];
+        if (onProgress != null) onProgress(JobProgress(percentage: i / inputPaths.length, stage: 'Merging PDFs...'));
+        if (checkCancelled != null) await checkCancelled();
+        final source = syncfusion.PdfDocument(
+            inputBytes: File(path).readAsBytesSync());
+        sources.add(source);
+        for (var j = 0; j < source.pages.count; j++) {
+          ToolsService.copyPage(document, source.pages[j]);
         }
-      });
+      }
+      return await ToolsService.save(document.saveSync(), outputPath);
+    } catch (_) {
+      return null;
+    } finally {
+      document.dispose();
+      for (final source in sources) {
+        source.dispose();
+      }
+    }
+  }
+}
+
+class _RearrangePdfJob extends Job<String?> {
+  final String inputPath;
+  final String outputPath;
+  final List<int> pagesToExtract;
+
+  _RearrangePdfJob(this.inputPath, this.outputPath, this.pagesToExtract);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) async {
+    syncfusion.PdfDocument? source;
+    final document = syncfusion.PdfDocument();
+    try {
+      source = syncfusion.PdfDocument(
+          inputBytes: File(inputPath).readAsBytesSync());
+      if (pagesToExtract.isEmpty ||
+          pagesToExtract
+              .any((page) => page < 1 || page > source!.pages.count)) {
+        return null;
+      }
+      for (int i = 0; i < pagesToExtract.length; i++) {
+        final page = pagesToExtract[i];
+        if (onProgress != null) onProgress(JobProgress(percentage: i / pagesToExtract.length, stage: 'Rearranging pages...'));
+        if (checkCancelled != null) await checkCancelled();
+        ToolsService.copyPage(document, source.pages[page - 1]);
+      }
+      return await ToolsService.save(document.saveSync(), outputPath);
+    } catch (_) {
+      return null;
+    } finally {
+      document.dispose();
+      source?.dispose();
+    }
+  }
+}
+
+
+class _ImagesToPdfJob extends Job<String?> {
+  final List<String> imagePaths;
+  final String outputPath;
+
+  _ImagesToPdfJob(this.imagePaths, this.outputPath);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) async {
+    final document = syncfusion.PdfDocument();
+    try {
+      if (imagePaths.isEmpty) return null;
+      for (int i = 0; i < imagePaths.length; i++) {
+        final path = imagePaths[i];
+        if (onProgress != null) onProgress(JobProgress(percentage: i / imagePaths.length, stage: 'Converting images...'));
+        if (checkCancelled != null) await checkCancelled();
+
+        final decoded = img.decodeImage(File(path).readAsBytesSync());
+        if (decoded == null) return null;
+        final bitmap = syncfusion.PdfBitmap(img.encodePng(decoded));
+        final size =
+            Size(bitmap.width.toDouble(), bitmap.height.toDouble());
+        ToolsService.addPage(document, size).graphics.drawImage(
+            bitmap, Rect.fromLTWH(0, 0, size.width, size.height));
+      }
+      return await ToolsService.save(document.saveSync(), outputPath);
+    } catch (_) {
+      return null;
+    } finally {
+      document.dispose();
+    }
+  }
+}
+
+class _CompressPdfJob extends Job<String?> {
+  final String inputPath;
+  final String outputPath;
+  final int quality;
+  final int maxThreads;
+  final Future<PdfDocument> Function(String)? openDocument;
+
+  _CompressPdfJob(this.inputPath, this.outputPath, this.quality, this.maxThreads, this.openDocument);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) {
+    // A wrapper around the original implementation
+    return ToolsService._compressPdfImpl(inputPath, outputPath, quality: quality, maxThreads: maxThreads, openDocument: openDocument);
+  }
+}
+
+class _PdfToImagesJob extends Job<String?> {
+  final String inputPath;
+  final String outputParent;
+  final Future<PdfDocument> Function(String)? openDocument;
+
+  _PdfToImagesJob(this.inputPath, this.outputParent, this.openDocument);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) {
+    return ToolsService._pdfToImagesImpl(inputPath, outputParent, openDocument: openDocument, onProgress: onProgress, checkCancelled: checkCancelled);
+  }
+}
+
+class _EditMetadataJob extends Job<String?> {
+  final String inputPath;
+  final String outputPath;
+  final String title;
+  final String author;
+  final String subject;
+  final String keywords;
+
+  _EditMetadataJob(this.inputPath, this.outputPath, this.title, this.author, this.subject, this.keywords);
+
+  @override
+  Future<String?> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled) async {
+    syncfusion.PdfDocument? document;
+    try {
+      document = syncfusion.PdfDocument(
+          inputBytes: File(inputPath).readAsBytesSync());
+      final info = document.documentInformation;
+      info.title = title;
+      info.author = author;
+      info.subject = subject;
+      info.keywords = keywords;
+      return await ToolsService.save(document.saveSync(), outputPath,
+          overwrite:
+              p.equals(p.absolute(inputPath), p.absolute(outputPath)));
+    } catch (_) {
+      return null;
+    } finally {
+      document?.dispose();
+    }
+  }
 }

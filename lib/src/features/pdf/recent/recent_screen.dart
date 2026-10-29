@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +42,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
     final isEmpty = groups.isEmpty;
 
     return CustomScrollView(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 200.0,
       controller:
           _scrollController, // Optimize cache extent for smoother scroll memory allocation
       physics:

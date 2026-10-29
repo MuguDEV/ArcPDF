@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pdfrx: ^2.6.5
+  pdfrx: ^2.4.7
   flutter_animate: ^4.5.0
   animations: ^2.2.0
   external_path: ^2.2.0

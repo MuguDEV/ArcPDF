@@ -85,7 +85,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
-                    onReorderItem: (oldIndex, newIndex) {
+                    onReorder: (oldIndex, newIndex) {
                       setState(() {
                         final item = _selectedFiles.removeAt(oldIndex);
                         _selectedFiles.insert(newIndex, item);
