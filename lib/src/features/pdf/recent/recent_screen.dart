@@ -1,6 +1,6 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -60,7 +60,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
           actions: [
             if (!isEmpty)
               IconButton(
-                icon: const Icon(Icons.delete_sweep_rounded),
+                icon: const Icon(ArcIcons.clearHistory),
                 onPressed: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -82,7 +82,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  Icons.delete_sweep_rounded,
+                                  ArcIcons.clearHistory,
                                   size: 32,
                                   color: theme.colorScheme.error,
                                 ),
@@ -155,18 +155,17 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
           const SliverFillRemaining(
             hasScrollBody: false,
             child: ArcEmptyState(
-              icon: Icons.history_rounded,
+              icon: ArcIcons.history,
               title: 'Nothing opened yet',
               subtitle:
                   'Files you open will appear here, grouped by when you last read them.',
-              animated: true,
             ),
           )
         else
           _RecentGroupsList(
               groups: groups, ctrl: ctrl, scrollController: _scrollController),
         const SliverSafeArea(
-          minimum: EdgeInsets.only(bottom: 140),
+          minimum: EdgeInsets.only(bottom: 24),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],
@@ -224,7 +223,7 @@ class _RecentGroupsList extends ConsumerWidget {
                   ),
                 ),
               ],
-            ).animate().fadeIn(duration: 280.ms),
+            ),
           ),
         ),
       );
@@ -287,26 +286,7 @@ class _RecentGroupsList extends ConsumerWidget {
                           builder: (_) => const MultiTabViewerScreen()),
                     );
                   },
-                )
-                    .animate()
-                    .fadeIn(
-                      delay: (idx > 20 ? 0 : idx * 20).ms,
-                      duration: 400.ms,
-                      curve: Curves.easeOut,
-                    )
-                    .slideY(
-                      begin: 0.15,
-                      delay: (idx > 20 ? 0 : idx * 20).ms,
-                      duration: 400.ms,
-                      curve: Curves.easeOutCubic,
-                    )
-                    .scaleXY(
-                      begin: 0.92,
-                      end: 1.0,
-                      delay: (idx > 20 ? 0 : idx * 20).ms,
-                      duration: 400.ms,
-                      curve: Curves.easeOutBack,
-                    ),
+                ),
               );
             },
           ),

@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:arcpdf/src/features/pdf/viewer/reader_controls_sheet.dart';
 import 'package:arcpdf/src/shared/theme/arc_colors.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +18,6 @@ Future<void> _mount(
   Brightness brightness = Brightness.light,
   bool ready = true,
   bool selected = false,
-  int tabCount = 3,
   int page = 7,
   int pageCount = 42,
   bool reducedMotion = false,
@@ -72,7 +72,6 @@ Future<void> _mount(
                 autoScroll: selected,
                 keepAwake: selected,
                 fullscreen: selected,
-                tabCount: tabCount,
                 onSelected: onSelected ?? (_) {},
               ),
             ),
@@ -116,8 +115,8 @@ void main() {
       final unselected =
           tester.widget<TextButton>(_action(ReaderAction.fitWidth));
       expect(unselected.style?.foregroundColor?.resolve({}), colors.onSurface);
-      expect(
-          unselected.style?.backgroundColor?.resolve({}), Colors.transparent);
+      expect(unselected.style?.backgroundColor?.resolve({}),
+          colors.surfaceContainerLow);
       final toggle =
           tester.widget<SwitchListTile>(_action(ReaderAction.keepAwake));
       expect(toggle.activeThumbColor, colors.onPrimary);
@@ -188,8 +187,6 @@ void main() {
             expect(rect.right, lessThanOrEqualTo(width));
             expect(tester.takeException(), isNull, reason: action.name);
           }
-          final tabsRect = tester.getRect(_action(ReaderAction.tabs));
-          expect(tabsRect.bottom, lessThanOrEqualTo(800 - 24));
         });
       }
     }
@@ -199,8 +196,8 @@ void main() {
       (tester) async {
     await _mount(tester, width: 390);
     final button = _action(ReaderAction.fitWidth);
-    final icon = find.descendant(
-        of: button, matching: find.byIcon(Icons.fit_screen_outlined));
+    final icon =
+        find.descendant(of: button, matching: find.byIcon(ArcIcons.fitWidth));
     final label = find.descendant(of: button, matching: find.text('Fit width'));
     expect(tester.getSize(button).height, lessThanOrEqualTo(56));
     expect(tester.getCenter(icon).dy, tester.getCenter(label).dy);
@@ -240,7 +237,6 @@ void main() {
       ReaderAction.favorite,
       ReaderAction.keepAwake,
       ReaderAction.info,
-      ReaderAction.tabs,
     };
     await _mount(tester, ready: false, onSelected: actions.add);
     expect(find.text('Document not ready'), findsOneWidget);
@@ -267,7 +263,6 @@ void main() {
       expect(find.byTooltip('Page colors: Dark'), findsOneWidget);
       expect(find.byTooltip('Scroll direction: Horizontal'), findsOneWidget);
       expect(find.byTooltip('Exit fullscreen'), findsOneWidget);
-      expect(find.byTooltip('Tabs: 3 open'), findsOneWidget);
       for (final action in [
         ReaderAction.pageColors,
         ReaderAction.scrollDirection,
@@ -310,14 +305,12 @@ void main() {
     }
   });
 
-  for (final tabCount in [0, 1, 2]) {
-    testWidgets('tabs shown only for multiple tabs ($tabCount)',
-        (tester) async {
-      await _mount(tester, tabCount: tabCount);
-      expect(_action(ReaderAction.tabs),
-          tabCount > 1 ? findsOneWidget : findsNothing);
-    });
-  }
+  testWidgets('document tabs are not duplicated in reading controls',
+      (tester) async {
+    await _mount(tester);
+    expect(find.text('Tabs'), findsNothing);
+    expect(find.byTooltip('Tabs: 3 open'), findsNothing);
+  });
 
   testWidgets('close dismisses without selecting an action', (tester) async {
     final actions = <ReaderAction>[];
@@ -334,8 +327,8 @@ void main() {
     await _mount(tester, onSelected: actions.add, reducedMotion: true);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
-    expect(Focus.of(tester.element(find.byIcon(Icons.close_rounded))).hasFocus,
-        isTrue);
+    expect(
+        Focus.of(tester.element(find.byIcon(ArcIcons.close))).hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     expect(
@@ -352,8 +345,8 @@ void main() {
   testWidgets('short parent constraints still scroll at large text',
       (tester) async {
     await _mount(tester, height: 360, textScale: 2, reducedMotion: true);
-    await _reveal(tester, ReaderAction.tabs);
-    expect(_action(ReaderAction.tabs).hitTestable(), findsOneWidget);
+    await _reveal(tester, ReaderAction.print);
+    expect(_action(ReaderAction.print).hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.ensureVisible(find.byTooltip('Close reading controls'));
     await tester.pumpAndSettle();

@@ -1,13 +1,14 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../shared/theme/arc_colors.dart';
 import '../application/open_tabs_provider.dart';
 import '../home/widgets/pdf_thumbnail.dart';
+import '../../settings/settings_controller.dart';
 
 class TabSwitcherScreen extends ConsumerWidget {
   const TabSwitcherScreen({super.key});
@@ -17,10 +18,10 @@ class TabSwitcherScreen extends ConsumerWidget {
     final tabsState = ref.watch(openTabsProvider);
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context) ||
+        ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
     final titleStyle = theme.textTheme.titleSmall?.copyWith(
       fontWeight: FontWeight.w600,
-      fontSize: 14,
       height: 1.35,
       color: colors.onSurface,
     );
@@ -41,7 +42,7 @@ class TabSwitcherScreen extends ConsumerWidget {
         centerTitle: false,
         leading: IconButton(
           tooltip: 'Close tab switcher',
-          icon: const Icon(HugeIcons.strokeRoundedCancel01),
+          icon: const Icon(ArcIcons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -72,7 +73,7 @@ class TabSwitcherScreen extends ConsumerWidget {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(ArcColors.space24),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(HugeIcons.strokeRoundedPdf02,
+                    Icon(ArcIcons.pdf,
                         size: 40, color: colors.onSurfaceVariant),
                     const SizedBox(height: ArcColors.space16),
                     Text('No open tabs', style: theme.textTheme.titleMedium),
@@ -101,12 +102,36 @@ class TabSwitcherScreen extends ConsumerWidget {
                     .clamp(1, 6);
                 final cardWidth =
                     (availableWidth - spacing * (columns - 1)) / columns;
-                // Paragraph line boxes round up to logical pixels; match that
-                // rounding so scaled text cannot overflow the footer.
-                final footerHeight =
-                    (scaler.scale(14) * 1.35).ceilToDouble() * 2 +
-                        (scaler.scale(11) * 1.4).ceilToDouble() +
-                        28;
+                // Measure the chosen font at the actual tile width so custom
+                // fonts and enlarged status text cannot overflow the footer.
+                final statusStyle = theme.textTheme.labelSmall
+                    ?.copyWith(height: 1.4, color: colors.onSurfaceVariant);
+                double textHeight(String value, TextStyle? style, int? lines) {
+                  final painter = TextPainter(
+                    text: TextSpan(text: value, style: style),
+                    textDirection: Directionality.of(context),
+                    textScaler: scaler,
+                    maxLines: lines,
+                    ellipsis: lines == null ? null : '…',
+                  )..layout(maxWidth: math.max(1, cardWidth - 24));
+                  final height = painter.height;
+                  painter.dispose();
+                  return height;
+                }
+
+                final footerHeight = tabsState.tabs.fold<double>(
+                        0,
+                        (height, item) => math.max(
+                            height,
+                            textHeight(
+                                item.name.replaceFirst(
+                                    RegExp(r'\.pdf$', caseSensitive: false),
+                                    ''),
+                                titleStyle,
+                                2))) +
+                    math.max(textHeight('Reading now', statusStyle, null),
+                        textHeight('PDF document', statusStyle, null)) +
+                    28;
 
                 Widget grid = GridView.builder(
                   padding: const EdgeInsets.all(ArcColors.screenPadding),
@@ -178,8 +203,8 @@ class TabSwitcherScreen extends ConsumerWidget {
                                                 horizontal: 16),
                                             child: Icon(
                                               isActive
-                                                  ? Icons.check_circle_rounded
-                                                  : Icons.tab_outlined,
+                                                  ? ArcIcons.selected
+                                                  : ArcIcons.tabs,
                                               size: 20,
                                               color: isActive
                                                   ? colors.primary
@@ -227,16 +252,7 @@ class TabSwitcherScreen extends ConsumerWidget {
                                                 isActive
                                                     ? 'Reading now'
                                                     : 'PDF document',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: theme
-                                                    .textTheme.labelSmall
-                                                    ?.copyWith(
-                                                  fontSize: 11,
-                                                  height: 1.4,
-                                                  color:
-                                                      colors.onSurfaceVariant,
-                                                ),
+                                                style: statusStyle,
                                               ),
                                             ],
                                           ),
@@ -258,7 +274,7 @@ class TabSwitcherScreen extends ConsumerWidget {
                                 minHeight: ArcColors.minTouchTarget,
                               ),
                               color: colors.onSurfaceVariant,
-                              icon: Icon(HugeIcons.strokeRoundedCancel01,
+                              icon: Icon(ArcIcons.close,
                                   semanticLabel: 'Close ${item.name}',
                                   size: 18),
                               onPressed: () {

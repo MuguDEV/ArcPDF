@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -178,12 +179,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(ArcIcons.refresh),
             tooltip: 'Refresh logs',
             onPressed: _loadLogs,
           ),
           IconButton(
-            icon: const Icon(Icons.ios_share_rounded),
+            icon: const Icon(ArcIcons.export),
             tooltip: 'Export saved logs',
             onPressed: _busy ? null : _exportLogs,
           ),
@@ -195,7 +196,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       dimension: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.bug_report_outlined),
+                  : const Icon(ArcIcons.diagnostics),
               tooltip: _bundling
                   ? 'Preparing bug report'
                   : 'Share bug report (logs, device info, app version)',
@@ -203,7 +204,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_sweep_rounded),
+            icon: const Icon(ArcIcons.clearHistory),
             tooltip: 'Clear logs',
             onPressed: _busy
                 ? null
@@ -274,10 +275,8 @@ class _LogEntryCard extends StatelessWidget {
         : theme.colorScheme.onSurfaceVariant;
 
     final icon = isError
-        ? Icons.error_outline_rounded
-        : (isWarning
-            ? Icons.warning_amber_rounded
-            : Icons.info_outline_rounded);
+        ? ArcIcons.error
+        : (isWarning ? ArcIcons.warning : ArcIcons.info);
 
     final timeStr =
         DateFormat('MMM d, y HH:mm:ss').format(log.timestamp.toLocal());
@@ -335,7 +334,6 @@ class _LogEntryCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontFamily: 'monospace',
                   color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 10,
                 ),
               ),
             ),

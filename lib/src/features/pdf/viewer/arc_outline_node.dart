@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -64,7 +65,7 @@ class _ArcOutlineNodeState extends State<ArcOutlineNode> {
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOutCubicEmphasized,
                       child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
+                        ArcIcons.down,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),

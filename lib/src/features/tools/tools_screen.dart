@@ -1,13 +1,14 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:path/path.dart' as p;
 
 import '../settings/settings_controller.dart';
 import '../settings/haptic_service.dart';
 import 'widgets/tool_card.dart';
+import 'job_queue.dart';
 import 'tools_service.dart';
 import 'utils/run_tool_action.dart';
 import 'pages/merge_pdfs_page.dart';
@@ -37,137 +38,99 @@ class ToolsScreen extends ConsumerWidget {
             title: Text('Tools', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             sliver: SliverMainAxisGroup(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildSectionHeader('PDF Utilities', context)
-                        .animate()
-                        .fadeIn(duration: 300.ms),
+                    child: _buildSectionHeader('PDF utilities', context),
                   ),
                 ),
-                SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 500,
-                    mainAxisExtent: 80,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  delegate: SliverChildListDelegate([
+                SliverToBoxAdapter(
+                  child: ToolCollection(children: [
                     ToolCard(
                       title: 'Merge PDFs',
-                      subtitle: 'Combine and reorder multiple PDF files',
-                      icon: HugeIcons.strokeRoundedLayers01,
+                      subtitle: 'Combine multiple files',
+                      icon: ArcIcons.merge,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const MergePdfsPage()));
                       },
-                    )
-                        .animate(delay: 50.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                     ToolCard(
                       title: 'Split PDF',
-                      subtitle:
-                          'Extract pages from a PDF and save as new files',
-                      icon: HugeIcons.strokeRoundedScissor01,
+                      subtitle: 'Save selected pages',
+                      icon: ArcIcons.split,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const SplitPdfPage()));
                       },
-                    )
-                        .animate(delay: 100.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                     ToolCard(
-                      title: 'Rearrange / Delete Pages',
-                      subtitle: 'Change page order or remove pages from a PDF',
-                      icon: HugeIcons.strokeRoundedGridView,
+                      title: 'Organize pages',
+                      subtitle: 'Reorder or remove pages',
+                      icon: ArcIcons.grid,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const RearrangePagesPage()));
                       },
-                    )
-                        .animate(delay: 150.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                     ToolCard(
                       title: 'Compress PDF',
-                      subtitle: 'Reduce the file size of your PDF document',
-                      icon: HugeIcons.strokeRoundedFile01,
+                      subtitle: 'Reduce document size',
+                      icon: ArcIcons.compress,
                       onTap: () => _handleCompress(context, ref),
-                    )
-                        .animate(delay: 200.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                     ToolCard(
-                      title: 'Metadata Editor',
-                      subtitle: 'View and edit document properties',
-                      icon: HugeIcons.strokeRoundedInformationCircle,
+                      title: 'Edit metadata',
+                      horizontal: true,
+                      subtitle: 'Update title and author',
+                      icon: ArcIcons.info,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const MetadataEditorPage()));
                       },
-                    )
-                        .animate(delay: 250.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                   ]),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 24, bottom: 12),
-                    child: _buildSectionHeader('Conversion', context)
-                        .animate(delay: 200.ms)
-                        .fadeIn(duration: 300.ms),
+                    child: _buildSectionHeader('Conversion', context),
                   ),
                 ),
-                SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 500,
-                    mainAxisExtent: 80,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  delegate: SliverChildListDelegate([
+                SliverToBoxAdapter(
+                  child: ToolCollection(children: [
                     ToolCard(
                       title: 'Images to PDF',
-                      subtitle:
-                          'Convert, reorder, and combine images into a PDF',
-                      icon: HugeIcons.strokeRoundedImage01,
+                      subtitle: 'Turn photos into a document',
+                      icon: ArcIcons.image,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const ImagesToPdfPage()));
                       },
-                    )
-                        .animate(delay: 250.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                     ToolCard(
                       title: 'PDF to Images',
-                      subtitle:
-                          'Extract and save each page of a PDF as an image',
-                      icon: HugeIcons.strokeRoundedImage02,
+                      subtitle: 'Save pages as images',
+                      icon: ArcIcons.images,
                       onTap: () {
                         ref.read(hapticServiceProvider).lightImpact();
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const PdfToImagesPage()));
                       },
-                    )
-                        .animate(delay: 300.ms)
-                        .fadeIn(duration: 300.ms)
-                        .slideY(begin: 0.05),
+                    ),
                   ]),
                 ),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: 140),
+                const SliverSafeArea(
+                  minimum: EdgeInsets.only(bottom: 24),
+                  sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
                 ),
               ],
             ),
@@ -184,6 +147,8 @@ class ToolsScreen extends ConsumerWidget {
 
     if (paths != null && paths.isNotEmpty) {
       if (!context.mounted) return;
+      final inputBytes = await _totalBytes(paths);
+      if (!context.mounted) return;
       // Let user pick compression level
       int quality = 40; // Default
       bool userPicked = await showDialog<bool>(
@@ -196,7 +161,8 @@ class ToolsScreen extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(28)),
                     backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                    child: Padding(
+                    child: SingleChildScrollView(
+                        child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -208,7 +174,7 @@ class ToolsScreen extends ConsumerWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              HugeIcons.strokeRoundedFolder01,
+                              ArcIcons.compress,
                               size: 32,
                               color: theme.colorScheme.primary,
                             ),
@@ -229,6 +195,20 @@ class ToolsScreen extends ConsumerWidget {
                             style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant),
                           ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${paths.length} ${paths.length == 1 ? 'file' : 'files'} · ${_formatBytes(inputBytes)} input',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'The exact output size is measured after compression.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                           const SizedBox(height: 24),
                           Text(
                             'Quality: $tempQuality%',
@@ -247,8 +227,11 @@ class ToolsScreen extends ConsumerWidget {
                             },
                           ),
                           const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                          OverflowBar(
+                            alignment: MainAxisAlignment.end,
+                            overflowAlignment: OverflowBarAlignment.end,
+                            spacing: 8,
+                            overflowSpacing: 8,
                             children: [
                               TextButton(
                                 style: TextButton.styleFrom(
@@ -261,7 +244,6 @@ class ToolsScreen extends ConsumerWidget {
                                     Navigator.of(context).pop(false),
                                 child: const Text('Cancel'),
                               ),
-                              const SizedBox(width: 8),
                               FilledButton(
                                 style: FilledButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
@@ -279,7 +261,7 @@ class ToolsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                    ),
+                    )),
                   );
                 });
               }) ??
@@ -290,12 +272,19 @@ class ToolsScreen extends ConsumerWidget {
 
       var successCount = 0;
       final outputs = <String>[];
+      final progress =
+          ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+      VoidCallback? cancel;
       await runToolAction(
         context,
         title: paths.length == 1 ? 'Compressing PDF' : 'Batch Compressing',
+        inputPaths: paths,
+        resultKind: ToolResultKind.compression,
         successMessage: (output) =>
             'Compressed $successCount out of ${paths.length} files. Saved to: $output',
         outputFiles: () => outputs,
+        progress: progress,
+        onCancel: () => cancel?.call(),
         action: () async {
           final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
           String? lastOutput;
@@ -306,7 +295,18 @@ class ToolsScreen extends ConsumerWidget {
             final output = p.join(dir,
                 '${name}_compressed_${DateTime.now().microsecondsSinceEpoch}_$index.pdf');
             final result = await ToolsService.compressPdf(path, output,
-                quality: quality, maxThreads: threads);
+                quality: quality,
+                maxThreads: threads,
+                onHandle: (handle) => cancel = handle.cancel,
+                onProgress: (value) {
+                  final overall = (index + value.percentage) / paths.length;
+                  progress.value = JobProgress(
+                    percentage: overall.clamp(0.0, 1.0),
+                    stage: paths.length == 1
+                        ? value.stage
+                        : '${value.stage} · File ${index + 1} of ${paths.length}',
+                  );
+                });
             if (result != null) {
               successCount++;
               outputs.add(result);
@@ -320,18 +320,32 @@ class ToolsScreen extends ConsumerWidget {
                   : dir;
         },
       );
+      progress.dispose();
     }
+  }
+
+  Future<int> _totalBytes(List<String> paths) async {
+    var total = 0;
+    for (final path in paths) {
+      final file = File(path);
+      if (await file.exists()) total += await file.length();
+    }
+    return total;
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Widget _buildSectionHeader(String label, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 2),
       child: Text(
-        label.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        label,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w700,
             ),
       ),
     );

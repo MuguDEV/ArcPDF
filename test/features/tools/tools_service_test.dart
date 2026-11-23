@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:arcpdf/src/features/tools/tools_service.dart';
+import 'package:arcpdf/src/features/tools/tool_failure.dart';
 import 'package:arcpdf/src/features/tools/utils/page_selection.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -57,6 +58,18 @@ void main() {
     }
   });
 
+  test('split selection keeps comma groups as separate outputs', () async {
+    final output =
+        await ToolsService.splitPdfSelection(source, temp.path, '1, 2-3');
+    expect(output, isNotNull);
+    final files = Directory(output!)
+        .listSync()
+        .whereType<File>()
+        .map((file) => p.basename(file.path))
+        .toSet();
+    expect(files, {'page_1.pdf', 'pages_2-3.pdf'});
+  });
+
   test('rearrange preserves requested order, text and mixed page sizes',
       () async {
     final output = p.join(temp.path, 'reordered.pdf');
@@ -90,8 +103,11 @@ void main() {
   test('merge fails on missing sources instead of publishing partial output',
       () async {
     final output = p.join(temp.path, 'merged.pdf');
-    expect(await ToolsService.mergePdfs([source, '$source.missing'], output),
-        isNull);
+    await expectLater(
+      ToolsService.mergePdfs([source, '$source.missing'], output),
+      throwsA(isA<ToolFailure>().having(
+          (failure) => failure.code, 'code', ToolFailureCode.missingInput)),
+    );
     expect(File(output).existsSync(), isFalse);
     expect(await ToolsService.mergePdfs([], output), isNull);
   });
@@ -113,8 +129,10 @@ void main() {
   test('exports refuse existing outputs and never overwrite the source',
       () async {
     final original = File(source).readAsBytesSync();
-    expect(await ToolsService.rearrangePdf(source, source, [3]), isNull);
-    expect(await ToolsService.mergePdfs([source, source], source), isNull);
+    await expectLater(ToolsService.rearrangePdf(source, source, [3]),
+        throwsA(isA<ToolFailure>()));
+    await expectLater(ToolsService.mergePdfs([source, source], source),
+        throwsA(isA<ToolFailure>()));
     expect(File(source).readAsBytesSync(), original);
     expect(temp.listSync().whereType<Directory>(), isEmpty);
   });
@@ -140,15 +158,16 @@ void main() {
       () async {
     final output = p.join(temp.path, 'existing.pdf');
     File(output).writeAsStringSync('keep me');
-    expect(
-        await ToolsService.editPdfMetadata(
+    await expectLater(
+        ToolsService.editPdfMetadata(
             inputPath: source,
             outputPath: output,
             title: '',
             author: '',
             subject: '',
             keywords: ''),
-        isNull);
+        throwsA(isA<ToolFailure>().having(
+            (failure) => failure.code, 'code', ToolFailureCode.outputExists)));
     expect(File(output).readAsStringSync(), 'keep me');
   });
 
@@ -164,16 +183,17 @@ void main() {
     final document = PdfDocument(inputBytes: File(output).readAsBytesSync());
     try {
       expect(document.pages.count, 2);
-      expect(document.pages[0].size, const Size(80, 60));
-      expect(document.pages[1].size, const Size(40, 90));
+      expect(document.pages[0].size.width, closeTo(841.89, 0.1));
+      expect(document.pages[0].size.height, closeTo(595.28, 0.1));
+      expect(document.pages[1].size.width, closeTo(595.28, 0.1));
+      expect(document.pages[1].size.height, closeTo(841.89, 0.1));
     } finally {
       document.dispose();
     }
     final missingOutput = p.join(temp.path, 'missing.pdf');
-    expect(
-        await ToolsService.imagesToPdf(
-            [first, '$second.missing'], missingOutput),
-        isNull);
+    await expectLater(
+        ToolsService.imagesToPdf([first, '$second.missing'], missingOutput),
+        throwsA(isA<ToolFailure>()));
     expect(File(missingOutput).existsSync(), isFalse);
     expect(await ToolsService.imagesToPdf([], missingOutput), isNull);
   });
@@ -190,12 +210,12 @@ void main() {
       final image = images[index];
       when(() => page.width).thenReturn(2);
       when(() => page.height).thenReturn(2);
-      when(() => page.render(fullWidth: 2, fullHeight: 2))
+      when(() => page.render(fullWidth: 4, fullHeight: 4))
           .thenAnswer((_) async => image);
-      when(() => image.width).thenReturn(2);
-      when(() => image.height).thenReturn(2);
+      when(() => image.width).thenReturn(4);
+      when(() => image.height).thenReturn(4);
       when(() => image.pixels)
-          .thenReturn(Uint8List.fromList(List.filled(16, 255)));
+          .thenReturn(Uint8List.fromList(List.filled(64, 255)));
     }
     final output = await ToolsService.pdfToImages(source, temp.path,
         openDocument: (_) async => document);
@@ -220,18 +240,18 @@ void main() {
     when(() => document.dispose()).thenAnswer((_) async {});
     when(() => page.width).thenReturn(2);
     when(() => page.height).thenReturn(2);
-    when(() => page.render(fullWidth: 2, fullHeight: 2))
+    when(() => page.render(fullWidth: 4, fullHeight: 4))
         .thenAnswer((_) async => null);
-    expect(
-        await ToolsService.pdfToImages(source, temp.path,
+    await expectLater(
+        ToolsService.pdfToImages(source, temp.path,
             openDocument: (_) async => document),
-        isNull);
+        throwsA(isA<ToolFailure>()));
     expect(temp.listSync().whereType<Directory>(), isEmpty);
     final output = p.join(temp.path, 'compressed.pdf');
-    expect(
-        await ToolsService.compressPdf(source, output,
+    await expectLater(
+        ToolsService.compressPdf(source, output,
             openDocument: (_) async => document),
-        isNull);
+        throwsA(isA<ToolFailure>()));
     expect(File(output).existsSync(), isFalse);
     verify(() => document.dispose()).called(2);
   });

@@ -25,13 +25,14 @@ class PdfAnnotationAdapter extends TypeAdapter<PdfAnnotation> {
       bounds: (fields[5] as List).cast<double>(),
       content: fields[6] as String?,
       createdAt: fields[7] as DateTime,
+      points: (fields[8] as List?)?.cast<double>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, PdfAnnotation obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class PdfAnnotationAdapter extends TypeAdapter<PdfAnnotation> {
       ..writeByte(6)
       ..write(obj.content)
       ..writeByte(7)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.points);
   }
 
   @override

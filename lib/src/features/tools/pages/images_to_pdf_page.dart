@@ -1,14 +1,15 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
 
 import '../tools_service.dart';
 import '../utils/run_tool_action.dart';
 import '../utils/tools_directory_util.dart';
+import '../job_queue.dart';
 
 class ImagesToPdfPage extends StatefulWidget {
   const ImagesToPdfPage({super.key});
@@ -19,6 +20,7 @@ class ImagesToPdfPage extends StatefulWidget {
 
 class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
   final List<String> _selectedFiles = [];
+  ImagePdfPageSize _pageSize = ImagePdfPageSize.a4;
 
   Future<void> _pickFiles() async {
     FilePickerResult? result = await FilePicker.pickFiles(
@@ -38,13 +40,23 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
 
   Future<void> _convert() async {
     if (_selectedFiles.isEmpty) return;
-    await runToolAction(context, title: 'Converting', action: () async {
-      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      return ToolsService.imagesToPdf(
-          List.of(_selectedFiles),
-          p.join(
-              dir, 'ImagesToPDF_${DateTime.now().microsecondsSinceEpoch}.pdf'));
-    });
+    final progress =
+        ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+    VoidCallback? cancel;
+    await runToolAction(context,
+        title: 'Converting',
+        progress: progress,
+        onCancel: () => cancel?.call(),
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          return ToolsService.imagesToPdf(
+              List.of(_selectedFiles),
+              p.join(dir,
+                  'ImagesToPDF_${DateTime.now().microsecondsSinceEpoch}.pdf'),
+              pageSize: _pageSize,
+              onProgress: (value) => progress.value = value,
+              onHandle: (handle) => cancel = handle.cancel);
+        });
   }
 
   @override
@@ -61,7 +73,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedImage01,
+                        Icon(ArcIcons.image,
                             size: 64,
                             color: theme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.5)),
@@ -163,7 +175,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(HugeIcons.strokeRoundedHardDrive,
+                                          Icon(ArcIcons.storage,
                                               size: 12,
                                               color: theme.colorScheme
                                                   .onSurfaceVariant),
@@ -174,7 +186,6 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                                                 ?.copyWith(
                                               color: theme
                                                   .colorScheme.onSurfaceVariant,
-                                              fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -191,15 +202,14 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: Icon(HugeIcons.strokeRoundedView,
+                                        icon: Icon(ArcIcons.view,
                                             color: theme.colorScheme.primary,
                                             size: 22),
                                         onPressed: () => OpenFile.open(path),
                                         visualDensity: VisualDensity.compact,
                                       ),
                                       IconButton(
-                                        icon: Icon(
-                                            HugeIcons.strokeRoundedDelete01,
+                                        icon: Icon(ArcIcons.remove,
                                             color: theme.colorScheme.error,
                                             size: 22),
                                         onPressed: () => setState(() =>
@@ -213,7 +223,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                                     index: index,
                                     child: MouseRegion(
                                       cursor: SystemMouseCursors.grab,
-                                      child: Icon(Icons.drag_indicator_rounded,
+                                      child: Icon(ArcIcons.drag,
                                           color: theme
                                               .colorScheme.onSurfaceVariant
                                               .withValues(alpha: 0.5)),
@@ -228,6 +238,34 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                     },
                   ),
           ),
+          if (_selectedFiles.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: DropdownButtonFormField<ImagePdfPageSize>(
+                initialValue: _pageSize,
+                decoration: const InputDecoration(
+                  labelText: 'PDF page size',
+                  prefixIcon: Icon(ArcIcons.document),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: ImagePdfPageSize.a4,
+                    child: Text('A4 · Recommended'),
+                  ),
+                  DropdownMenuItem(
+                    value: ImagePdfPageSize.letter,
+                    child: Text('US Letter'),
+                  ),
+                  DropdownMenuItem(
+                    value: ImagePdfPageSize.fitImage,
+                    child: Text('Fit image · 144 DPI'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _pageSize = value);
+                },
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),

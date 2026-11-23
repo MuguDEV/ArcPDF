@@ -1,16 +1,16 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 
 import 'package:path/path.dart' as p;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 import 'dart:io';
 
 import '../tools_service.dart';
 import '../utils/run_tool_action.dart';
-import '../utils/page_selection.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
+import '../job_queue.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
 import '../../pdf/domain/pdf_file_item.dart';
@@ -56,12 +56,36 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
     final input = _selectedFile;
     if (input == null) return;
     final selection = _pagesController.text;
-    await runToolAction(context, title: 'Splitting PDF', action: () async {
-      final count = await ToolsService.readPageCount(input);
-      final pages = parsePageSelection(selection, pageCount: count);
-      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      return ToolsService.splitPdf(input, dir, pages);
-    });
+    final progress =
+        ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+    VoidCallback? cancel;
+    final outputFiles = <String>[];
+    await runToolAction(context,
+        title: 'Splitting PDF',
+        inputPaths: [input],
+        progress: progress,
+        onCancel: () => cancel?.call(),
+        outputFiles: () => outputFiles,
+        successMessage: (output) =>
+            'Created ${outputFiles.length} PDF ${outputFiles.length == 1 ? 'file' : 'files'} in:\n$output',
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          final output = await ToolsService.splitPdfSelection(
+              input, dir, selection,
+              onProgress: (value) => progress.value = value,
+              onHandle: (handle) => cancel = handle.cancel);
+          if (output != null) {
+            outputFiles.addAll(await Directory(output)
+                .list(followLinks: false)
+                .where((entry) =>
+                    entry is File &&
+                    p.extension(entry.path).toLowerCase() == '.pdf')
+                .map((entry) => entry.path)
+                .toList());
+            outputFiles.sort();
+          }
+          return output;
+        });
   }
 
   @override
@@ -77,7 +101,7 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedFile02,
+                        Icon(ArcIcons.document,
                             size: 64,
                             color: theme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.5)),
@@ -169,13 +193,12 @@ class _SplitPdfPageState extends State<SplitPdfPage> {
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
-                            prefixIcon:
-                                const Icon(HugeIcons.strokeRoundedLayers01),
+                            prefixIcon: const Icon(ArcIcons.merge),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Enter specific pages separated by commas or ranges (e.g., 1-5).',
+                          'Each comma-separated page or range becomes its own PDF. Example: 1, 3-5, 8 creates three files.',
                           style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant),
                         ),

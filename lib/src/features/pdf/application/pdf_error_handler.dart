@@ -1,6 +1,6 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 enum PdfErrorCategory { userError, broken, unexpected }
 
@@ -30,17 +30,17 @@ class PdfErrorHandler {
       case PdfErrorCategory.userError:
         title = 'User Error';
         message = contextMessage ?? 'Invalid input or wrong password.';
-        icon = HugeIcons.strokeRoundedAlert01;
+        icon = ArcIcons.error;
         break;
       case PdfErrorCategory.broken:
         title = 'Corrupted PDF';
         message = contextMessage ?? 'The file is broken or malformed.';
-        icon = HugeIcons.strokeRoundedFile01;
+        icon = ArcIcons.document;
         break;
       case PdfErrorCategory.unexpected:
         title = 'Unexpected Error';
         message = contextMessage ?? 'Something went wrong. Please try again.';
-        icon = HugeIcons.strokeRoundedInformationCircle;
+        icon = ArcIcons.info;
         if (kDebugMode) {
           debugPrint('PdfErrorHandler: $error');
         }

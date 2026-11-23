@@ -17,7 +17,7 @@ class ArcColors {
   static const cardRadius = 20.0;
   static const pillRadius = 999.0;
   static const buttonRadius = 16.0;
-  static const screenPadding = 20.0;
+  static const screenPadding = 16.0;
   static const minRowHeight = 56.0;
   static const minTouchTarget = 48.0;
 

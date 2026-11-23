@@ -1,4 +1,8 @@
 import 'dart:ui' as ui;
+import 'dart:io';
+
+import 'package:arcpdf/src/shared/theme/arc_theme.dart';
+import 'package:arcpdf/src/theme/arc_typography.dart';
 
 import 'package:arcpdf/src/features/navigation/app_shell.dart';
 import 'package:arcpdf/src/features/navigation/arc_nav_bar.dart';
@@ -21,6 +25,7 @@ import 'package:arcpdf/src/features/tools/tools_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -37,20 +42,34 @@ class _Scanner extends Mock implements PdfScannerService {}
 
 class _Library extends PdfLibraryController {
   _Library(super.scanner, super.favorites, super.recents, super.timestamps,
-      super.tags) {
+      super.tags,
+      {bool preview = false}) {
+    const sampleNames = [
+      'Design principles',
+      'Semester timetable',
+      'Project brief',
+      'Research notes',
+      'Course handbook'
+    ];
     final items = List.generate(
         30,
         (index) => PdfFileItem(
               path: '/navigation_test_missing/$index.pdf',
-              name: 'Document ${index.toString().padLeft(2, '0')}.pdf',
-              sizeBytes: 1024,
-              lastModified: DateTime(2026),
+              name: preview
+                  ? '${sampleNames[index % sampleNames.length]}.pdf'
+                  : 'Document ${index.toString().padLeft(2, '0')}.pdf',
+              sizeBytes: preview ? 245760 * (index + 1) : 1024,
+              pageCount: preview ? (index + 1) * 6 : null,
+              lastModified: preview ? DateTime(2026, 11, 15) : DateTime(2026),
               locationLabel: 'Documents',
-              isCorrupted: true,
+              isCorrupted: !preview,
             ));
     state = state.copyWith(
       items: items,
-      favorites: items.map((item) => item.path).toSet(),
+      favorites:
+          (preview ? items.where((item) => items.indexOf(item).isEven) : items)
+              .map((item) => item.path)
+              .toSet(),
       recents: {for (final item in items) item.path: DateTime(2026)},
     );
   }
@@ -63,6 +82,7 @@ ProviderContainer _shellContainer({
   bool blur = true,
   bool lowPower = true,
   bool onboardingPending = false,
+  bool preview = false,
 }) {
   final favorites = _Box<String>();
   final recents = _Box<String>();
@@ -106,28 +126,13 @@ ProviderContainer _shellContainer({
     settingsControllerProvider.overrideWith((ref) => SettingsController(box)),
     securityControllerProvider.overrideWith((ref) => SecurityController(box)),
     openTabsProvider.overrideWith((ref) => OpenTabsNotifier(box)),
-    pdfLibraryControllerProvider.overrideWith(
-        (ref) => _Library(_Scanner(), favorites, recents, timestamps, tags)),
+    pdfLibraryControllerProvider.overrideWith((ref) => _Library(
+        _Scanner(), favorites, recents, timestamps, tags,
+        preview: preview)),
     updaterHttpClientProvider.overrideWithValue(client),
   ]);
   addTearDown(container.dispose);
   return container;
-}
-
-void _allowExistingToolCardOverflow() {
-  final reportError = FlutterError.onError;
-  // Tools' fixed-height cards already overflow at large text sizes (and with
-  // the test font). Keep this unrelated, out-of-scope defect from masking
-  // shell regressions; all other rendering errors still fail these tests.
-  FlutterError.onError = (details) {
-    final diagnostic = details.toString();
-    if (details.exceptionAsString().startsWith('A RenderFlex overflowed') &&
-        diagnostic.contains('/tools/widgets/tool_card.dart:')) {
-      return;
-    }
-    reportError?.call(details);
-  };
-  addTearDown(() => FlutterError.onError = reportError);
 }
 
 void main() {
@@ -141,10 +146,129 @@ void main() {
     );
   });
 
+  for (final brightness in Brightness.values) {
+    testWidgets('shared theme renders primary screens in ${brightness.name}',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.runAsync(() async {
+        final fontDirectory = File(Platform.resolvedExecutable)
+            .uri
+            .resolve('../../material_fonts/');
+        for (final font in {
+          'Roboto': 'Roboto-Regular.ttf',
+          'MaterialIcons': 'MaterialIcons-Regular.otf'
+        }.entries) {
+          await (FontLoader(font.key)
+                ..addFont(Future.value(ByteData.sublistView(
+                    await File.fromUri(fontDirectory.resolve(font.value))
+                        .readAsBytes()))))
+              .load();
+        }
+      });
+      await tester.runAsync(() async {
+        final lucide = await rootBundle
+            .load('packages/lucide_icons_flutter/assets/lucide.ttf');
+        await (FontLoader('packages/lucide_icons_flutter/Lucide')
+              ..addFont(SynchronousFuture(lucide)))
+            .load();
+      });
+      final container =
+          _shellContainer(preview: true, lowPower: false, blur: false);
+      container.read(openTabsProvider.notifier).openTab(
+            container.read(pdfLibraryControllerProvider).items.first,
+          );
+      const capture = ValueKey('themed-shell');
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: buildArcTheme(
+              brightness: brightness,
+              textTheme: ArcTypography.textTheme(brightness,
+                  family: AppFontFamily.system)),
+          home: const RepaintBoundary(key: capture, child: AppShell()),
+        ),
+      ));
+      for (final index in [0, 1, 2, 3, 4]) {
+        container.read(navigationControllerProvider.notifier).setIndex(index);
+        await tester.pumpAndSettle();
+        // Let missing-file I/O finish outside the widget test's fake clock,
+        // then pump its completion callbacks before taking the sample render.
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        const previewDir = String.fromEnvironment('ARC_UI_PREVIEW_DIR');
+        if (previewDir.isNotEmpty) {
+          final boundary =
+              tester.renderObject<RenderRepaintBoundary>(find.byKey(capture));
+          await tester.runAsync(() async {
+            final image = await boundary.toImage(pixelRatio: 2);
+            try {
+              final bytes =
+                  await image.toByteData(format: ui.ImageByteFormat.png);
+              final file = File('$previewDir/${brightness.name}-$index.png');
+              await file.parent.create(recursive: true);
+              await file.writeAsBytes(bytes!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final direction in TextDirection.values) {
+    testWidgets('dock labels and selection fit 3x text in $direction',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final container = _shellContainer();
+      await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+              builder: (context, child) => Directionality(
+                  textDirection: direction,
+                  child: MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: const TextScaler.linear(3)),
+                      child: child!)),
+              home: Consumer(
+                  builder: (context, ref, child) => Scaffold(
+                      bottomNavigationBar: ArcNavBar(
+                          selectedIndex: ref
+                              .watch(navigationControllerProvider)
+                              .index))))));
+      await tester.pumpAndSettle();
+      final targets = find.descendant(
+          of: find.byType(ArcNavBar), matching: find.byType(InkWell));
+      for (var index = 0; index < 5; index++) {
+        await tester.tap(targets.at(index));
+        await tester.pumpAndSettle();
+        final indicator =
+            tester.widget<AnimatedPositioned>(find.byType(AnimatedPositioned));
+        expect(tester.getCenter(find.byWidget(indicator.child)).dx,
+            closeTo(tester.getCenter(targets.at(index)).dx, 0.01));
+      }
+      for (final text in find
+          .descendant(of: find.byType(ArcNavBar), matching: find.byType(Text))
+          .evaluate()) {
+        expect(
+            tester
+                .renderObject<RenderParagraph>(find.byWidget(text.widget))
+                .didExceedMaxLines,
+            isFalse);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   for (final scale in [1.0, 2.0]) {
     testWidgets('actual shell keeps tab ends and FAB above nav at scale $scale',
         (tester) async {
-      _allowExistingToolCardOverflow();
       tester.view.physicalSize = const Size(400, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -171,13 +295,6 @@ void main() {
               of: find.byType(AppShell), matching: find.byType(Scaffold))
           .first);
       expect(shell.extendBody, isTrue);
-      final tabStack = find
-          .descendant(of: find.byType(AppShell), matching: find.byType(Stack))
-          .first;
-      final tabs = tester.widget<Stack>(tabStack).children.cast<Offstage>();
-      expect(tabs.map((tab) => tab.offstage), [false, true, true, true, true]);
-      expect(tabs.map((tab) => (tab.child! as TickerMode).enabled),
-          [true, false, false, false, false]);
       final pageTypes = [
         HomeScreen,
         FavoritesScreen,
@@ -192,12 +309,13 @@ void main() {
         final scroll = find
             .descendant(of: page, matching: find.byType(CustomScrollView))
             .first;
-        final barRect = tester.getRect(find.descendant(
-            of: find.byType(ArcNavBar), matching: find.byType(ClipRRect)));
-        expect(tester.getRect(scroll).bottom, greaterThan(barRect.bottom));
+        final barRect = tester
+            .getRect(find.byKey(const ValueKey('floating-navigation-dock')));
+        expect(tester.getRect(scroll).bottom, greaterThan(barRect.top));
         final media = MediaQuery.of(tester.element(page));
-        expect(media.padding.bottom,
-            tester.getSize(find.byType(ArcNavBar)).height);
+        // With extendBody enabled Scaffold exposes the floating dock's
+        // footprint through MediaQuery so scroll views can clear it.
+        expect(media.padding.bottom, greaterThan(0));
         expect(media.viewPadding.bottom, media.padding.bottom);
         final scrollable = find
             .descendant(of: scroll, matching: find.byType(Scrollable))
@@ -289,7 +407,14 @@ void main() {
       final start = indicatorLeft();
       final destinations = find.descendant(
           of: find.byType(ArcNavBar), matching: find.byType(InkWell));
-      final target = tester.getTopLeft(destinations.at(4)).dx;
+      double indicatorTarget(int index) =>
+          tester.getCenter(destinations.at(index)).dx -
+          tester
+                  .getSize(find.byWidget(
+                      tester.widget<AnimatedPositioned>(indicator).child))
+                  .width /
+              2;
+      final target = indicatorTarget(4);
       await tester.tap(destinations.at(4));
       await tester.pump();
       final animation = tester.widget<AnimatedPositioned>(indicator);
@@ -298,7 +423,7 @@ void main() {
           animation.duration,
           disableAnimations
               ? Duration.zero
-              : const Duration(milliseconds: 390));
+              : const Duration(milliseconds: 300));
       var previous = start;
       for (var frame = 0; frame < 30; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
@@ -313,8 +438,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 64));
       await tester.tap(destinations.at(2));
       await tester.pumpAndSettle();
-      expect(indicatorLeft(),
-          closeTo(tester.getTopLeft(destinations.at(2)).dx, 0.001));
+      expect(indicatorLeft(), closeTo(indicatorTarget(2), 0.001));
       expect(
           find.descendant(
               of: find.byType(ArcNavBar), matching: find.byType(Transform)),
@@ -375,7 +499,7 @@ void main() {
         of: find.byType(ArcNavBar), matching: find.byType(InkWell));
     for (final target in targets.evaluate()) {
       final ink = target.widget as InkWell;
-      expect(ink.borderRadius, const BorderRadius.all(Radius.circular(28)));
+      expect(ink.borderRadius, const BorderRadius.all(Radius.circular(16)));
       final material = tester.widget<Material>(find
           .ancestor(of: find.byWidget(ink), matching: find.byType(Material))
           .first);
@@ -403,9 +527,9 @@ void main() {
 
   for (final brightness in Brightness.values) {
     for (final blur in [false, true]) {
-      testWidgets('shell backdrop floats in ${brightness.name}, blur=$blur',
+      testWidgets(
+          'dock stays compact and translucent in ${brightness.name}, blur=$blur',
           (tester) async {
-        _allowExistingToolCardOverflow();
         const captureKey = ValueKey('navigation-capture');
         final container = _shellContainer(blur: blur, lowPower: false);
         container.read(navigationControllerProvider.notifier).setIndex(3);
@@ -428,12 +552,18 @@ void main() {
             ),
           ));
           await tester.pump(const Duration(seconds: 1));
-          final barRect = tester.getRect(find.descendant(
-            of: find.byType(ArcNavBar),
-            matching: find.byType(ClipRRect),
-          ));
+          final barRect = tester
+              .getRect(find.byKey(const ValueKey('floating-navigation-dock')));
+          final material = tester.widget<Material>(
+              find.byKey(const ValueKey('floating-navigation-dock')));
+          expect(material.color!.a, closeTo(0.90, 0.01));
+          expect(barRect.width, lessThanOrEqualTo(420));
+          expect(
+              barRect.width,
+              lessThan(tester.view.physicalSize.width /
+                  tester.view.devicePixelRatio));
           expect(tester.getRect(find.byType(ToolsScreen)).bottom,
-              greaterThan(barRect.bottom));
+              greaterThan(barRect.top));
           final boundary = tester
               .renderObject<RenderRepaintBoundary>(find.byKey(captureKey));
           final sample = await tester.runAsync(() async {
@@ -441,17 +571,6 @@ void main() {
             try {
               final pixels =
                   (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-              // The margin beside the floating bar must show the nested
-              // screen, not a solid strip from the outer Scaffold.
-              final marginOffset =
-                  ((barRect.top + 4).round() * image.width + 4) * 4;
-              expect(
-                  Color.fromARGB(
-                      255,
-                      pixels.getUint8(marginOffset),
-                      pixels.getUint8(marginOffset + 1),
-                      pixels.getUint8(marginOffset + 2)),
-                  itemColor);
               final offset = ((barRect.top + 4).round() * image.width +
                       barRect.center.dx.round()) *
                   4;
@@ -465,13 +584,16 @@ void main() {
           return sample!;
         }
 
-        // The tint must retain the color of the actual tab beneath it, not just
-        // paint the same surface color over both backgrounds.
+        // The lightweight dock intentionally lets the surrounding surface
+        // influence it without paying for a backdrop blur.
         final overRed = await sampleBar(const Color(0xFFFF0000));
         final overBlue = await sampleBar(const Color(0xFF0000FF));
-        expect(overRed.r, greaterThan(overRed.b));
-        expect(overBlue.b, greaterThan(overBlue.r));
         expect(overRed, isNot(overBlue));
+        expect(
+            find.descendant(
+                of: find.byType(ArcNavBar),
+                matching: find.byType(BackdropFilter)),
+            findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(seconds: 1));
       });

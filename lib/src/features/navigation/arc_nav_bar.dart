@@ -1,186 +1,160 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
-
-import '../settings/settings_controller.dart';
+import '../../shared/theme/arc_icons.dart';
 import '../settings/haptic_service.dart';
+import '../settings/settings_controller.dart';
 import 'navigation_controller.dart';
-import '../../shared/theme/arc_colors.dart';
 
-const _destinationRadius = BorderRadius.all(Radius.circular(28));
-
-class ArcNavBar extends ConsumerStatefulWidget {
+/// A compact floating dock over an otherwise transparent navigation area.
+class ArcNavBar extends ConsumerWidget {
   const ArcNavBar({super.key, required this.selectedIndex});
   final int selectedIndex;
+  static const _icons = [
+    ArcIcons.home,
+    ArcIcons.favorite,
+    ArcIcons.history,
+    ArcIcons.tools,
+    ArcIcons.settings
+  ];
+  static const _labels = ['Home', 'Favorites', 'Recent', 'Tools', 'Settings'];
 
   @override
-  ConsumerState<ArcNavBar> createState() => _ArcNavBarState();
-}
-
-class _ArcNavBarState extends ConsumerState<ArcNavBar> {
-  final List<IconData> _icons = [
-    HugeIcons.strokeRoundedHome01,
-    HugeIcons.strokeRoundedFavourite,
-    HugeIcons.strokeRoundedClock01,
-    HugeIcons.strokeRoundedDashboardSquare01,
-    HugeIcons.strokeRoundedSettings01,
-  ];
-  final List<String> _labels = const [
-    'Home',
-    'Favorites',
-    'Recent',
-    'Tools',
-    'Settings',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
+    final colors = theme.colorScheme;
     final settings = ref.watch(settingsControllerProvider);
-    final reduceMotion =
+    final reduced =
         settings.lowPowerMode || MediaQuery.disableAnimationsOf(context);
-    final isBlur = settings.useBlurEffect && !settings.lowPowerMode;
-    final isLiquid = settings.useLiquidGlass && !settings.lowPowerMode;
-    final double sigma = isLiquid ? 20.0 : 12.0;
-    final duration = reduceMotion
+    final duration = reduced
         ? Duration.zero
-        : Duration(milliseconds: (260 * settings.animationSpeed).round());
-
-    final navBg = theme.colorScheme.surfaceContainerHigh;
-    final Color bgColor = navBg.withValues(alpha: isLiquid ? 0.38 : 0.64);
-
-    Widget navContainer = Container(
-      height: 48 +
-          MediaQuery.textScalerOf(context)
-                  .scale(theme.textTheme.labelSmall?.fontSize ?? 11) *
-              (theme.textTheme.labelSmall?.height ?? 1.4),
-      decoration: BoxDecoration(
-        color: isBlur ? bgColor : navBg.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : Colors.black.withValues(alpha: 0.04),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final itemWidth = constraints.maxWidth / _icons.length;
-
-        return Stack(
-          children: [
-            AnimatedPositioned(
-              duration: duration,
-              curve: Curves.easeOutCubic,
-              left: (itemWidth * widget.selectedIndex) + 4,
-              top: 6,
-              bottom: 6,
-              width: itemWidth - 8,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: _destinationRadius,
-                ),
+        : Duration(milliseconds: (200 * settings.animationSpeed).round());
+    const itemRadius = BorderRadius.all(Radius.circular(16));
+    const dockRadius = BorderRadius.all(Radius.circular(28));
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(22, 6, 22, 12),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Material(
+            key: const ValueKey('floating-navigation-dock'),
+            // Keep the region around the dock completely transparent while a
+            // restrained translucent surface protects icon/text contrast over
+            // scrolling documents.
+            color: colors.surfaceContainerHigh.withValues(alpha: 0.90),
+            elevation: 2,
+            shadowColor: colors.shadow.withValues(alpha: 0.12),
+            shape: RoundedRectangleBorder(
+              borderRadius: dockRadius,
+              side: BorderSide(
+                color: colors.outlineVariant.withValues(alpha: 0.55),
               ),
             ),
-
-            // Icons Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(_icons.length, (index) {
-                final isSelected = widget.selectedIndex == index;
-                final color = isSelected
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurfaceVariant;
-
-                final iconWidget = Icon(_icons[index], color: color, size: 24);
-
-                void activate() {
-                  if (index != widget.selectedIndex) {
-                    ref.read(hapticServiceProvider).selectionClick();
-                    ref
-                        .read(navigationControllerProvider.notifier)
-                        .setIndex(index);
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final itemWidth = constraints.maxWidth / _labels.length;
+                var labelHeight = 0.0;
+                for (final label in _labels) {
+                  final painter = TextPainter(
+                    text: TextSpan(
+                        text: label, style: theme.textTheme.labelSmall),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                  )..layout(maxWidth: itemWidth - 4);
+                  if (painter.height > labelHeight) {
+                    labelHeight = painter.height;
                   }
+                  painter.dispose();
                 }
+                final visualIndex =
+                    Directionality.of(context) == TextDirection.rtl
+                        ? _labels.length - 1 - selectedIndex
+                        : selectedIndex;
+                return SizedBox(
+                  height: 42 + labelHeight,
+                  child: Stack(children: [
+                    AnimatedPositioned(
+                        duration: duration,
+                        curve: Curves.easeOutCubic,
+                        left: itemWidth * visualIndex + (itemWidth - 46) / 2,
+                        top: 0,
+                        width: 46,
+                        height: 40,
+                        child: DecoratedBox(
+                            decoration: BoxDecoration(
+                                color: colors.onSurface.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(18)))),
+                    Row(
+                        children: List.generate(_labels.length, (index) {
+                      final selected = index == selectedIndex;
+                      void activate() {
+                        if (!selected) {
+                          ref.read(hapticServiceProvider).selectionClick();
+                          ref
+                              .read(navigationControllerProvider.notifier)
+                              .setIndex(index);
+                        }
+                      }
 
-                return Expanded(
-                  child: Semantics(
-                    label: _labels[index],
-                    button: true,
-                    selected: isSelected,
-                    onTap: activate,
-                    child: Tooltip(
-                      message: _labels[index],
-                      excludeFromSemantics: true,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 6),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: _destinationRadius,
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            borderRadius: _destinationRadius,
-                            excludeFromSemantics: true,
-                            focusColor: theme.colorScheme.primary
-                                .withValues(alpha: 0.2),
-                            onTap: activate,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  iconWidget,
-                                  Padding(
+                      return Expanded(
+                          child: Semantics(
+                        label: _labels[index],
+                        button: true,
+                        selected: selected,
+                        onTap: activate,
+                        child: Tooltip(
+                          message: _labels[index],
+                          excludeFromSemantics: true,
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: itemRadius,
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              borderRadius: itemRadius,
+                              excludeFromSemantics: true,
+                              onTap: activate,
+                              child: ExcludeSemantics(
+                                  child: Column(children: [
+                                SizedBox(
+                                    height: 40,
+                                    child: Center(
+                                        child: Icon(_icons[index],
+                                            size: 22,
+                                            color: selected
+                                                ? colors.onSurface
+                                                : colors.onSurfaceVariant))),
+                                const SizedBox(height: 2),
+                                Padding(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 4),
-                                    child: Text(
-                                      _labels[index],
-                                      semanticsLabel: '',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style:
-                                          theme.textTheme.labelSmall?.copyWith(
-                                        color: color,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                        horizontal: 2),
+                                    child: Text(_labels[index],
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                                // The accent indicator only
+                                                // sits behind the icon. Keep
+                                                // the label legible against
+                                                // the transparent dock/body.
+                                                color: selected
+                                                    ? colors.onSurface
+                                                    : colors
+                                                        .onSurfaceVariant))),
+                              ])),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
+                      ));
+                    })),
+                  ]),
                 );
               }),
             ),
-          ],
-        );
-      }),
-    );
-
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(ArcColors.sheetRadius),
-        child: isBlur
-            ? BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: navContainer,
-              )
-            : navContainer,
+          ),
+        ),
       ),
     );
   }

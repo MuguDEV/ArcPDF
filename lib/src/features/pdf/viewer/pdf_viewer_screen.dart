@@ -1,8 +1,12 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
+import 'package:arcpdf/src/shared/theme/arc_theme.dart';
 import 'dart:async';
 
 import 'dart:ui';
+import 'dart:ui' as ui show Image, TextDirection;
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -12,7 +16,7 @@ import '../application/pdf_error_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:pdfrx/pdfrx.dart';
+import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:share_plus/share_plus.dart';
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,6 +27,10 @@ import '../../settings/haptic_service.dart';
 
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
+import '../data/annotation_repository.dart';
+import '../data/reflow_engine.dart';
+import '../domain/pdf_annotation.dart';
+import '../domain/reflow_document.dart';
 import '../application/open_tabs_provider.dart';
 import '../application/pdf_library_controller.dart';
 import 'tab_switcher_screen.dart';
@@ -34,11 +42,20 @@ import 'reader_controls_sheet.dart';
 import '../../../shared/widgets/arc_bouncy_button.dart';
 import '../../../shared/theme/arc_colors.dart';
 
+const _readerSpeechChannel = MethodChannel('com.arcpdf.app/reader_speech');
+Object? _readerSpeechHandlerOwner;
+
 class PdfViewerScreen extends ConsumerStatefulWidget {
-  const PdfViewerScreen({super.key, required this.item, this.isActive = true});
+  const PdfViewerScreen({
+    super.key,
+    required this.item,
+    this.isActive = true,
+    this.onTabSwipeEligibilityChanged,
+  });
 
   final PdfFileItem item;
   final bool isActive;
+  final ValueChanged<bool>? onTabSwipeEligibilityChanged;
 
   @override
   ConsumerState<PdfViewerScreen> createState() => _PdfViewerScreenState();
@@ -47,19 +64,21 @@ class PdfViewerScreen extends ConsumerStatefulWidget {
 class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   final PdfViewerController _pdfViewerController = PdfViewerController();
-  final GlobalKey _viewerKey = GlobalKey();
+  GlobalKey _viewerKey = GlobalKey();
   PdfTextSearcher? _textSearcher;
   late final ReadingProgressRepository _progressRepository;
   late final int _initialPage;
   late final double? _initialZoom;
   late final ReadingViewport? _initialViewport;
-  late final Future<bool> _fileExists;
+  late Future<bool> _fileExists;
   Timer? _progressSaveTimer;
+  Timer? _loadWatchdog;
   ReadingViewport? _lastSavedViewport;
   bool _restoringProgress = false;
   bool _progressWritable = false;
 
   bool _documentReady = false;
+  bool _loadTimedOut = false;
   bool _routeVisible = true;
   bool _appActive = true;
   bool _keepAwake = false;
@@ -75,6 +94,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   bool _pdfDarkMode = false;
   bool _isFullscreen = false;
   bool _isHorizontalScroll = false;
+  ReaderLayoutMode _layoutMode = ReaderLayoutMode.continuous;
   late final Ticker _autoScrollTicker;
   Duration? _lastAutoScrollFrame;
   final Stopwatch _openStopwatch = Stopwatch();
@@ -85,14 +105,42 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
   int _rotationQuarterTurns = 0;
 
   bool _isSearching = false;
+  PdfTextSelection? _textSelection;
+  bool _drawingMode = false;
+  int _annotationColor = 0xFFFFD54F;
+  final List<PdfAnnotation> _annotationUndoStack = [];
+  final List<PdfAnnotation> _annotationRedoStack = [];
+  List<Offset> _inkPoints = [];
+  int? _inkPage;
+  double _reflowTextScale = 1.0;
+  double _reflowLineSpacing = 1.35;
+  bool _isSpeaking = false;
+  bool? _lastTabSwipeEligibility;
+  final Object _speechHandlerOwner = Object();
 
   bool _controlsOpen = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
+  void _installSpeechHandler() {
+    _readerSpeechHandlerOwner = _speechHandlerOwner;
+    _readerSpeechChannel.setMethodCallHandler((call) async {
+      if (call.method == 'completed' && mounted) {
+        setState(() => _isSpeaking = false);
+      }
+    });
+  }
+
+  void _removeSpeechHandler() {
+    if (!identical(_readerSpeechHandlerOwner, _speechHandlerOwner)) return;
+    _readerSpeechHandlerOwner = null;
+    _readerSpeechChannel.setMethodCallHandler(null);
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.isActive) _installSpeechHandler();
     _autoScrollTicker = createTicker(_onAutoScrollFrame);
     _openStopwatch.start();
     _logReader('open');
@@ -107,6 +155,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _pdfViewerController.addListener(_onPdfViewerChanged);
 
     _startReadingTimer();
+    _startLoadWatchdog();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -115,15 +164,49 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     });
   }
 
+  void _startLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(const Duration(seconds: 20), () {
+      if (!mounted || _documentReady) return;
+      setState(() => _loadTimedOut = true);
+      _logReader('load.timeout');
+    });
+  }
+
+  void _retryDocumentLoad() {
+    _textSearcher?.removeListener(_onSearcherChanged);
+    _textSearcher?.dispose();
+    _textSearcher = null;
+    setState(() {
+      _viewerKey = GlobalKey();
+      _fileExists = File(widget.item.path).exists();
+      _documentSurface = null;
+      _documentSurfaceKey = null;
+      _documentReady = false;
+      _loadTimedOut = false;
+      _loadFailureLogged = false;
+      _restoringProgress = false;
+      _page = 1;
+      _pageCount = 0;
+    });
+    _startLoadWatchdog();
+  }
+
   @override
   void didUpdateWidget(covariant PdfViewerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
+        _lastTabSwipeEligibility = null;
+        _installSpeechHandler();
         _syncSystemUi();
         _startReadingTimer();
         _scheduleHide();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _notifyTabSwipeEligibility();
+        });
       } else {
+        _removeSpeechHandler();
         _pauseReading();
       }
     }
@@ -175,6 +258,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
 
   @override
   void dispose() {
+    _removeSpeechHandler();
     pdfRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _pdfViewerController.removeListener(_onPdfViewerChanged);
@@ -182,6 +266,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _logReader('close', fields: {'page': _page, 'ready': _documentReady});
     _openStopwatch.stop();
     _hideTimer?.cancel();
+    _loadWatchdog?.cancel();
     _readingTimer?.cancel();
     _autoScrollTicker.dispose();
     _flushReadingTime();
@@ -229,6 +314,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       }
       final newPage = _pdfViewerController.pageNumber ?? 1;
       final newPageCount = _pdfViewerController.pageCount;
+      _notifyTabSwipeEligibility();
       if (newPage != _page || newPageCount != _pageCount) {
         setState(() {
           _page = newPage;
@@ -243,6 +329,23 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
             Timer(const Duration(milliseconds: 300), _flushProgress);
       }
     });
+  }
+
+  void _notifyTabSwipeEligibility() {
+    if (!widget.isActive || !_pdfViewerController.isReady) return;
+    final eligible = !_drawingMode &&
+        !(_textSelection?.hasSelectedText ?? false) &&
+        _pdfViewerController.currentZoom <=
+            _pdfViewerController.minScale * 1.05;
+    if (_lastTabSwipeEligibility == eligible) return;
+    _lastTabSwipeEligibility = eligible;
+    widget.onTabSwipeEligibilityChanged?.call(eligible);
+  }
+
+  void _setTextSelection(PdfTextSelection? selection) {
+    if (!mounted) return;
+    setState(() => _textSelection = selection);
+    _notifyTabSwipeEligibility();
   }
 
   ReadingViewport? _currentViewport() {
@@ -302,6 +405,26 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _lastSavedViewport = viewport;
   }
 
+  Future<void> _restoreProgressSafely(
+      PdfDocument document, PdfViewerController controller) async {
+    try {
+      await _restoreProgress(document, controller);
+    } catch (error, stackTrace) {
+      _restoringProgress = false;
+      await AppLogger.error(
+          'reader.progress.restore_failed', error, stackTrace);
+      if (mounted) {
+        setState(() {
+          _documentReady = true;
+          _pageCount = document.pages.length;
+          _page = document.pages.isEmpty
+              ? 1
+              : (controller.pageNumber ?? 1).clamp(1, document.pages.length);
+        });
+      }
+    }
+  }
+
   Future<void> _restoreProgress(
       PdfDocument document, PdfViewerController controller) async {
     if (!mounted || _restoringProgress) return;
@@ -317,7 +440,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     final targetZoom = zoom != null && zoom.isFinite && zoom > 0
         ? zoom.clamp(controller.minScale, controller.maxScale).toDouble()
         : controller.currentZoom;
-    var center = controller.centerPosition;
+    final targetPage = _initialPage.clamp(1, document.pages.length);
+    // pdfrx falls back to page one when the saved page exceeds a shortened
+    // document. Explicitly anchor the clamped page before restoring zoom.
+    var center = controller.pageNumber == targetPage
+        ? controller.centerPosition
+        : controller.layout.pageLayouts[targetPage - 1].center;
     if (canRestorePosition) {
       final rect = controller.layout.pageLayouts[viewport.page - 1];
       final restoredCenter = Offset(rect.left + viewport.x * rect.width,
@@ -339,6 +467,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       _pageCount = document.pages.length;
       _page = controller.pageNumber ?? _initialPage.clamp(1, _pageCount);
     });
+    _loadWatchdog?.cancel();
     // Persist the normalized page/count even if it matches the displayed page.
     // Inactive preloaded tabs must not overwrite a checkpoint before selection.
     _progressWritable = widget.isActive && _routeVisible && _appActive;
@@ -500,9 +629,102 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
     _textSearcher?.startTextSearch(query);
   }
 
+  Future<String> _selectedText() async =>
+      _pdfViewerController.textSelectionDelegate.getSelectedText();
+
+  Future<void> _copySelectedText() async {
+    final text = await _selectedText();
+    if (text.trim().isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Selected text copied'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _shareSelectedText() async {
+    final text = await _selectedText();
+    if (text.trim().isEmpty) return;
+    await SharePlus.instance.share(ShareParams(
+      text: '$text\n\n— ${widget.item.name}',
+    ));
+  }
+
+  Future<void> _annotateSelection(String type) async {
+    final selection = _textSelection;
+    if (selection == null || !selection.hasSelectedText) return;
+    final ranges = await selection.getSelectedTextRanges();
+    if (ranges.isEmpty) return;
+    var noteText = '';
+    if (type == 'note') {
+      noteText = await _askForText(
+            title: 'Add note',
+            label: 'Note for selected text',
+          ) ??
+          '';
+      if (noteText.trim().isEmpty) return;
+    }
+    final repository = ref.read(annotationRepositoryProvider);
+    for (final range in ranges) {
+      final bounds = range.bounds;
+      if (bounds.isEmpty) continue;
+      final annotation = PdfAnnotation(
+        id: '${DateTime.now().microsecondsSinceEpoch}-${range.pageNumber}-$type',
+        pdfPath: widget.item.path,
+        pageNumber: range.pageNumber,
+        type: type,
+        color: _annotationColor,
+        bounds: [bounds.left, bounds.bottom, bounds.right, bounds.top],
+        content: type == 'note' ? noteText : range.text,
+        createdAt: DateTime.now(),
+      );
+      await repository.addAnnotation(annotation);
+      _annotationUndoStack.add(annotation);
+    }
+    _annotationRedoStack.clear();
+    await _pdfViewerController.textSelectionDelegate.clearTextSelection();
+    _setTextSelection(null);
+  }
+
+  Future<String?> _askForText({
+    required String title,
+    required String label,
+  }) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 4,
+          decoration: InputDecoration(labelText: label),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final annotations = ref
+        .watch(annotationRepositoryProvider)
+        .getAnnotationsForPdf(widget.item.path);
     final isBlurEnabled = ref.watch(settingsControllerProvider
         .select((s) => s.useBlurEffect && !s.lowPowerMode));
     final isLiquidGlass = ref.watch(settingsControllerProvider
@@ -517,14 +739,23 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
 
     final lowPowerMode =
         ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
+    final cacheMb =
+        ref.watch(settingsControllerProvider.select((s) => s.readerCacheMb));
+    final preloadExtent = ref
+        .watch(settingsControllerProvider.select((s) => s.readerPreloadExtent));
     final surfaceKey = (
       theme.colorScheme,
       reducedMotion,
       lowPowerMode,
+      cacheMb,
+      preloadExtent,
       _isHorizontalScroll,
+      _layoutMode,
       _rotationQuarterTurns,
       _pdfDarkMode,
       _textSearcher,
+      annotations.length,
+      _drawingMode,
     );
     if (_documentSurfaceKey != surfaceKey) {
       _documentSurfaceKey = surfaceKey;
@@ -536,146 +767,239 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       body: Stack(
         children: [
           // Page counters and chrome changes must not rebuild the PDF renderer.
-          _documentSurface ??= FutureBuilder<bool>(
-            future: _fileExists,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError || snapshot.data != true) {
-                return _buildLoadError(
-                    context, 'The PDF file is unavailable or empty.');
-              }
-              final viewer = PdfViewer.file(
-                widget.item.path,
-                key: _viewerKey,
-                initialPageNumber: _initialPage > 0 ? _initialPage : 1,
-                controller: _pdfViewerController,
-                passwordProvider: () async =>
-                    mounted ? _showPasswordPrompt(context) : null,
-                params: PdfViewerParams(
-                  onViewerReady: (document, controller) {
-                    if (!mounted) return;
-                    // pdfrx 2.6 requires an attached, ready document here.
-                    _textSearcher?.removeListener(_onSearcherChanged);
-                    _textSearcher?.dispose();
-                    final searcher = PdfTextSearcher(controller);
-                    searcher.addListener(_onSearcherChanged);
-                    _textSearcher = searcher;
-                    unawaited(_restoreProgress(document, controller));
-                  },
-                  loadingBannerBuilder:
-                      (context, bytesDownloaded, totalBytes) =>
-                          const Center(child: CircularProgressIndicator()),
-                  errorBannerBuilder:
-                      (context, error, stackTrace, documentRef) {
-                    unawaited(AppLogger.error(
-                        'reader.render.failed', error, stackTrace));
-                    return _buildLoadError(
-                        context,
-                        'The file could not be read. It may be damaged, '
-                        'password-protected, or no longer accessible. '
-                        'Go back and try opening it again.');
-                  },
-                  backgroundColor: theme.colorScheme.surface,
-                  pageDropShadow: null,
-                  // InteractiveViewer's default fling stops quickly. Normal
-                  // scrolling physics lets fast swipes travel across pages.
-                  scrollPhysics: const BouncingScrollPhysics(),
-                  scrollPhysicsScale: const ClampingScrollPhysics(),
-                  scrollByMouseWheel: 1.0,
-                  interactionDelegateProvider: reducedMotion
-                      ? const PdfViewerScrollInteractionDelegateProviderInstant()
-                      : const PdfViewerScrollInteractionDelegateProviderPhysics(
-                          panFriction: 20,
-                          zoomFriction: 20,
-                        ),
-                  horizontalCacheExtent: _isHorizontalScroll ? 1.0 : 0.25,
-                  verticalCacheExtent: _isHorizontalScroll ? 0.25 : 1.0,
-                  maxImageBytesCachedOnMemory: (lowPowerMode ? 24 : 64) * 1024 * 1024,
-                  onePassRenderingSizeThreshold: lowPowerMode ? 1200 : 1600,
-                  margin: 4.0,
-                  sizeDelegateProvider:
-                      const PdfViewerSizeDelegateProviderLegacy(maxScale: 8),
-                  matchTextColor:
-                      theme.colorScheme.primary.withValues(alpha: 0.16),
-                  activeMatchTextColor:
-                      theme.colorScheme.primary.withValues(alpha: 0.32),
-                  layoutPages: _isHorizontalScroll
-                      ? (pages, params) {
-                          final height = pages.fold(
-                                  0.0,
-                                  (prev, page) =>
-                                      prev > page.height ? prev : page.height) +
-                              params.margin * 2;
-                          final pageLayouts = <Rect>[];
-                          double x = params.margin;
-                          for (final page in pages) {
-                            pageLayouts.add(Rect.fromLTWH(
-                              x,
-                              (height - page.height) / 2,
-                              page.width,
-                              page.height,
-                            ));
-                            x += page.width + params.margin;
-                          }
-                          return PdfPageLayout(
-                              pageLayouts: pageLayouts,
-                              documentSize: Size(x, height));
-                        }
-                      : null,
-                  pagePaintCallbacks: [
-                    if (_textSearcher case final searcher?)
-                      searcher.pageTextMatchPaintCallback,
-                  ],
-                  viewerOverlayBuilder: (context, size, handleLinkTap) => [
-                    GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: (details) {
-                        if (!handleLinkTap(details.localPosition)) {
-                          _toggleToolbar();
-                        }
+          if (_loadTimedOut)
+            _buildLoadError(
+              context,
+              'Loading took too long. Go back and reopen the file. If the '
+              'problem continues, the PDF may be damaged or unsupported.',
+            )
+          else
+            _documentSurface ??= FutureBuilder<bool>(
+              future: _fileExists,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError || snapshot.data != true) {
+                  return _buildLoadError(
+                      context, 'The PDF file is unavailable or empty.');
+                }
+                final viewer = PdfViewer.file(
+                  widget.item.path,
+                  key: _viewerKey,
+                  initialPageNumber: _initialPage > 0 ? _initialPage : 1,
+                  controller: _pdfViewerController,
+                  passwordProvider: () async =>
+                      mounted ? _showPasswordPrompt(context) : null,
+                  params: PdfViewerParams(
+                    onViewerReady: (document, controller) {
+                      if (!mounted) return;
+                      // pdfrx 2.6 requires an attached, ready document here.
+                      _textSearcher?.removeListener(_onSearcherChanged);
+                      _textSearcher?.dispose();
+                      final searcher = PdfTextSearcher(controller);
+                      searcher.addListener(_onSearcherChanged);
+                      _textSearcher = searcher;
+                      _loadWatchdog?.cancel();
+                      setState(() {
+                        _documentReady = true;
+                        _loadTimedOut = false;
+                        _pageCount = document.pages.length;
+                        _page = document.pages.isEmpty
+                            ? 1
+                            : (controller.pageNumber ?? 1)
+                                .clamp(1, document.pages.length);
+                      });
+                      _notifyTabSwipeEligibility();
+                      unawaited(_restoreProgressSafely(document, controller));
+                    },
+                    loadingBannerBuilder:
+                        (context, bytesDownloaded, totalBytes) =>
+                            const Center(child: CircularProgressIndicator()),
+                    errorBannerBuilder:
+                        (context, error, stackTrace, documentRef) {
+                      unawaited(AppLogger.error(
+                          'reader.render.failed', error, stackTrace));
+                      return _buildLoadError(
+                          context,
+                          'The file could not be read. It may be damaged, '
+                          'password-protected, or no longer accessible. '
+                          'Go back and try opening it again.');
+                    },
+                    backgroundColor: theme.colorScheme.surface,
+                    pageDropShadow: null,
+                    // InteractiveViewer's default fling stops quickly. Normal
+                    // scrolling physics lets fast swipes travel across pages.
+                    scrollPhysics: const BouncingScrollPhysics(),
+                    scrollPhysicsScale: const ClampingScrollPhysics(),
+                    scrollByMouseWheel: 1.0,
+                    interactionDelegateProvider: reducedMotion
+                        ? const PdfViewerScrollInteractionDelegateProviderInstant()
+                        : const PdfViewerScrollInteractionDelegateProviderPhysics(
+                            panFriction: 20,
+                            zoomFriction: 20,
+                          ),
+                    horizontalCacheExtent:
+                        _isHorizontalScroll ? preloadExtent : 0.25,
+                    verticalCacheExtent:
+                        _isHorizontalScroll ? 0.25 : preloadExtent,
+                    maxImageBytesCachedOnMemory: cacheMb * 1024 * 1024,
+                    onePassRenderingSizeThreshold: lowPowerMode ? 1200 : 1600,
+                    margin: 4.0,
+                    sizeDelegateProvider:
+                        const PdfViewerSizeDelegateProviderLegacy(maxScale: 8),
+                    pageAnchor: _layoutMode == ReaderLayoutMode.singlePage
+                        ? PdfPageAnchor.all
+                        : PdfPageAnchor.top,
+                    buildContextMenu: _buildSelectionContextMenu,
+                    textSelectionParams: PdfTextSelectionParams(
+                      enabled: !_drawingMode,
+                      enableSelectionHandles: true,
+                      showContextMenuAutomatically: true,
+                      // pdfrx's default triangular handles are very subtle on
+                      // scanned pages and can disappear into a dark page
+                      // filter. Keep the native selection behavior, but use a
+                      // high-contrast Android-style cursor that remains visible
+                      // in both themes.
+                      buildSelectionHandle: (context, anchor, state) =>
+                          _ArcSelectionHandle(
+                        color: theme.colorScheme.primary,
+                        anchor: anchor,
+                        state: state,
+                      ),
+                      onTextSelectionChange: (selection) {
+                        _setTextSelection(selection);
                       },
-                      child: SizedBox(width: size.width, height: size.height),
                     ),
-                  ],
-                ),
-              );
+                    matchTextColor:
+                        theme.colorScheme.primary.withValues(alpha: 0.16),
+                    activeMatchTextColor:
+                        theme.colorScheme.primary.withValues(alpha: 0.32),
+                    layoutPages: _layoutMode == ReaderLayoutMode.twoPage
+                        ? _twoPageLayout
+                        : (_isHorizontalScroll ||
+                                _layoutMode == ReaderLayoutMode.singlePage)
+                            ? (pages, params) {
+                                final height = pages.fold(
+                                        0.0,
+                                        (prev, page) => prev > page.height
+                                            ? prev
+                                            : page.height) +
+                                    params.margin * 2;
+                                final pageLayouts = <Rect>[];
+                                double x = params.margin;
+                                for (final page in pages) {
+                                  pageLayouts.add(Rect.fromLTWH(
+                                    x,
+                                    (height - page.height) / 2,
+                                    page.width,
+                                    page.height,
+                                  ));
+                                  x += page.width + params.margin;
+                                }
+                                return PdfPageLayout(
+                                    pageLayouts: pageLayouts,
+                                    documentSize: Size(x, height));
+                              }
+                            : null,
+                    pagePaintCallbacks: [
+                      if (_textSearcher case final searcher?)
+                        searcher.pageTextMatchPaintCallback,
+                      _paintAnnotations,
+                    ],
+                    pageOverlaysBuilder: _drawingMode
+                        ? (context, pageRect, page) => [
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onPanStart: (details) {
+                                  setState(() {
+                                    _inkPage = page.pageNumber;
+                                    _inkPoints = [details.localPosition];
+                                  });
+                                },
+                                onPanUpdate: (details) => setState(() {
+                                  _inkPoints = [
+                                    ..._inkPoints,
+                                    details.localPosition
+                                  ];
+                                }),
+                                onPanEnd: (_) => _finishInk(page, pageRect),
+                                child: CustomPaint(
+                                  painter: _InkPainter(
+                                    points: _inkPage == page.pageNumber
+                                        ? _inkPoints
+                                        : const [],
+                                    color: Color(_annotationColor),
+                                  ),
+                                  child: const SizedBox.expand(),
+                                ),
+                              ),
+                            ]
+                        : null,
+                    viewerOverlayBuilder: (context, size, handleLinkTap) => [
+                      // Keep the visual tap layer pointer-transparent to the
+                      // PDF engine. A full-screen GestureDetector competes with
+                      // text selection, panning, and pinch-to-zoom in Flutter's
+                      // gesture arena.
+                      PdfOverlayInteractionRegion(
+                        onTap: (details) {
+                          if (!handleLinkTap(details.localPosition)) {
+                            _toggleToolbar();
+                          }
+                          return true;
+                        },
+                        child: SizedBox(width: size.width, height: size.height),
+                      ),
+                    ],
+                  ),
+                );
 
-              return RepaintBoundary(
-                child: RotatedBox(
-                  quarterTurns: _rotationQuarterTurns,
-                  child: _pdfDarkMode
-                      ? ColorFiltered(
-                          colorFilter: const ColorFilter.matrix([
-                            -0.333,
-                            -0.333,
-                            -0.333,
-                            0,
-                            255,
-                            -0.333,
-                            -0.333,
-                            -0.333,
-                            0,
-                            255,
-                            -0.333,
-                            -0.333,
-                            -0.333,
-                            0,
-                            255,
-                            0,
-                            0,
-                            0,
-                            1,
-                            0,
-                          ]),
-                          child: viewer,
-                        )
-                      : viewer,
-                ),
-              );
-            },
-          ),
+                final selectionColor = _pdfDarkMode
+                    ? const Color(0xFFFFC107).withValues(alpha: 0.42)
+                    : theme.colorScheme.primary.withValues(alpha: 0.34);
+                final themedViewer = Theme(
+                  data: theme.copyWith(
+                    textSelectionTheme: theme.textSelectionTheme.copyWith(
+                      selectionColor: selectionColor,
+                      selectionHandleColor: theme.colorScheme.primary,
+                    ),
+                  ),
+                  child: viewer,
+                );
+                return RepaintBoundary(
+                  child: RotatedBox(
+                    quarterTurns: _rotationQuarterTurns,
+                    child: _pdfDarkMode
+                        ? ColorFiltered(
+                            colorFilter: const ColorFilter.matrix([
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              -0.333,
+                              -0.333,
+                              -0.333,
+                              0,
+                              255,
+                              0,
+                              0,
+                              0,
+                              1,
+                              0,
+                            ]),
+                            child: themedViewer,
+                          )
+                        : themedViewer,
+                  ),
+                );
+              },
+            ),
 
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
@@ -693,9 +1017,9 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
               ),
             ),
           ),
-          if (!_isSearching)
+          if (!_isSearching && _textSelection?.hasSelectedText != true)
             Positioned(
-              bottom: MediaQuery.paddingOf(context).bottom + 12,
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 12,
               left: 12,
               right: 12,
               child: _buildChrome(
@@ -707,6 +1031,13 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                   child: _buildPageBar(ready),
                 ),
               ),
+            ),
+          if (_textSelection?.hasSelectedText == true && !_isSearching)
+            Positioned(
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 12,
+              left: 12,
+              right: 12,
+              child: _buildSelectionBar(),
             ),
         ],
       ),
@@ -739,45 +1070,339 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         ),
       );
 
+  PdfPageLayout _twoPageLayout(List<PdfPage> pages, PdfViewerParams params) {
+    final layouts = <Rect>[];
+    final rows = <List<PdfPage>>[];
+    for (var index = 0; index < pages.length; index += 2) {
+      rows.add([
+        pages[index],
+        if (index + 1 < pages.length) pages[index + 1],
+      ]);
+    }
+    final rowHeights = rows
+        .map((row) => row.fold<double>(
+              0,
+              (height, page) => height > page.height ? height : page.height,
+            ))
+        .toList(growable: false);
+    final documentWidth = rows.fold<double>(0, (width, row) {
+      final rowWidth = row.fold<double>(0, (sum, page) => sum + page.width) +
+          params.margin * (row.length + 1);
+      return width > rowWidth ? width : rowWidth;
+    });
+    var y = params.margin;
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      final rowHeight = rowHeights[rowIndex];
+      var x = (documentWidth -
+              row.fold<double>(0, (sum, page) => sum + page.width) -
+              params.margin * (row.length - 1)) /
+          2;
+      for (final page in row) {
+        layouts.add(Rect.fromLTWH(
+          x,
+          y + (rowHeight - page.height) / 2,
+          page.width,
+          page.height,
+        ));
+        x += page.width + params.margin;
+      }
+      y += rowHeight + params.margin;
+    }
+    return PdfPageLayout(
+      pageLayouts: layouts,
+      documentSize: Size(documentWidth, y),
+    );
+  }
+
+  void _paintAnnotations(Canvas canvas, Rect pageRect, PdfPage page) {
+    final annotations = ref
+        .read(annotationRepositoryProvider)
+        .getAnnotationsForPage(widget.item.path, page.pageNumber);
+    for (final annotation in annotations) {
+      final color = Color(annotation.color).withValues(alpha: 0.34);
+      final points = annotation.points;
+      if (annotation.type == 'ink' && points != null) {
+        if (points.length < 4) continue;
+        final path = Path();
+        for (var i = 0; i + 1 < points.length; i += 2) {
+          final point = Offset(
+            pageRect.left + points[i] * pageRect.width,
+            pageRect.top + points[i + 1] * pageRect.height,
+          );
+          if (i == 0) {
+            path.moveTo(point.dx, point.dy);
+          } else {
+            path.lineTo(point.dx, point.dy);
+          }
+        }
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = Color(annotation.color)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.4
+            ..strokeCap = StrokeCap.round,
+        );
+        continue;
+      }
+      if (annotation.bounds.length < 4) continue;
+      final pdfRect = PdfRect(
+        annotation.bounds[0],
+        annotation.bounds[3],
+        annotation.bounds[2],
+        annotation.bounds[1],
+      );
+      final rect = pdfRect.toRectInDocument(page: page, pageRect: pageRect);
+      if (rect.isEmpty) continue;
+      if (annotation.type == 'note') {
+        final marker = Offset(rect.right - 7, rect.top + 7);
+        canvas.drawCircle(marker, 7, Paint()..color = Color(annotation.color));
+        canvas.drawCircle(
+            marker,
+            7,
+            Paint()
+              ..color = Colors.white
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.4);
+        continue;
+      }
+      if (annotation.type == 'underline' ||
+          annotation.type == 'strikethrough') {
+        final lineCount = (annotation.content ?? '')
+            .split('\n')
+            .where((line) => line.trim().isNotEmpty)
+            .length
+            .clamp(1, 100);
+        final lineHeight = rect.height / lineCount;
+        final paint = Paint()
+          ..color = Color(annotation.color)
+          ..strokeWidth = 2;
+        for (var line = 0; line < lineCount; line++) {
+          final y = annotation.type == 'underline'
+              ? rect.top + lineHeight * (line + 0.82)
+              : rect.top + lineHeight * (line + 0.52);
+          canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), paint);
+        }
+      } else {
+        canvas.drawRect(rect, Paint()..color = color);
+      }
+    }
+  }
+
+  Future<void> _finishInk(PdfPage page, Rect pageRect) async {
+    final points = _inkPoints;
+    if (points.length < 2 || pageRect.width <= 0 || pageRect.height <= 0) {
+      if (mounted) setState(() => _inkPoints = []);
+      return;
+    }
+    final normalized = <double>[];
+    for (final point in points) {
+      normalized
+        ..add((point.dx / pageRect.width).clamp(0.0, 1.0))
+        ..add((point.dy / pageRect.height).clamp(0.0, 1.0));
+    }
+    final annotation = PdfAnnotation(
+      id: '${DateTime.now().microsecondsSinceEpoch}-ink',
+      pdfPath: widget.item.path,
+      pageNumber: page.pageNumber,
+      type: 'ink',
+      color: _annotationColor,
+      bounds: const [0, 0, 0, 0],
+      points: normalized,
+      createdAt: DateTime.now(),
+    );
+    await ref.read(annotationRepositoryProvider).addAnnotation(annotation);
+    _annotationUndoStack.add(annotation);
+    _annotationRedoStack.clear();
+    if (mounted) {
+      setState(() {
+        _inkPoints = [];
+        _drawingMode = false;
+      });
+      _scheduleHide();
+    }
+  }
+
   Widget _buildReaderHeader(bool ready) {
-    final theme = Theme.of(context);
     final title = widget.item.name
         .replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '');
+    final tabsState = ref.watch(openTabsProvider);
+    final matchingIndex =
+        tabsState.tabs.indexWhere((tab) => tab.path == widget.item.path);
+    final tabIndex = matchingIndex >= 0 ? matchingIndex : tabsState.activeIndex;
+    final hasPrevious = tabIndex > 0;
+    final hasNext = tabIndex >= 0 && tabIndex < tabsState.tabs.length - 1;
+    final showArrowButtons =
+        MediaQuery.sizeOf(context).width >= 520 && tabsState.tabs.length > 1;
+
+    void selectTab(int index) {
+      if (index < 0 || index >= tabsState.tabs.length || index == tabIndex) {
+        return;
+      }
+      ref.read(hapticServiceProvider).selectionClick();
+      ref.read(openTabsProvider.notifier).setActiveIndex(index);
+    }
+
+    void openTabSwitcher() {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const TabSwitcherScreen()),
+      );
+    }
+
+    void startSearch() {
+      if (!ready) return;
+      _hideTimer?.cancel();
+      setState(() => _isSearching = true);
+      _searchFocus.requestFocus();
+    }
+
     return Row(
       children: [
         IconButton(
           tooltip: 'Back to library',
           onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(ArcIcons.back),
         ),
         const SizedBox(width: 4),
+        if (showArrowButtons)
+          IconButton(
+            tooltip: 'Previous document tab',
+            onPressed: hasPrevious ? () => selectTab(tabIndex - 1) : null,
+            icon: const Icon(ArcIcons.previous),
+          ),
         Expanded(
-          child: Tooltip(
-            message: widget.item.name,
-            child: Text(title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+          child: _ReaderTabAddressBar(
+            title: title,
+            position: tabIndex + 1,
+            count: tabsState.tabs.length,
+            canMovePrevious: hasPrevious,
+            canMoveNext: hasNext,
+            searchEnabled: ready,
+            onOpenTabs: openTabSwitcher,
+            onMovePrevious: () => selectTab(tabIndex - 1),
+            onMoveNext: () => selectTab(tabIndex + 1),
+            onSearch: startSearch,
           ),
         ),
-        ArcBouncyButton(
-          tooltip: 'Search document',
-          onPressed: !ready
-              ? null
-              : () {
-                  _hideTimer?.cancel();
-                  setState(() => _isSearching = true);
-                  _searchFocus.requestFocus();
-                },
-          child: const Icon(Icons.search_rounded),
-        ),
+        if (showArrowButtons)
+          IconButton(
+            tooltip: 'Next document tab',
+            onPressed: hasNext ? () => selectTab(tabIndex + 1) : null,
+            icon: const Icon(ArcIcons.next),
+          ),
         IconButton(
           tooltip: 'Reading controls',
           onPressed: _showReadingControls,
-          icon: const Icon(Icons.tune_rounded),
+          icon: const Icon(ArcIcons.controls),
         ),
       ],
+    );
+  }
+
+  Widget _buildSelectionBar() {
+    final theme = Theme.of(context);
+    return Material(
+      key: const ValueKey('reader-selection-action-dock'),
+      color: theme.colorScheme.surfaceContainerHigh,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(20),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _selectionAction(ArcIcons.copy, 'Copy', _copySelectedText),
+            _selectionAction(ArcIcons.share, 'Share', _shareSelectedText),
+            _selectionAction(ArcIcons.highlight, 'Highlight',
+                () => _annotateSelection('highlight')),
+            _selectionAction(ArcIcons.underline, 'Underline',
+                () => _annotateSelection('underline')),
+            _selectionAction(ArcIcons.strikethrough, 'Strike',
+                () => _annotateSelection('strikethrough')),
+            _selectionAction(
+                ArcIcons.note, 'Note', () => _annotateSelection('note')),
+            _selectionAction(ArcIcons.close, 'Clear', () async {
+              await _pdfViewerController.textSelectionDelegate
+                  .clearTextSelection();
+              _setTextSelection(null);
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildSelectionContextMenu(
+      BuildContext context, PdfViewerContextMenuBuilderParams params) {
+    final delegate = params.textSelectionDelegate;
+    final canCopy = params.isTextSelectionEnabled &&
+        delegate.isCopyAllowed &&
+        delegate.hasSelectedText;
+    final canSelectAll =
+        params.isTextSelectionEnabled && !delegate.isSelectingAllText;
+    if (!canCopy && !canSelectAll) return null;
+    final theme = Theme.of(context);
+
+    Widget action(IconData icon, String label, VoidCallback onPressed) {
+      return TextButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          foregroundColor: theme.colorScheme.onSurface,
+        ),
+      );
+    }
+
+    return Material(
+      key: const ValueKey('reader-selection-context-menu'),
+      color: theme.colorScheme.surfaceContainerHigh,
+      elevation: 3,
+      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.28),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width - 24,
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          children: [
+            if (canCopy)
+              action(ArcIcons.copy, 'Copy', () {
+                params.dismissContextMenu();
+                unawaited(delegate.copyTextSelection());
+              }),
+            if (canSelectAll)
+              action(ArcIcons.selectAll, 'Select all', () {
+                params.dismissContextMenu();
+                unawaited(delegate.selectAllText());
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectionAction(IconData icon, String label, VoidCallback onPressed) {
+    return Tooltip(
+      message: label,
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: label,
+        icon: Icon(icon, size: 20),
+        constraints: const BoxConstraints(
+          minWidth: ArcColors.minTouchTarget,
+          minHeight: ArcColors.minTouchTarget,
+        ),
+      ),
     );
   }
 
@@ -792,7 +1417,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         Row(children: [
           const Padding(
               padding: EdgeInsets.only(left: 12, right: 8),
-              child: Icon(Icons.search_rounded)),
+              child: Icon(ArcIcons.search)),
           Expanded(
             child: TextField(
               controller: _searchController,
@@ -821,7 +1446,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
               setState(() => _isSearching = false);
               _scheduleHide();
             },
-            icon: const Icon(Icons.close_rounded),
+            icon: const Icon(ArcIcons.close),
           ),
         ]),
         if (_searchController.text.isNotEmpty)
@@ -842,12 +1467,12 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
             IconButton(
               tooltip: 'Previous search result',
               onPressed: hasMatches ? searcher!.goToPrevMatch : null,
-              icon: const Icon(Icons.keyboard_arrow_up_rounded),
+              icon: const Icon(ArcIcons.previousResult),
             ),
             IconButton(
               tooltip: 'Next search result',
               onPressed: hasMatches ? searcher!.goToNextMatch : null,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+              icon: const Icon(ArcIcons.down),
             ),
           ]),
       ],
@@ -856,6 +1481,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
 
   Widget _buildPageBar(bool ready) {
     final theme = Theme.of(context);
+    final displayPage =
+        ready && _pageCount > 0 ? _page.clamp(1, _pageCount) : 1;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -867,21 +1494,21 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                 : _isAutoScrolling
                     ? _toggleAutoScroll
                     : _showThumbnails,
-            icon: Icon(_isAutoScrolling
-                ? Icons.pause_rounded
-                : Icons.grid_view_rounded),
+            icon: Icon(_isAutoScrolling ? ArcIcons.pause : ArcIcons.grid),
           ),
           IconButton(
             tooltip: 'Previous page',
-            onPressed: ready && _page > 1 ? () => _goToPage(_page - 1) : null,
-            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: ready && displayPage > 1
+                ? () => _goToPage(displayPage - 1)
+                : null,
+            icon: const Icon(ArcIcons.previous),
           ),
           Expanded(
             child: Tooltip(
               message: 'Jump to page',
               child: TextButton(
                 onPressed: ready ? _showJumpToPageDialog : null,
-                child: Text(ready ? '$_page / $_pageCount' : 'Not loaded',
+                child: Text(ready ? '$displayPage / $_pageCount' : 'Loading…',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelLarge
@@ -891,16 +1518,18 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           ),
           IconButton(
             tooltip: 'Next page',
-            onPressed:
-                ready && _page < _pageCount ? () => _goToPage(_page + 1) : null,
-            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed: ready && displayPage < _pageCount
+                ? () => _goToPage(displayPage + 1)
+                : null,
+            icon: const Icon(ArcIcons.next),
           ),
         ]),
         if (ready)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
             child: LinearProgressIndicator(
-              value: _pageCount > 0 ? (_page / _pageCount).clamp(0, 1) : 0,
+              value:
+                  _pageCount > 0 ? (displayPage / _pageCount).clamp(0, 1) : 0,
               minHeight: 2,
               borderRadius: BorderRadius.circular(2),
               backgroundColor:
@@ -936,7 +1565,6 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           .read(pdfLibraryControllerProvider)
           .favorites
           .contains(widget.item.path);
-      final tabCount = ref.read(openTabsProvider).tabs.length;
       final action = await showModalBottomSheet<ReaderAction>(
         context: context,
         isScrollControlled: true,
@@ -957,7 +1585,8 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
             autoScroll: _isAutoScrolling,
             keepAwake: _keepAwake,
             fullscreen: _isFullscreen,
-            tabCount: tabCount,
+            layoutMode: _layoutMode,
+            hasTextSelection: _textSelection?.hasSelectedText == true,
             onSelected: (action) => Navigator.pop(sheetContext, action),
           ),
         ),
@@ -1040,10 +1669,386 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
         if (!mounted) return;
         await Printing.layoutPdf(
             onLayout: (_) async => bytes, name: widget.item.name);
-      case ReaderAction.tabs:
-        await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const TabSwitcherScreen()));
+      case ReaderAction.layout:
+        await _chooseLayoutMode();
+      case ReaderAction.bookmarks:
+        await _showBookmarks();
+      case ReaderAction.reflow:
+        await _showReflowReader();
+      case ReaderAction.readingSettings:
+        await _showReadingSettings();
+      case ReaderAction.readAloud:
+        await _toggleReadAloud();
+      case ReaderAction.annotate:
+        await _showAnnotationTools();
+      case ReaderAction.selectText:
+        if (_textSelection?.hasSelectedText == true) {
+          await _copySelectedText();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Long-press text to select it'),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
     }
+  }
+
+  Future<void> _chooseLayoutMode() async {
+    final selected = await showModalBottomSheet<ReaderLayoutMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Page layout'),
+              subtitle: Text('Choose how pages are arranged while reading'),
+            ),
+            for (final mode in ReaderLayoutMode.values)
+              RadioListTile<ReaderLayoutMode>(
+                value: mode,
+                groupValue: _layoutMode,
+                onChanged: (value) => Navigator.pop(context, value),
+                secondary: Icon(switch (mode) {
+                  ReaderLayoutMode.continuous => ArcIcons.layoutContinuous,
+                  ReaderLayoutMode.singlePage => ArcIcons.layoutSingle,
+                  ReaderLayoutMode.twoPage => ArcIcons.layoutTwoPage,
+                }),
+                title: Text(switch (mode) {
+                  ReaderLayoutMode.continuous => 'Continuous scroll',
+                  ReaderLayoutMode.singlePage => 'Single-page swipe',
+                  ReaderLayoutMode.twoPage => 'Two-page spread',
+                }),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _layoutMode = selected;
+      _isHorizontalScroll = selected == ReaderLayoutMode.singlePage;
+    });
+    _pdfViewerController.invalidate();
+  }
+
+  Future<void> _showBookmarks() async {
+    final repository = ref.read(readingProgressRepositoryProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(builder: (context, setSheetState) {
+          final bookmarks = repository.getBookmarks(widget.item.path);
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.75),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Bookmarks'),
+                    subtitle: Text('${bookmarks.length} saved locations'),
+                    trailing: IconButton(
+                      tooltip: 'Bookmark current page',
+                      icon: const Icon(ArcIcons.bookmark),
+                      onPressed: () async {
+                        final label = await _askForText(
+                          title: 'Name bookmark',
+                          label: 'Bookmark name',
+                        );
+                        if (label == null || label.trim().isEmpty) return;
+                        final next = [
+                          ...bookmarks,
+                          ReadingBookmark(
+                            id: '${DateTime.now().microsecondsSinceEpoch}',
+                            page: _page,
+                            label: label.trim(),
+                            createdAt: DateTime.now(),
+                          ),
+                        ];
+                        await repository.saveBookmarks(widget.item.path, next);
+                        setSheetState(() {});
+                      },
+                    ),
+                  ),
+                  if (bookmarks.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 12, 24, 28),
+                      child: Text('Save pages you want to find quickly later.'),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: bookmarks.length,
+                        itemBuilder: (context, index) {
+                          final bookmark = bookmarks[index];
+                          return ListTile(
+                            leading: const Icon(ArcIcons.bookmarkSelected),
+                            title: Text(bookmark.label),
+                            subtitle: Text('Page ${bookmark.page}'),
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              _goToPage(bookmark.page);
+                            },
+                            trailing: IconButton(
+                              tooltip: 'Delete bookmark',
+                              icon: const Icon(ArcIcons.remove),
+                              onPressed: () async {
+                                final next = bookmarks
+                                    .where((item) => item.id != bookmark.id)
+                                    .toList();
+                                await repository.saveBookmarks(
+                                    widget.item.path, next);
+                                setSheetState(() {});
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  Future<void> _showReadingSettings() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Reading settings',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 16),
+                Text('Text size · ${(_reflowTextScale * 100).round()}%'),
+                Slider(
+                  value: _reflowTextScale,
+                  min: 0.8,
+                  max: 1.8,
+                  divisions: 10,
+                  onChanged: (value) {
+                    setSheetState(() => _reflowTextScale = value);
+                    setState(() {});
+                  },
+                ),
+                Text('Line spacing · ${_reflowLineSpacing.toStringAsFixed(2)}'),
+                Slider(
+                  value: _reflowLineSpacing,
+                  min: 1.0,
+                  max: 2.2,
+                  divisions: 12,
+                  onChanged: (value) {
+                    setSheetState(() => _reflowLineSpacing = value);
+                    setState(() {});
+                  },
+                ),
+                const Text('These settings apply to Reflow text mode.'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleReadAloud() async {
+    if (_isSpeaking) {
+      await _readerSpeechChannel.invokeMethod<void>('stop');
+      if (mounted) setState(() => _isSpeaking = false);
+      return;
+    }
+    if (!_pdfViewerController.isReady) return;
+    final selected = _textSelection?.hasSelectedText == true
+        ? await _selectedText()
+        : (await _pdfViewerController.document.pages[_page - 1].loadText())
+                ?.fullText ??
+            '';
+    if (selected.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This page has no readable text'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;
+    }
+    try {
+      await _readerSpeechChannel
+          .invokeMethod<void>('speak', {'text': selected});
+      if (mounted) setState(() => _isSpeaking = true);
+    } on MissingPluginException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Read aloud is available on Android builds'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+  }
+
+  Future<void> _showAnnotationTools() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            const ListTile(
+              title: Text('Annotation tools'),
+              subtitle:
+                  Text('Select text to mark it, or draw directly on a page.'),
+            ),
+            ListTile(
+              leading: const Icon(ArcIcons.draw),
+              title: const Text('Freehand drawing'),
+              onTap: () => Navigator.pop(context, 'draw'),
+            ),
+            ListTile(
+              leading: const Icon(ArcIcons.highlight),
+              title: const Text('Choose annotation color'),
+              onTap: () => Navigator.pop(context, 'color'),
+            ),
+            ListTile(
+              leading: const Icon(ArcIcons.note),
+              title: const Text('Review notes'),
+              onTap: () => Navigator.pop(context, 'notes'),
+            ),
+            ListTile(
+              leading: const Icon(ArcIcons.undo),
+              title: const Text('Undo annotation'),
+              enabled: _annotationUndoStack.isNotEmpty,
+              onTap: () => Navigator.pop(context, 'undo'),
+            ),
+            ListTile(
+              leading: const Icon(ArcIcons.redo),
+              title: const Text('Redo annotation'),
+              enabled: _annotationRedoStack.isNotEmpty,
+              onTap: () => Navigator.pop(context, 'redo'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'draw') {
+      setState(() => _drawingMode = true);
+    } else if (action == 'color') {
+      await _chooseAnnotationColor();
+    } else if (action == 'notes') {
+      await _showNotesList();
+    } else if (action == 'undo') {
+      await _undoAnnotation();
+    } else if (action == 'redo') {
+      await _redoAnnotation();
+    }
+  }
+
+  Future<void> _showNotesList() async {
+    final notes = ref
+        .read(annotationRepositoryProvider)
+        .getAnnotationsForPdf(widget.item.path)
+        .where((annotation) => annotation.type == 'note')
+        .toList(growable: false);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: notes.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: Text('No notes in this document yet.')),
+              )
+            : ListView.builder(
+                shrinkWrap: true,
+                itemCount: notes.length,
+                itemBuilder: (_, index) {
+                  final note = notes[index];
+                  return ListTile(
+                    leading: Icon(ArcIcons.note, color: Color(note.color)),
+                    title: Text(note.content?.trim().isNotEmpty == true
+                        ? note.content!
+                        : 'Note on page ${note.pageNumber}'),
+                    subtitle: Text('Page ${note.pageNumber}'),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Future<void> _chooseAnnotationColor() async {
+    const colors = [0xFFFFD54F, 0xFF81D4FA, 0xFFA5D6A7, 0xFFF48FB1];
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            for (final color in colors)
+              IconButton(
+                tooltip: 'Use annotation color',
+                onPressed: () => Navigator.pop(context, color),
+                icon: Icon(Icons.circle, color: Color(color), size: 32),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (mounted && selected != null) {
+      setState(() => _annotationColor = selected);
+    }
+  }
+
+  Future<void> _undoAnnotation() async {
+    if (_annotationUndoStack.isEmpty) return;
+    final annotation = _annotationUndoStack.removeLast();
+    await ref
+        .read(annotationRepositoryProvider)
+        .deleteAnnotation(annotation.id);
+    _annotationRedoStack.add(annotation);
+  }
+
+  Future<void> _redoAnnotation() async {
+    if (_annotationRedoStack.isEmpty) return;
+    final annotation = _annotationRedoStack.removeLast();
+    await ref.read(annotationRepositoryProvider).addAnnotation(annotation);
+    _annotationUndoStack.add(annotation);
+  }
+
+  Future<void> _showReflowReader() async {
+    if (!_pdfViewerController.isReady) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _ReflowReaderView(
+        document: _pdfViewerController.document,
+        engine: ref.read(reflowEngineProvider),
+        path: widget.item.path,
+        initialPage: _page,
+        textScale: _reflowTextScale,
+        lineSpacing: _reflowLineSpacing,
+        onPageChanged: _goToPage,
+      ),
+    );
   }
 
   Widget _buildLoadError(BuildContext context, String message) {
@@ -1059,7 +2064,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.picture_as_pdf_outlined,
+              ArcIcons.pdf,
               size: 48,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1076,10 +2081,22 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded),
-              label: const Text('Back to library'),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: _retryDocumentLoad,
+                  icon: const Icon(ArcIcons.refresh),
+                  label: const Text('Try again'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(ArcIcons.back),
+                  label: const Text('Back to library'),
+                ),
+              ],
             ),
           ],
         ),
@@ -1155,7 +2172,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                     color: theme.colorScheme.primaryContainer,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.lock_rounded,
+                  child: Icon(ArcIcons.lock,
                       size: 32, color: theme.colorScheme.onPrimaryContainer),
                 ),
                 const SizedBox(height: 24),
@@ -1173,7 +2190,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                   decoration: InputDecoration(
                     labelText: 'Document password',
                     hintText: 'Enter password',
-                    prefixIcon: const Icon(Icons.key_rounded),
+                    prefixIcon: const Icon(ArcIcons.key),
                     filled: true,
                     fillColor: theme.colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
@@ -1264,7 +2281,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                         IconButton(
                           tooltip: 'Close pages',
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded),
+                          icon: const Icon(ArcIcons.close),
                         ),
                       ],
                     ),
@@ -1553,7 +2570,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                             color: theme.colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(28),
                           ),
-                          child: Icon(Icons.info_outline_rounded,
+                          child: Icon(ArcIcons.info,
                               color: theme.colorScheme.onPrimaryContainer),
                         ),
                         const SizedBox(width: 16),
@@ -1568,49 +2585,49 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                           onPressed: () => Navigator.of(context).pop(),
                           child: const Padding(
                               padding: EdgeInsets.all(8.0),
-                              child: Icon(Icons.close_rounded)),
+                              child: Icon(ArcIcons.close)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
                     _InfoRow(
-                        icon: Icons.title_rounded,
+                        icon: ArcIcons.title,
                         label: 'Name',
                         value: widget.item.name),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.folder_open_rounded,
+                        icon: ArcIcons.folderOpen,
                         label: 'Path',
                         value: widget.item.path),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.data_usage_rounded,
+                        icon: ArcIcons.fileSize,
                         label: 'Size',
                         value: '$sizeStr MB'),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.calendar_today_rounded,
+                        icon: ArcIcons.calendar,
                         label: 'Modified',
                         value: dateStr),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.file_copy_rounded,
+                        icon: ArcIcons.copy,
                         label: 'Pages',
                         value: '$_pageCount pages'),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.timer_rounded,
+                        icon: ArcIcons.timer,
                         label: 'Total Reading Time',
                         value: timeStr),
                     const Divider(height: 24),
                     _InfoRow(
-                        icon: Icons.trending_up_rounded,
+                        icon: ArcIcons.progress,
                         label: 'Completion',
                         value: completionStr),
                     if (widget.item.isEncrypted) ...[
                       const Divider(height: 24),
                       const _InfoRow(
-                          icon: Icons.lock_rounded,
+                          icon: ArcIcons.lock,
                           label: 'Security',
                           value: 'Password Protected'),
                     ],
@@ -1674,12 +2691,17 @@ class _FrostedBar extends ConsumerWidget {
     final lowPowerMode =
         ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
-    final blur = useBlur && !lowPowerMode;
+    final highContrast = ArcContrast.isHigh(context);
+    final blur = useBlur && !lowPowerMode && !highContrast;
     final content = DecoratedBox(
       decoration: BoxDecoration(
         color: navBg.withValues(alpha: blur ? 0.88 : 1),
         borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border.all(
+            color: highContrast
+                ? theme.colorScheme.outline
+                : theme.colorScheme.outlineVariant,
+            width: highContrast ? 2 : 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -1696,6 +2718,706 @@ class _FrostedBar extends ConsumerWidget {
               child: content,
             )
           : content,
+    );
+  }
+}
+
+/// Chrome-style document address bar. Horizontal swipes are confined to this
+/// top control, so PDF selection, panning, and pinch gestures never compete
+/// with document-tab navigation.
+class _ReaderTabAddressBar extends StatefulWidget {
+  const _ReaderTabAddressBar({
+    required this.title,
+    required this.position,
+    required this.count,
+    required this.canMovePrevious,
+    required this.canMoveNext,
+    required this.searchEnabled,
+    required this.onOpenTabs,
+    required this.onMovePrevious,
+    required this.onMoveNext,
+    required this.onSearch,
+  });
+
+  final String title;
+  final int position;
+  final int count;
+  final bool canMovePrevious;
+  final bool canMoveNext;
+  final bool searchEnabled;
+  final VoidCallback onOpenTabs;
+  final VoidCallback onMovePrevious;
+  final VoidCallback onMoveNext;
+  final VoidCallback onSearch;
+
+  @override
+  State<_ReaderTabAddressBar> createState() => _ReaderTabAddressBarState();
+}
+
+class _ReaderTabAddressBarState extends State<_ReaderTabAddressBar> {
+  double _dragDistance = 0;
+
+  void _finishDrag(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_dragDistance.abs() < 36 && velocity.abs() < 450) return;
+    final rtl = Directionality.of(context) == ui.TextDirection.rtl;
+    final movingForward = (_dragDistance < 0) != rtl;
+    if (movingForward && widget.canMoveNext) {
+      widget.onMoveNext();
+    } else if (!movingForward && widget.canMovePrevious) {
+      widget.onMovePrevious();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final multiple = widget.count > 1;
+    final position =
+        widget.position.clamp(1, widget.count < 1 ? 1 : widget.count);
+    final tabLabel =
+        multiple ? 'Tab $position of ${widget.count}' : 'Current document';
+
+    return Semantics(
+      container: true,
+      label: '${widget.title}, $tabLabel',
+      hint: multiple
+          ? 'Swipe left or right to change document tabs. Double tap for all tabs.'
+          : 'Double tap for open tabs.',
+      child: Tooltip(
+        message: multiple
+            ? '${widget.title} · $position of ${widget.count}. Swipe to change tabs.'
+            : widget.title,
+        child: Material(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: (_) => _dragDistance = 0,
+            onHorizontalDragUpdate: (details) =>
+                _dragDistance += details.primaryDelta ?? 0,
+            onHorizontalDragEnd: _finishDrag,
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    key: const ValueKey('reader-tab-address'),
+                    onTap: widget.onOpenTabs,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          start: 14,
+                          end: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                widget.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (multiple) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '$position/${widget.count}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Search document',
+                  onPressed: widget.searchEnabled ? widget.onSearch : null,
+                  icon: const Icon(ArcIcons.search, size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InkPainter extends CustomPainter {
+  const _InkPainter({required this.points, required this.color});
+
+  final List<Offset> points;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _InkPainter oldDelegate) =>
+      oldDelegate.points != points || oldDelegate.color != color;
+}
+
+class _ArcSelectionHandle extends StatelessWidget {
+  const _ArcSelectionHandle({
+    required this.color,
+    required this.anchor,
+    required this.state,
+  });
+
+  final Color color;
+  final PdfTextSelectionAnchor anchor;
+  final PdfViewerTextSelectionAnchorHandleState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: CustomPaint(
+        painter: _ArcSelectionHandlePainter(
+          color: color,
+          isStart: anchor.type == PdfTextSelectionAnchorType.a,
+          state: state,
+        ),
+      ),
+    );
+  }
+}
+
+class _ArcSelectionHandlePainter extends CustomPainter {
+  const _ArcSelectionHandlePainter({
+    required this.color,
+    required this.isStart,
+    required this.state,
+  });
+
+  final Color color;
+  final bool isStart;
+  final PdfViewerTextSelectionAnchorHandleState state;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final active = state == PdfViewerTextSelectionAnchorHandleState.dragging;
+    final handleColor = color.withValues(alpha: active ? 1 : 0.96);
+    // The two cursors face each other: the start cursor hangs above the first
+    // glyph and the end cursor hangs below the last glyph.
+    final center = isStart ? const Offset(32, 33) : const Offset(12, 11);
+    final stemEnd = isStart ? const Offset(32, 10) : const Offset(12, 34);
+    canvas.drawLine(
+      center,
+      stemEnd,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.82)
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      center,
+      stemEnd,
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      center,
+      stemEnd,
+      Paint()
+        ..color = handleColor
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      center,
+      9,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.82)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      center,
+      7.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      center,
+      6,
+      Paint()
+        ..color = handleColor
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcSelectionHandlePainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.isStart != isStart ||
+      oldDelegate.state != state;
+}
+
+class _ReflowReaderView extends StatefulWidget {
+  const _ReflowReaderView({
+    required this.document,
+    required this.engine,
+    required this.path,
+    required this.initialPage,
+    required this.textScale,
+    required this.lineSpacing,
+    required this.onPageChanged,
+  });
+
+  final PdfDocument document;
+  final ReflowEngine engine;
+  final String path;
+  final int initialPage;
+  final double textScale;
+  final double lineSpacing;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  State<_ReflowReaderView> createState() => _ReflowReaderViewState();
+}
+
+class _ReflowReaderViewState extends State<_ReflowReaderView> {
+  late int _page;
+  late double _textScale;
+  late double _lineSpacing;
+  late final ReflowEngine _engine;
+  late Future<ReflowDocument> _reflow;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _page = widget.initialPage.clamp(1, widget.document.pages.length);
+    _textScale = widget.textScale;
+    _lineSpacing = widget.lineSpacing;
+    _engine = widget.engine;
+    _reflow = _engine.load(widget.path);
+  }
+
+  void _changePage(int page) {
+    if (page < 1 || page > widget.document.pages.length) return;
+    setState(() {
+      _page = page;
+    });
+    widget.onPageChanged(page);
+    // A page selected with the navigation controls is a new reading context.
+    // Keeping the previous page's offset makes short pages appear blank or
+    // partially scrolled, so always reveal the start of the requested page.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
+  }
+
+  void _openOriginal() {
+    widget.onPageChanged(_page);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final baseStyle = theme.textTheme.bodyLarge ?? const TextStyle();
+    return RepaintBoundary(
+      key: const ValueKey('reflow-reader-preview'),
+      child: ColoredBox(
+        color: theme.colorScheme.surface,
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.88,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('Reflow text · Page $_page',
+                          style: theme.textTheme.titleLarge),
+                    ),
+                    IconButton(
+                      tooltip: 'View original page',
+                      onPressed: _openOriginal,
+                      icon: const Icon(ArcIcons.document),
+                    ),
+                    IconButton(
+                      tooltip: 'Decrease text size',
+                      onPressed: _textScale <= 0.8
+                          ? null
+                          : () => setState(() => _textScale -= 0.1),
+                      icon: const Icon(ArcIcons.textSize),
+                    ),
+                    IconButton(
+                      tooltip: 'Increase text size',
+                      onPressed: _textScale >= 1.8
+                          ? null
+                          : () => setState(() => _textScale += 0.1),
+                      icon: const Icon(ArcIcons.zoom),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<ReflowDocument>(
+                  future: _reflow,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Analyzing document layout…'),
+                          ],
+                        ),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(ArcIcons.error, size: 36),
+                              const SizedBox(height: 12),
+                              const Text('Reflow analysis failed'),
+                              const SizedBox(height: 8),
+                              Text('${snapshot.error}',
+                                  textAlign: TextAlign.center),
+                              const SizedBox(height: 12),
+                              FilledButton.tonal(
+                                onPressed: () => setState(
+                                  () => _reflow = _engine.load(widget.path),
+                                ),
+                                child: const Text('Try again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    final blocks = snapshot.data!
+                        .blocksForPage(_page)
+                        .where(
+                            (block) => block.type != ReflowBlockType.pageBreak)
+                        .toList(growable: false);
+                    if (blocks.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'No selectable text or structured regions were found. Try OCR for a scanned PDF.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.separated(
+                      key: PageStorageKey<int>(_page),
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+                      itemCount: blocks.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) => _ReflowBlockView(
+                        key: ValueKey<String>(
+                          'reflow-$_page-$index-'
+                          '${blocks[index].type.name}-'
+                          '${blocks[index].anchor.bounds}',
+                        ),
+                        block: blocks[index],
+                        document: widget.document,
+                        baseStyle: baseStyle,
+                        textScale: _textScale,
+                        lineSpacing: _lineSpacing,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Previous reflow page',
+                      onPressed:
+                          _page > 1 ? () => _changePage(_page - 1) : null,
+                      icon: const Icon(ArcIcons.previous),
+                    ),
+                    Expanded(
+                      child: Text('$_page / ${widget.document.pages.length}',
+                          textAlign: TextAlign.center),
+                    ),
+                    IconButton(
+                      tooltip: 'Next reflow page',
+                      onPressed: _page < widget.document.pages.length
+                          ? () => _changePage(_page + 1)
+                          : null,
+                      icon: const Icon(ArcIcons.next),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReflowBlockView extends StatelessWidget {
+  const _ReflowBlockView({
+    super.key,
+    required this.block,
+    required this.document,
+    required this.baseStyle,
+    required this.textScale,
+    required this.lineSpacing,
+  });
+
+  final ReflowBlock block;
+  final PdfDocument document;
+  final TextStyle baseStyle;
+  final double textScale;
+  final double lineSpacing;
+
+  TextStyle _style(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final source = switch (block.type) {
+      ReflowBlockType.heading => block.headingLevel == 1
+          ? textTheme.headlineSmall
+          : textTheme.titleLarge,
+      ReflowBlockType.footnote => textTheme.bodySmall,
+      ReflowBlockType.equation => textTheme.bodyLarge,
+      _ => baseStyle,
+    };
+    return (source ?? baseStyle).copyWith(
+      fontSize: (source?.fontSize ?? baseStyle.fontSize ?? 16) * textScale,
+      height: lineSpacing,
+      fontFamily: block.type == ReflowBlockType.equation ? 'monospace' : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _style(context);
+    switch (block.type) {
+      case ReflowBlockType.table:
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Table(
+            defaultColumnWidth: const IntrinsicColumnWidth(),
+            border: TableBorder.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+            children: [
+              for (final row in block.rows)
+                TableRow(
+                  children: [
+                    for (final cell in row)
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: SelectableText(cell, style: style),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      case ReflowBlockType.image:
+      case ReflowBlockType.chart:
+      case ReflowBlockType.fallbackRegion:
+        return _SourceRegionPreview(
+          document: document,
+          block: block,
+        );
+      case ReflowBlockType.list:
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('•  ', style: style),
+            Expanded(
+              child: SelectableText(
+                block.text.replaceFirst(
+                  RegExp(r'^(?:[•●▪◦‣–-]|\(?\d+[.)]|[a-zA-Z][.)])\s+'),
+                  '',
+                ),
+                style: style,
+              ),
+            ),
+          ],
+        );
+      case ReflowBlockType.pageBreak:
+        return const Divider();
+      default:
+        return SelectableText(block.text, style: style);
+    }
+  }
+}
+
+class _SourceRegionPreview extends StatefulWidget {
+  const _SourceRegionPreview({required this.document, required this.block});
+
+  final PdfDocument document;
+  final ReflowBlock block;
+
+  @override
+  State<_SourceRegionPreview> createState() => _SourceRegionPreviewState();
+}
+
+class _SourceRegionPreviewState extends State<_SourceRegionPreview> {
+  ui.Image? _image;
+  Object? _error;
+  int _renderRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _render();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SourceRegionPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.document != widget.document ||
+        oldWidget.block.anchor.page != widget.block.anchor.page ||
+        oldWidget.block.anchor.bounds != widget.block.anchor.bounds) {
+      _renderRevision++;
+      _image?.dispose();
+      _image = null;
+      _error = null;
+      _render();
+    }
+  }
+
+  @override
+  void dispose() {
+    _renderRevision++;
+    _image?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _render() async {
+    final revision = ++_renderRevision;
+    try {
+      final source = widget.block.anchor;
+      final page = await widget.document.pages[source.page - 1].ensureLoaded();
+      final rect = source.bounds.intersect(
+        Rect.fromLTWH(0, 0, page.width, page.height),
+      );
+      if (rect.isEmpty) return;
+      final scale = math.min(2.0, 900 / rect.width);
+      final rendered = await page.render(
+        x: (rect.left * scale).floor(),
+        y: (rect.top * scale).floor(),
+        width: math.max(1, (rect.width * scale).ceil()),
+        height: math.max(1, (rect.height * scale).ceil()),
+        fullWidth: page.width * scale,
+        fullHeight: page.height * scale,
+      );
+      if (rendered == null) return;
+      final image = await rendered.createImage();
+      rendered.dispose();
+      if (!mounted || revision != _renderRevision) {
+        image.dispose();
+        return;
+      }
+      setState(() {
+        _image?.dispose();
+        _image = image;
+      });
+    } on Object catch (error) {
+      if (mounted && revision == _renderRevision) {
+        setState(() => _error = error);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final label = widget.block.caption ??
+        switch (widget.block.type) {
+          ReflowBlockType.chart => 'Chart',
+          ReflowBlockType.image => 'Figure',
+          _ => 'Original page region',
+        };
+    return Semantics(
+      image: true,
+      label: '$label from page ${widget.block.anchor.page}',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: math.max(
+                  .5,
+                  widget.block.anchor.bounds.width /
+                      math.max(1, widget.block.anchor.bounds.height),
+                ),
+                child: _image != null
+                    ? RawImage(image: _image, fit: BoxFit.contain)
+                    : Center(
+                        child: _error == null
+                            ? const CircularProgressIndicator()
+                            : const Icon(ArcIcons.image),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                child: Text(
+                  '$label · Page ${widget.block.anchor.page}',
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

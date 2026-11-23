@@ -1,7 +1,7 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 import '../../pdf/application/pdf_library_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -87,7 +87,7 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                     )
                   else
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(ArcIcons.close),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                 ],
@@ -201,14 +201,14 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                                         ),
                                       ),
                                       child: isSelected
-                                          ? Icon(Icons.check,
+                                          ? Icon(ArcIcons.check,
                                               size: 16,
                                               color:
                                                   theme.colorScheme.onPrimary)
                                           : null,
                                     )
                                   else if (isSelected)
-                                    Icon(Icons.check_circle_rounded,
+                                    Icon(ArcIcons.selected,
                                             color: theme.colorScheme.primary,
                                             size: 28)
                                         .animate()
@@ -245,7 +245,7 @@ class _InAppPdfSelectorState extends ConsumerState<InAppPdfSelector> {
                   children: [
                     Expanded(
                       child: FilledButton.tonalIcon(
-                        icon: const Icon(HugeIcons.strokeRoundedFolder01),
+                        icon: const Icon(ArcIcons.folder),
                         label: const Text('Browse Device Files',
                             style: TextStyle(fontWeight: FontWeight.w600)),
                         style: FilledButton.styleFrom(
@@ -282,7 +282,6 @@ class _Badge extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
-          fontSize: 10,
         ),
       ),
     );

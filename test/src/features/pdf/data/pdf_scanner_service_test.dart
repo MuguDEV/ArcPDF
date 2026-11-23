@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
+import 'package:arcpdf/src/features/pdf/data/native_pdf_scanner.dart';
+import 'package:arcpdf/src/core/native/native_job_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:arcpdf/src/features/pdf/data/pdf_media_store_index.dart';
@@ -71,7 +73,7 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late Directory directory;
-  const scanner = PdfScannerService();
+  final scanner = PdfScannerService();
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('arcpdf_scan_');
@@ -317,6 +319,113 @@ void main() {
     ]);
     expect(result.files.map((file) => file.path), [visible.path]);
   });
+
+  test(
+    'native scanner detects BLAKE3 duplicates and reuses unchanged hashes',
+    () async {
+      final first = await write('first.pdf', '%PDF-1.7\nidentical body');
+      final second =
+          await write('nested/second.pdf', '%PDF-1.7\nidentical body');
+      await write('different.pdf', '%PDF-1.7\ndifferent');
+      final cache = p.join(directory.path, 'private', 'hashes.json');
+      final library = p.join(
+        Directory.current.path,
+        'native',
+        'arcpdf_indexer',
+        'target',
+        'release',
+        'libarcpdf_indexer.so',
+      );
+
+      final cold = await NativePdfScanner.scan(
+        roots: [directory.path],
+        excludedRoots: [p.join(directory.path, 'private')],
+        cachePath: cache,
+        maxWorkers: 2,
+        libraryPath: library,
+      );
+      expect(cold, isNotNull);
+      expect(cold!.files, hasLength(3));
+      expect(cold.duplicateGroups, hasLength(1));
+      expect(
+        cold.duplicateGroups.single.paths,
+        unorderedEquals([first.path, second.path]),
+      );
+      expect(cold.stats.filesHashed, 2);
+      expect(cold.stats.cacheHits, 0);
+
+      final warm = await NativePdfScanner.scan(
+        roots: [directory.path],
+        excludedRoots: [p.join(directory.path, 'private')],
+        cachePath: cache,
+        maxWorkers: 2,
+        libraryPath: library,
+      );
+      expect(warm, isNotNull);
+      expect(warm!.duplicateGroups, hasLength(1));
+      expect(warm.stats.filesHashed, 0);
+      expect(warm.stats.cacheHits, 2);
+    },
+    skip: !File(p.join(
+      Directory.current.path,
+      'native',
+      'arcpdf_indexer',
+      'target',
+      'release',
+      'libarcpdf_indexer.so',
+    )).existsSync(),
+  );
+
+  test(
+    'native runtime cancels a running scan with a terminal event',
+    () async {
+      final library = p.join(
+        Directory.current.path,
+        'native',
+        'arcpdf_indexer',
+        'target',
+        'release',
+        'libarcpdf_indexer.so',
+      );
+      const body = '%PDF-1.7\ncancellable\n%%EOF';
+      for (var index = 0; index < 1200; index++) {
+        await write('bulk/${index ~/ 40}/$index.pdf', body);
+      }
+      final runtime = NativeJobRuntime.tryOpen(libraryPath: library)!;
+      final handle = runtime.submit({
+        'kind': 'scan',
+        'payload': {
+          'roots': [directory.path],
+          'excludedRoots': const <String>[],
+          'maxWorkers': 2,
+        },
+      });
+      var sawRunning = false;
+      final operation = runtime.wait(
+        handle,
+        pollInterval: const Duration(milliseconds: 1),
+        onEvent: (event) {
+          if (event.state == NativeJobState.running) {
+            sawRunning = true;
+            handle.cancel();
+          }
+        },
+      );
+      await expectLater(
+        operation,
+        throwsA(isA<NativeJobCancelledException>()),
+      );
+      expect(sawRunning, isTrue);
+    },
+    skip: !File(p.join(
+      Directory.current.path,
+      'native',
+      'arcpdf_indexer',
+      'target',
+      'release',
+      'libarcpdf_indexer.so',
+    )).existsSync(),
+  );
 
   test('non-Android discovery does not call Android-only external storage APIs',
       () async {

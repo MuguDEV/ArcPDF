@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -207,7 +208,7 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.text('Included'), findsOneWidget);
     expect(find.text('Merge backup'), findsOneWidget);
-    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    expect(find.byIcon(ArcIcons.radioSelected), findsOneWidget);
     expect(service.restores, isEmpty);
   });
 

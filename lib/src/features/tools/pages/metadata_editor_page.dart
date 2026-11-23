@@ -1,8 +1,8 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:path/path.dart' as p;
 
 import '../../settings/haptic_service.dart';
@@ -210,7 +210,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
       body: CustomScrollView(
         slivers: [
           const GlassSliverAppBar(
-            title: Text('Metadata Editor'),
+            title: Text('Edit metadata'),
             actions: [],
           ),
           SliverToBoxAdapter(
@@ -250,8 +250,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(HugeIcons.strokeRoundedPdf02,
-                              color: theme.colorScheme.primary),
+                          Icon(ArcIcons.pdf, color: theme.colorScheme.primary),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
@@ -269,7 +268,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Icon(HugeIcons.strokeRoundedArrowRight01,
+                          Icon(ArcIcons.forward,
                               color: theme.colorScheme.onSurfaceVariant),
                         ],
                       ),
@@ -310,14 +309,14 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                         ),
                         child: Column(
                           children: [
-                            _buildTextField('Title', _titleController,
-                                HugeIcons.strokeRoundedText),
-                            _buildTextField('Author', _authorController,
-                                HugeIcons.strokeRoundedUser),
+                            _buildTextField(
+                                'Title', _titleController, ArcIcons.title),
+                            _buildTextField(
+                                'Author', _authorController, ArcIcons.person),
                             _buildTextField('Subject', _subjectController,
-                                HugeIcons.strokeRoundedBookOpen01),
-                            _buildTextField('Keywords', _keywordsController,
-                                HugeIcons.strokeRoundedTag01),
+                                ArcIcons.reading),
+                            _buildTextField(
+                                'Keywords', _keywordsController, ArcIcons.tag),
                           ],
                         ),
                       ).animate().fadeIn().slideY(begin: 0.1),
@@ -330,7 +329,7 @@ class _MetadataEditorPageState extends ConsumerState<MetadataEditorPage> {
                                 height: 20,
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(HugeIcons.strokeRoundedTick01),
+                            : const Icon(ArcIcons.check),
                         label:
                             Text(_isProcessing ? 'Saving...' : 'Apply Changes'),
                         style: FilledButton.styleFrom(
@@ -401,7 +400,7 @@ class _SaveOptionsSheet extends StatelessWidget {
                   color: theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(HugeIcons.strokeRoundedFile02,
+                child: Icon(ArcIcons.document,
                     color: theme.colorScheme.onPrimaryContainer),
               ),
               title: const Text('Save as New File'),
@@ -418,7 +417,7 @@ class _SaveOptionsSheet extends StatelessWidget {
                   color: theme.colorScheme.errorContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(HugeIcons.strokeRoundedAlert02,
+                child: Icon(ArcIcons.error,
                     color: theme.colorScheme.onErrorContainer),
               ),
               title: const Text('Overwrite Original'),

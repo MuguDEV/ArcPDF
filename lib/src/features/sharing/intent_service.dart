@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -9,6 +10,8 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import '../pdf/application/pdf_library_controller.dart';
 import '../pdf/domain/pdf_file_item.dart';
 import '../pdf/viewer/pdf_viewer_screen.dart';
+import '../pdf/viewer/multi_tab_viewer_screen.dart';
+import '../pdf/application/open_tabs_provider.dart';
 import '../navigation/navigation_controller.dart';
 
 final intentServiceProvider = Provider<IntentService>((ref) {
@@ -25,10 +28,14 @@ final intentServiceProvider = Provider<IntentService>((ref) {
 class IntentService {
   IntentService(this.ref, {Widget Function(PdfFileItem)? viewerBuilder})
       : _viewerBuilder = viewerBuilder ?? _defaultViewer {
-    if (ref.read(splashDoneProvider)) splashCompleter.complete();
+    if (ref.read(splashDoneProvider)) {
+      splashCompleter.complete();
+    }
   }
 
   static Widget _defaultViewer(PdfFileItem item) => PdfViewerScreen(item: item);
+  static const _shareImportChannel =
+      MethodChannel('com.arcpdf.app/share_import');
 
   final Ref ref;
   final Widget Function(PdfFileItem) _viewerBuilder;
@@ -46,7 +53,7 @@ class IntentService {
     final receiver = ReceiveSharingIntent.instance;
     try {
       _intentDataStreamSubscription = receiver.getMediaStream().listen(
-            _handleSharedFiles,
+            (files) => unawaited(_handleSharedFiles(files)),
             onError: (Object _) => debugPrint('Incoming file stream failed.'),
           );
     } catch (_) {
@@ -59,7 +66,7 @@ class IntentService {
     try {
       final files = await receiver.getInitialMedia();
       if (_disposed) return;
-      _handleSharedFiles(files);
+      await _handleSharedFiles(files);
       if (files.isNotEmpty) await receiver.reset();
     } catch (_) {
       debugPrint('Initial incoming files could not be loaded or reset.');
@@ -86,17 +93,40 @@ class IntentService {
     }
   }
 
-  void _handleSharedFiles(List<SharedMediaFile> files) {
+  Future<String?> _resolveLocalPath(SharedMediaFile media) async {
+    final local = _localPath(media);
+    if (local != null) return local;
+    final mime = media.mimeType?.toLowerCase();
+    final contentUri = media.path.toLowerCase();
+    if (media.type != SharedMediaType.file ||
+        !contentUri.startsWith('content://') ||
+        (mime != null &&
+            mime != 'application/pdf' &&
+            !contentUri.endsWith('.pdf'))) {
+      return null;
+    }
+    try {
+      return await _shareImportChannel.invokeMethod<String>('copyContentUri', {
+        'uri': media.path,
+      });
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> _handleSharedFiles(List<SharedMediaFile> files) async {
     if (_disposed) return;
     final paths = <String>[];
     for (final media in files) {
-      final path = _localPath(media);
+      final path = await _resolveLocalPath(media);
       if (path != null && _pendingPaths.add(path)) paths.add(path);
     }
     if (paths.isEmpty) return;
     _pendingIntent = _pendingIntent.then((_) async {
       try {
-        if (!_disposed) await _openFirstValidPdf(paths);
+        if (!_disposed) await _openValidPdfs(paths);
       } catch (_) {
         // Plugin/filesystem/navigation failures must not escape an unawaited
         // stream callback or poison the queue for subsequent incoming files.
@@ -134,14 +164,14 @@ class IntentService {
     }
   }
 
-  Future<void> _openFirstValidPdf(List<String> paths) async {
-    PdfFileItem? item;
+  Future<void> _openValidPdfs(List<String> paths) async {
+    final items = <PdfFileItem>[];
     for (final path in paths) {
       if (_disposed) return;
-      item = await _readPdf(path);
-      if (item != null) break;
+      final item = await _readPdf(path);
+      if (item != null) items.add(item);
     }
-    if (item == null || _disposed) return;
+    if (items.isEmpty || _disposed) return;
     await splashCompleter.future;
     if (_disposed) return;
 
@@ -155,14 +185,21 @@ class IntentService {
     }
     if (_disposed || navigator == null || !navigator.mounted) return;
     try {
-      await ref.read(pdfLibraryControllerProvider.notifier).markRecent(item);
+      for (final item in items) {
+        await ref.read(pdfLibraryControllerProvider.notifier).markRecent(item);
+        if (items.length > 1) {
+          ref.read(openTabsProvider.notifier).openTab(item);
+        }
+      }
     } catch (_) {
       debugPrint('Incoming PDF recent history could not be saved.');
     }
     if (_disposed || !navigator.mounted) return;
-    unawaited(navigator.push<void>(MaterialPageRoute<void>(
-      builder: (_) => _viewerBuilder(item!),
-    )));
+    final page = items.length == 1
+        ? _viewerBuilder(items.first)
+        : const MultiTabViewerScreen();
+    unawaited(
+        navigator.push<void>(MaterialPageRoute<void>(builder: (_) => page)));
   }
 
   void dispose() {

@@ -90,8 +90,8 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     // Bring the row clear of the pinned app bar before interacting with it.
-    final dy = 400 - tester.getCenter(find.text(label)).dy;
-    await tester.drag(find.byType(Scrollable).first, Offset(0, dy));
+    await Scrollable.ensureVisible(tester.element(find.text(label)),
+        alignment: 0.35);
     await tester.pumpAndSettle();
   }
 
@@ -212,6 +212,11 @@ void main() {
   }
 
   Future<void> search(WidgetTester tester, String query) async {
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), query);
     await tester.pumpAndSettle();
   }
@@ -219,14 +224,15 @@ void main() {
   testWidgets('search filters rows, hides empty groups and shows a count',
       (tester) async {
     await mount(tester);
-    expect(find.text('LAYOUT & APPEARANCE'), findsOneWidget);
+    await reveal(tester, 'Layout & Appearance');
+    expect(find.text('Layout & Appearance'), findsOneWidget);
     await search(tester, 'blur');
     expect(find.text('Frosted Glass (Blur)'), findsOneWidget);
-    expect(find.text('LAYOUT & APPEARANCE'), findsOneWidget);
+    expect(find.text('Layout & Appearance'), findsOneWidget);
     expect(find.text('Haptic Feedback'), findsNothing);
     expect(find.text('Theme Mode'), findsNothing);
-    expect(find.text('APPEARANCE'), findsNothing);
-    expect(find.text('PERFORMANCE & TUNING'), findsNothing);
+    expect(find.text('Appearance'), findsNothing);
+    expect(find.text('Performance & Tuning'), findsNothing);
     expect(find.text('1 setting found'), findsOneWidget);
 
     // Matching a group title keeps its rows; tokens are AND-ed.
@@ -239,7 +245,7 @@ void main() {
     expect(find.text('Backup & Restore'), findsNothing);
     // Security is a self-contained section matched by keywords.
     await search(tester, 'biometric');
-    expect(find.text('SECURITY'), findsOneWidget);
+    expect(find.text('Security'), findsOneWidget);
     expect(find.text('App Lock'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -260,7 +266,8 @@ void main() {
     await search(tester, 'theme');
     await tester.tap(find.byTooltip('Clear search'));
     await tester.pumpAndSettle();
-    expect(find.text('PERFORMANCE & TUNING'), findsOneWidget);
+    await reveal(tester, 'Performance & Tuning');
+    expect(find.text('Performance & Tuning'), findsOneWidget);
   });
 
   testWidgets('data rows open backup and logs without errors', (tester) async {
@@ -335,7 +342,9 @@ void main() {
             tester.getRect(find.widgetWithText(OutlinedButton, a.displayName)))
         .toList();
     expect(rects.every((r) => r.height >= 48), isTrue);
-    expect(rects.map((r) => r.width).toSet(), hasLength(1));
+    for (final rect in rects) {
+      expect(rect.width, closeTo(rects.first.width, 0.001));
+    }
     expect({for (final r in rects) r.top}.length, anyOf(1, 2, 3, 6));
     expect([for (final r in rects) r.top].where((t) => t == rects.last.top),
         hasLength(rects.length ~/ ({for (final r in rects) r.top}.length)));

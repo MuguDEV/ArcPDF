@@ -1,6 +1,6 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'security_controller.dart';
 import 'pin_pad.dart';
@@ -75,7 +75,7 @@ class _SecuritySettingsDialogState
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                HugeIcons.strokeRoundedSecurityLock,
+                ArcIcons.lock,
                 size: 32,
                 color: theme.colorScheme.primary,
               ),
@@ -102,11 +102,11 @@ class _SecuritySettingsDialogState
                   ButtonSegment(
                       value: LockType.pin,
                       label: Text('PIN'),
-                      icon: Icon(HugeIcons.strokeRoundedPasswordValidation)),
+                      icon: Icon(ArcIcons.password)),
                   ButtonSegment(
                       value: LockType.pattern,
                       label: Text('Pattern'),
-                      icon: Icon(HugeIcons.strokeRoundedGrid)),
+                      icon: Icon(ArcIcons.pattern)),
                 ],
                 selected: {_selectedType},
                 onSelectionChanged: (s) {
@@ -214,7 +214,7 @@ class _SecurityVerifyDialogState extends ConsumerState<SecurityVerifyDialog> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                HugeIcons.strokeRoundedSecurityValidation,
+                ArcIcons.security,
                 size: 32,
                 color: theme.colorScheme.primary,
               ),

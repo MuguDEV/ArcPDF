@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'security_controller.dart';
@@ -25,6 +26,7 @@ class SecuritySettingsSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SwitchListTile.adaptive(
+            secondary: const Icon(ArcIcons.lock),
             value: security.isLockEnabled,
             onChanged: (val) async {
               if (val) {
@@ -52,6 +54,7 @@ class SecuritySettingsSection extends ConsumerWidget {
           if (security.isLockEnabled) ...[
             const Divider(height: 1, indent: 16, endIndent: 16),
             SwitchListTile.adaptive(
+              secondary: const Icon(ArcIcons.fingerprint),
               value: security.isBiometricEnabled,
               onChanged: ctrl.setBiometricEnabled,
               title: const Text('Use Biometrics'),
@@ -59,6 +62,7 @@ class SecuritySettingsSection extends ConsumerWidget {
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
             SwitchListTile.adaptive(
+              secondary: const Icon(ArcIcons.deviceLock),
               value: security.requireLockOnResume,
               onChanged: ctrl.setRequireLockOnResume,
               title: const Text('Lock on Resume'),

@@ -1,9 +1,9 @@
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/navigation_controller.dart';
+import '../../shared/widgets/arc_pdf_mark.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -12,25 +12,13 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1800))
-      ..repeat(reverse: true);
-    Future<void>.delayed(const Duration(milliseconds: 1800), () {
+    Future<void>.delayed(const Duration(milliseconds: 650), () {
       if (mounted) ref.read(splashDoneProvider.notifier).state = true;
     });
-  }
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
   }
 
   @override
@@ -47,62 +35,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon replacing Lottie Animation
-            Icon(
-              HugeIcons.strokeRoundedPdf02,
-              size: 140,
-              color: theme.colorScheme.primary,
-            ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
-
+            const ArcPdfMark(size: 112)
+                .animate()
+                .fadeIn(duration: 180.ms)
+                .scale(begin: const Offset(0.96, 0.96), duration: 180.ms),
             const SizedBox(height: 22),
-
             Text(
               'ArcPDF',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.8,
               ),
-            )
-                .animate()
-                .fadeIn(delay: 200.ms, duration: 500.ms)
-                .slideY(begin: 0.15, curve: Curves.easeOutCubic),
-
+            ).animate().fadeIn(delay: 80.ms, duration: 180.ms),
             const SizedBox(height: 6),
-
             Text(
               'Your local PDF workspace',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-            ).animate().fadeIn(delay: 350.ms, duration: 500.ms),
-
-            const SizedBox(height: 48),
-
-            // Loading dots
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(3, (i) {
-                return Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.4),
-                  ),
-                )
-                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .scaleXY(
-                      begin: 0.6,
-                      end: 1.0,
-                      delay: Duration(milliseconds: 200 + i * 150),
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeInOut,
-                    )
-                    .fadeIn(delay: Duration(milliseconds: 600 + i * 100));
-              }),
-            ),
+            ).animate().fadeIn(delay: 140.ms, duration: 180.ms),
           ],
         ),
       ),

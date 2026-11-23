@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,8 +22,8 @@ class PermissionScreen extends ConsumerWidget {
           children: [
             Icon(
               status == StoragePermissionStatus.permanentlyDenied
-                  ? Icons.block_rounded
-                  : Icons.folder_open_rounded,
+                  ? ArcIcons.blocked
+                  : ArcIcons.folderOpen,
               size: 140,
               color: status == StoragePermissionStatus.permanentlyDenied
                   ? theme.colorScheme.error
@@ -43,8 +44,8 @@ class PermissionScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             Text(
               status == StoragePermissionStatus.permanentlyDenied
-                  ? 'ArcPDF needs access to your files to display PDFs. Please open Settings and grant storage permission.'
-                  : 'ArcPDF needs permission to scan your device storage for PDF files.',
+                  ? 'Open system settings and enable “All files access” for ArcPDF so it can find PDFs across shared storage.'
+                  : 'Allow file access so ArcPDF can find PDF documents across your device. Image and video permissions are not requested.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.55,
@@ -54,8 +55,11 @@ class PermissionScreen extends ConsumerWidget {
             const SizedBox(height: 36),
             if (status == StoragePermissionStatus.permanentlyDenied) ...[
               FilledButton.icon(
-                onPressed: () => openAppSettings(),
-                icon: const Icon(Icons.settings_rounded),
+                onPressed: () async {
+                  await Permission.manageExternalStorage.request();
+                  await ctrl.refresh(requestPermission: false);
+                },
+                icon: const Icon(ArcIcons.settings),
                 label: const Text('Open Settings'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),
@@ -71,9 +75,7 @@ class PermissionScreen extends ConsumerWidget {
                     builder: (context) => AlertDialog(
                       title: const Text('Storage Permission Needed'),
                       content: const Text(
-                          'To find and display your PDFs, ArcPDF requires access to the device\'s storage. '
-                          'We only use this permission to find PDF documents and do not access or collect any other personal data. '
-                          'Would you like to grant this permission now?'),
+                          'Android will open the “All files access” screen. Enable ArcPDF there to build your local PDF library. ArcPDF does not upload your files.'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
@@ -90,7 +92,7 @@ class PermissionScreen extends ConsumerWidget {
                     ),
                   );
                 },
-                icon: const Icon(Icons.folder_open_rounded),
+                icon: const Icon(ArcIcons.folderOpen),
                 label: const Text('Grant Access'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(double.infinity, 52),

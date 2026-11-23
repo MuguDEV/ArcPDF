@@ -4,10 +4,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
+import 'package:crypto/crypto.dart' as crypto;
 import '../pdf/domain/pdf_file_item.dart';
 import '../pdf/application/pdf_library_controller.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'vault_init_exception.dart';
+
+// New vault files carry their own random IV. Files written by older versions
+// have no envelope and are decrypted with the legacy stored IV below.
+const _vaultEnvelopeMagicV1 = <int>[0x41, 0x52, 0x43, 0x50, 0x44, 0x46, 0x01];
+const _vaultEnvelopeMagicV2 = <int>[0x41, 0x52, 0x43, 0x50, 0x44, 0x46, 0x02];
+const _vaultIvLength = 16;
+const _vaultMacLength = 32;
 
 class VaultState {
   final bool isUnlocked;
@@ -39,7 +48,8 @@ class VaultState {
 class _VaultKey {
   final enc.Encrypter encrypter;
   final enc.IV iv;
-  _VaultKey(this.encrypter, this.iv);
+  final List<int> macKey;
+  _VaultKey(this.encrypter, this.iv, this.macKey);
 }
 
 class VaultController extends StateNotifier<VaultState> {
@@ -131,7 +141,9 @@ class VaultController extends StateNotifier<VaultState> {
       await vaultDir.create(recursive: true);
       _vaultKey = _VaultKey(
           enc.Encrypter(enc.AES(enc.Key(keyBytes), mode: enc.AESMode.cbc)),
-          enc.IV(ivBytes));
+          enc.IV(ivBytes),
+          crypto.sha256.convert(
+              <int>[...keyBytes, ...utf8.encode('ArcPDF vault MAC')]).bytes);
       _vaultDir = vaultDir;
     } catch (e) {
       _vaultKey = null;
@@ -139,6 +151,68 @@ class VaultController extends StateNotifier<VaultState> {
       _initFuture = null;
       throw VaultInitException('Failed to initialize secure vault: $e');
     }
+  }
+
+  Uint8List _encryptForVault(_VaultKey key, List<int> bytes) {
+    final iv = enc.IV.fromSecureRandom(_vaultIvLength);
+    final encrypted = key.encrypter.encryptBytes(bytes, iv: iv);
+    final authenticated = <int>[
+      ..._vaultEnvelopeMagicV2,
+      ...iv.bytes,
+      ...encrypted.bytes,
+    ];
+    final mac = crypto.Hmac(crypto.sha256, key.macKey).convert(authenticated);
+    return Uint8List.fromList(<int>[...authenticated, ...mac.bytes]);
+  }
+
+  List<int> _decryptFromVault(_VaultKey key, List<int> stored) {
+    final isV2 = _startsWith(stored, _vaultEnvelopeMagicV2);
+    final isV1 = _startsWith(stored, _vaultEnvelopeMagicV1);
+    if (!isV1 && !isV2) {
+      // Compatibility path for files created before per-file IVs were added.
+      return key.encrypter
+          .decryptBytes(enc.Encrypted(Uint8List.fromList(stored)), iv: key.iv);
+    }
+    final magic = isV2 ? _vaultEnvelopeMagicV2 : _vaultEnvelopeMagicV1;
+    var authenticatedLength = stored.length;
+    if (isV2) {
+      if (stored.length < magic.length + _vaultIvLength + _vaultMacLength + 1) {
+        throw const FormatException('Invalid vault file');
+      }
+      authenticatedLength = stored.length - _vaultMacLength;
+      final expected = crypto.Hmac(crypto.sha256, key.macKey)
+          .convert(stored.sublist(0, authenticatedLength))
+          .bytes;
+      final actual = stored.sublist(authenticatedLength);
+      if (!_constantTimeEquals(expected, actual)) {
+        throw const FormatException('Vault file integrity check failed');
+      }
+    }
+    final ivStart = magic.length;
+    final iv = enc.IV(
+        Uint8List.fromList(stored.sublist(ivStart, ivStart + _vaultIvLength)));
+    final ciphertext =
+        stored.sublist(ivStart + _vaultIvLength, authenticatedLength);
+    if (ciphertext.isEmpty) throw const FormatException('Invalid vault file');
+    return key.encrypter
+        .decryptBytes(enc.Encrypted(Uint8List.fromList(ciphertext)), iv: iv);
+  }
+
+  bool _startsWith(List<int> bytes, List<int> prefix) {
+    if (bytes.length < prefix.length) return false;
+    for (var i = 0; i < prefix.length; i++) {
+      if (bytes[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
+  bool _constantTimeEquals(List<int> left, List<int> right) {
+    if (left.length != right.length) return false;
+    var difference = 0;
+    for (var i = 0; i < left.length; i++) {
+      difference |= left[i] ^ right[i];
+    }
+    return difference == 0;
   }
 
   Future<void> loadVaultFiles() async {
@@ -188,8 +262,7 @@ class VaultController extends StateNotifier<VaultState> {
       final newFile = await _availableFile(vaultDir, p.basename(file.path));
 
       final bytes = await file.readAsBytes();
-      final encrypted = key.encrypter.encryptBytes(bytes, iv: key.iv);
-      final encryptedBytes = encrypted.bytes;
+      final encryptedBytes = _encryptForVault(key, bytes);
 
       await newFile.writeAsBytes(encryptedBytes, flush: true);
 
@@ -222,8 +295,7 @@ class VaultController extends StateNotifier<VaultState> {
       if (!await _isVaultFile(vaultFile) || !_hasSession(session)) return null;
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes =
-          key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
+      final decryptedBytes = _decryptFromVault(key, encryptedBytes);
 
       final tempDir = await getTemporaryDirectory();
       if (!_hasSession(session)) return null;
@@ -268,8 +340,7 @@ class VaultController extends StateNotifier<VaultState> {
       }
 
       final encryptedBytes = await vaultFile.readAsBytes();
-      final decryptedBytes =
-          key.encrypter.decryptBytes(enc.Encrypted(encryptedBytes), iv: key.iv);
+      final decryptedBytes = _decryptFromVault(key, encryptedBytes);
 
       final newFile =
           await _availableFile(restoreDir, p.basename(vaultFile.path));

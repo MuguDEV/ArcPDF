@@ -1,6 +1,9 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/arc_colors.dart';
+
+enum ReaderLayoutMode { continuous, singlePage, twoPage }
 
 enum ReaderAction {
   pageColors,
@@ -18,7 +21,13 @@ enum ReaderAction {
   share,
   sharePage,
   print,
-  tabs,
+  layout,
+  bookmarks,
+  reflow,
+  readingSettings,
+  readAloud,
+  annotate,
+  selectText,
 }
 
 /// Content for a parent-constrained modal sheet. The caller owns action handling
@@ -36,8 +45,9 @@ class ReaderControlsSheet extends StatelessWidget {
     required this.autoScroll,
     required this.keepAwake,
     required this.fullscreen,
-    required this.tabCount,
     required this.onSelected,
+    this.layoutMode = ReaderLayoutMode.continuous,
+    this.hasTextSelection = false,
   });
 
   final String title;
@@ -50,8 +60,9 @@ class ReaderControlsSheet extends StatelessWidget {
   final bool autoScroll;
   final bool keepAwake;
   final bool fullscreen;
-  final int tabCount;
   final ValueChanged<ReaderAction> onSelected;
+  final ReaderLayoutMode layoutMode;
+  final bool hasTextSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +130,7 @@ class ReaderControlsSheet extends StatelessWidget {
                         minHeight: ArcColors.minTouchTarget,
                       ),
                       color: foreground,
-                      icon: const Icon(Icons.close_rounded),
+                      icon: const Icon(ArcIcons.close),
                     ),
                   ],
                 ),
@@ -145,9 +156,7 @@ class ReaderControlsSheet extends StatelessWidget {
                 _ActionGrid(children: [
                   _QuickAction(
                     action: ReaderAction.pageColors,
-                    icon: darkPages
-                        ? Icons.dark_mode_outlined
-                        : Icons.light_mode_outlined,
+                    icon: darkPages ? ArcIcons.darkMode : ArcIcons.lightMode,
                     label: 'Page colors',
                     tooltip: 'Page colors: ${darkPages ? 'Dark' : 'Light'}',
                     selected: darkPages,
@@ -155,14 +164,14 @@ class ReaderControlsSheet extends StatelessWidget {
                   ),
                   _QuickAction(
                     action: ReaderAction.fitWidth,
-                    icon: Icons.fit_screen_outlined,
+                    icon: ArcIcons.fitWidth,
                     label: 'Fit width',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.fitPage,
-                    icon: Icons.crop_free_rounded,
+                    icon: ArcIcons.fitPage,
                     label: 'Fit page',
                     enabled: ready,
                     onSelected: onSelected,
@@ -170,8 +179,8 @@ class ReaderControlsSheet extends StatelessWidget {
                   _QuickAction(
                     action: ReaderAction.scrollDirection,
                     icon: horizontalScroll
-                        ? Icons.swap_horiz_rounded
-                        : Icons.swap_vert_rounded,
+                        ? ArcIcons.horizontal
+                        : ArcIcons.vertical,
                     label: 'Scroll direction',
                     tooltip: 'Scroll direction: '
                         '${horizontalScroll ? 'Horizontal' : 'Vertical'}',
@@ -181,7 +190,7 @@ class ReaderControlsSheet extends StatelessWidget {
                   ),
                   _QuickAction(
                     action: ReaderAction.rotate,
-                    icon: Icons.rotate_right_rounded,
+                    icon: ArcIcons.rotate,
                     label: 'Rotate',
                     enabled: ready,
                     onSelected: onSelected,
@@ -189,12 +198,27 @@ class ReaderControlsSheet extends StatelessWidget {
                   _QuickAction(
                     action: ReaderAction.fullscreen,
                     icon: fullscreen
-                        ? Icons.fullscreen_exit_rounded
-                        : Icons.fullscreen_rounded,
+                        ? ArcIcons.exitFullscreen
+                        : ArcIcons.fullscreen,
                     label: 'Fullscreen',
                     tooltip:
                         fullscreen ? 'Exit fullscreen' : 'Enter fullscreen',
                     selected: fullscreen,
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.layout,
+                    icon: switch (layoutMode) {
+                      ReaderLayoutMode.continuous => ArcIcons.layoutContinuous,
+                      ReaderLayoutMode.singlePage => ArcIcons.layoutSingle,
+                      ReaderLayoutMode.twoPage => ArcIcons.layoutTwoPage,
+                    },
+                    label: switch (layoutMode) {
+                      ReaderLayoutMode.continuous => 'Continuous',
+                      ReaderLayoutMode.singlePage => 'Single page',
+                      ReaderLayoutMode.twoPage => 'Two pages',
+                    },
                     enabled: ready,
                     onSelected: onSelected,
                   ),
@@ -211,7 +235,7 @@ class ReaderControlsSheet extends StatelessWidget {
                     children: [
                       _ReadingToggle(
                         action: ReaderAction.autoScroll,
-                        icon: Icons.south_rounded,
+                        icon: ArcIcons.autoScroll,
                         label: 'Auto scroll',
                         value: autoScroll,
                         enabled: ready,
@@ -219,7 +243,7 @@ class ReaderControlsSheet extends StatelessWidget {
                       ),
                       _ReadingToggle(
                         action: ReaderAction.keepAwake,
-                        icon: Icons.wb_sunny_outlined,
+                        icon: ArcIcons.keepAwake,
                         label: 'Keep awake',
                         value: keepAwake,
                         onSelected: onSelected,
@@ -227,8 +251,8 @@ class ReaderControlsSheet extends StatelessWidget {
                       _ReadingToggle(
                         action: ReaderAction.favorite,
                         icon: isFavorite
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
+                            ? ArcIcons.favoriteSelected
+                            : ArcIcons.favorite,
                         label: 'Favorite',
                         value: isFavorite,
                         onSelected: onSelected,
@@ -239,54 +263,95 @@ class ReaderControlsSheet extends StatelessWidget {
                 const _SectionHeading('Document'),
                 _ActionGrid(children: [
                   _QuickAction(
+                    action: ReaderAction.bookmarks,
+                    icon: ArcIcons.bookmark,
+                    label: 'Marks',
+                    tooltip: 'Bookmarks',
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.reflow,
+                    icon: ArcIcons.reflow,
+                    label: 'Reflow',
+                    tooltip: 'Reflow text',
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.readingSettings,
+                    icon: ArcIcons.textSize,
+                    label: 'Text',
+                    tooltip: 'Text settings',
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.readAloud,
+                    icon: ArcIcons.speak,
+                    label: 'Speak',
+                    tooltip: 'Read aloud',
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.annotate,
+                    icon: ArcIcons.annotate,
+                    label: 'Mark',
+                    tooltip: 'Annotate',
+                    enabled: ready,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
+                    action: ReaderAction.selectText,
+                    icon: ArcIcons.selectAll,
+                    label: 'Select',
+                    tooltip: 'Select text',
+                    enabled: ready,
+                    selected: hasTextSelection,
+                    onSelected: onSelected,
+                  ),
+                  _QuickAction(
                     action: ReaderAction.thumbnails,
-                    icon: Icons.grid_view_rounded,
+                    icon: ArcIcons.grid,
                     label: 'Pages',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.outline,
-                    icon: Icons.format_list_bulleted_rounded,
+                    icon: ArcIcons.outline,
                     label: 'Outline',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.info,
-                    icon: Icons.info_outline_rounded,
+                    icon: ArcIcons.info,
                     label: 'Info',
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.share,
-                    icon: Icons.share_outlined,
+                    icon: ArcIcons.share,
                     label: 'Share PDF',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.sharePage,
-                    icon: Icons.ios_share_rounded,
+                    icon: ArcIcons.export,
                     label: 'Share page image',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
                   _QuickAction(
                     action: ReaderAction.print,
-                    icon: Icons.print_outlined,
+                    icon: ArcIcons.print,
                     label: 'Print',
                     enabled: ready,
                     onSelected: onSelected,
                   ),
-                  if (tabCount > 1)
-                    _QuickAction(
-                      action: ReaderAction.tabs,
-                      icon: Icons.tab_outlined,
-                      label: 'Tabs',
-                      tooltip: 'Tabs: $tabCount open',
-                      onSelected: onSelected,
-                    ),
                 ]),
               ],
             ),
@@ -395,7 +460,7 @@ class _QuickAction extends StatelessWidget {
           foregroundColor: active ? colors.primary : foreground,
           backgroundColor: active
               ? colors.primary.withValues(alpha: 0.10)
-              : Colors.transparent,
+              : colors.surfaceContainerLow,
           disabledForegroundColor: foreground.withValues(alpha: 0.38),
           minimumSize: const Size(
             ArcColors.minTouchTarget,

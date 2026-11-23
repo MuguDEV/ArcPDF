@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -39,6 +40,7 @@ class _Library extends PdfLibraryController {
   final failures = <String>{};
   final favoriteFailures = <String>{};
   Completer<bool>? pendingDelete;
+  final duplicateKeepCalls = <String>[];
 
   @override
   Future<void> refresh({bool requestPermission = false}) async {}
@@ -66,6 +68,22 @@ class _Library extends PdfLibraryController {
           items: state.items.where((file) => file.path != item.path).toList());
     }
     return success;
+  }
+
+  @override
+  Future<DuplicateCleanupResult> keepOnlyDuplicate(
+      PdfDuplicateGroup group, String keepPath) async {
+    duplicateKeepCalls.add(keepPath);
+    final deleted = group.paths.where((path) => path != keepPath).toSet();
+    state = state.copyWith(
+      items: state.items.where((item) => !deleted.contains(item.path)).toList(),
+      duplicateGroups: const [],
+    );
+    return DuplicateCleanupResult(
+      deletedPaths: deleted,
+      failedPaths: const {},
+      reclaimedBytes: deleted.length * group.sizeBytes,
+    );
   }
 
   void replaceItems(List<PdfFileItem> items) =>
@@ -168,6 +186,8 @@ void main() {
       (widget) => widget is PdfCustomCard && widget.item.name == '$name.pdf');
 
   Future<void> select(WidgetTester tester) async {
+    await tester.ensureVisible(card('Alpha'));
+    await tester.pumpAndSettle();
     await tester.longPress(card('Alpha'));
     await tester.pumpAndSettle();
   }
@@ -188,8 +208,8 @@ void main() {
       tester.widget<IconButton>(find.widgetWithIcon(
           IconButton,
           switch (label) {
-            'Share' => Icons.share_outlined,
-            _ => Icons.more_horiz_rounded,
+            'Share' => ArcIcons.share,
+            _ => ArcIcons.more,
           }));
 
   Future<void> disposeScreen(WidgetTester tester) async {
@@ -204,9 +224,8 @@ void main() {
     await mount(tester);
     await select(tester);
     expect(find.byType(FloatingActionButton), findsNothing);
-    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
-    expect(tester.getSize(find.byIcon(Icons.check_circle_rounded)),
-        const Size(44, 44));
+    expect(find.byIcon(ArcIcons.selected), findsOneWidget);
+    expect(tester.getSize(find.byIcon(ArcIcons.selected)), const Size(48, 48));
     expect(find.byType(Animate), findsNothing);
     expect(
         tester.getSemantics(find.bySemanticsLabel('Alpha.pdf')),
@@ -218,8 +237,8 @@ void main() {
             hasTapAction: true));
     final ink =
         find.descendant(of: card('Beta'), matching: find.byType(InkWell));
-    final indicator = find.descendant(
-        of: ink, matching: find.byIcon(Icons.radio_button_unchecked_rounded));
+    final indicator =
+        find.descendant(of: ink, matching: find.byIcon(ArcIcons.unselected));
     Focus.of(tester.element(indicator)).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -328,6 +347,44 @@ void main() {
     expect(find.textContaining('1 could not be deleted'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await disposeScreen(tester);
+  });
+
+  testWidgets('duplicate manager chooses one file to keep and confirms cleanup',
+      (tester) async {
+    final group = PdfDuplicateGroup(
+      digest: 'exact-match',
+      sizeBytes: 1024,
+      reclaimableBytes: 2048,
+      paths: items.map((item) => item.path).toList(),
+    );
+    library.state = library.state.copyWith(
+      filter: PdfFilter.duplicates,
+      duplicateGroups: [group],
+    );
+    await mount(tester, width: 320, scale: 2);
+    expect(find.text('1 exact duplicate set'), findsOneWidget);
+    final manage = find.widgetWithText(FilledButton, 'Manage');
+    await tester.ensureVisible(manage);
+    await tester.pumpAndSettle();
+    await tester.tap(manage);
+    await tester.pumpAndSettle();
+    expect(find.text('Choose the file to keep'), findsOneWidget);
+    final beta = find.text('Beta.pdf');
+    await tester.ensureVisible(beta);
+    await tester.pumpAndSettle();
+    await tester.tap(beta);
+    await tester.pump();
+    final clean = find.text('Keep selected · Delete 2');
+    await tester.ensureVisible(clean);
+    await tester.pumpAndSettle();
+    await tester.tap(clean);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('keep Beta.pdf'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete copies'));
+    await tester.pumpAndSettle();
+    expect(library.duplicateKeepCalls, [items[1].path]);
+    expect(find.text('No exact duplicates'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -506,8 +563,7 @@ void main() {
       (tester) async {
     await mount(tester);
     await select(tester);
-    Focus.of(tester.element(find.byIcon(Icons.more_horiz_rounded)))
-        .requestFocus();
+    Focus.of(tester.element(find.byIcon(ArcIcons.more))).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
@@ -677,6 +733,7 @@ void main() {
             PdfFilter.recent => 'Recent',
             PdfFilter.downloads => 'Downloads',
             PdfFilter.large => 'Large Files',
+            PdfFilter.duplicates => 'Duplicates',
             PdfFilter.folders => 'Folders',
           }));
       final rows = <double>{};
@@ -716,7 +773,7 @@ void main() {
     final semantics = tester.ensureSemantics();
     tabs.openTab(items[0]);
     tabs.openTab(items[1]);
-    await mount(tester, width: 320, scale: 2);
+    await mount(tester, width: 390, scale: 1);
     expect(find.text('Resume reading'), findsOneWidget);
     expect(find.text('2 open tabs'), findsOneWidget);
     expect(
@@ -760,6 +817,13 @@ void main() {
       final semantics = tester.ensureSemantics();
       await mount(tester, width: 320, scale: 3, brightness: brightness);
       final resume = find.byKey(const ValueKey('home-resume-reading'));
+      await tester.scrollUntilVisible(resume, 200,
+          scrollable: find
+              .descendant(
+                  of: find.byType(CustomScrollView),
+                  matching: find.byType(Scrollable))
+              .first);
+      await tester.pumpAndSettle();
       final rect = tester.getRect(resume);
       expect(rect.left, 16);
       expect(rect.right, 304);

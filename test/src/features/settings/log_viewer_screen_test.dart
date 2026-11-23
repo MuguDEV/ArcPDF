@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -46,8 +47,8 @@ void main() {
         home: const LogViewerScreen(),
       ));
       for (final icon in [
-        Icons.warning_amber_rounded,
-        Icons.error_outline_rounded
+        ArcIcons.warning,
+        ArcIcons.error
       ]) {
         final finder = find.byIcon(icon);
         expect(finder, findsOneWidget);
@@ -65,7 +66,7 @@ void main() {
       expect(find.text('WARNING'), findsOneWidget);
       expect(find.text('ERROR'), findsOneWidget);
       expect(find.text('INFO'), findsOneWidget);
-      expect(tester.widget<Icon>(find.byIcon(Icons.info_outline_rounded)).color,
+      expect(tester.widget<Icon>(find.byIcon(ArcIcons.info)).color,
           scheme.onSurfaceVariant);
       expect(tester.takeException(), isNull);
     });
@@ -109,7 +110,7 @@ void main() {
       await mount(tester);
       expect(find.byTooltip('Export saved logs'), findsOneWidget);
       expect(find.byTooltip(_bugReportTooltip), findsOneWidget);
-      expect(find.byIcon(Icons.bug_report_outlined), findsOneWidget);
+      expect(find.byIcon(ArcIcons.diagnostics), findsOneWidget);
     });
 
     testWidgets('shares one text file anchored to the button', (tester) async {

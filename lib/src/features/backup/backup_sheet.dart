@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -266,18 +267,18 @@ class _BackupRestoreSheetState extends State<BackupRestoreSheet> {
         ),
         const SheetSectionHeader(title: 'Back up', first: true),
         SheetActionRow(
-          icon: Icons.ios_share_rounded,
+          icon: ArcIcons.export,
           label: 'Share backup',
           onTap: _share,
         ),
         SheetActionRow(
-          icon: Icons.save_alt_rounded,
+          icon: ArcIcons.save,
           label: 'Save to device',
           onTap: _save,
         ),
         const SheetSectionHeader(title: 'Restore'),
         SheetActionRow(
-          icon: Icons.settings_backup_restore_rounded,
+          icon: ArcIcons.backup,
           label: 'Restore from backup file',
           onTap: _pick,
         ),
@@ -294,7 +295,7 @@ class _BackupRestoreSheetState extends State<BackupRestoreSheet> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.check_rounded,
+                  Icon(ArcIcons.check,
                       size: 20, color: theme.colorScheme.onSurface),
                   const SizedBox(width: ArcColors.space8),
                   Expanded(
@@ -479,8 +480,7 @@ class _BackupRestoreSheetState extends State<BackupRestoreSheet> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline_rounded,
-                    color: theme.colorScheme.error),
+                Icon(ArcIcons.error, color: theme.colorScheme.error),
                 const SizedBox(width: ArcColors.space12),
                 Expanded(
                     child:

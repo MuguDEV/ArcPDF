@@ -1,11 +1,12 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../application/pdf_error_handler.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:hugeicons/hugeicons.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:install_plugin/install_plugin.dart';
@@ -13,6 +14,7 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/theme/arc_colors.dart';
+import '../../../shared/theme/arc_theme.dart';
 import '../../settings/haptic_service.dart';
 import 'dart:async';
 import '../application/pdf_library_controller.dart';
@@ -22,6 +24,7 @@ import '../viewer/multi_tab_viewer_screen.dart';
 import '../../security/security_controller.dart';
 import '../domain/pdf_file_item.dart';
 import 'permission_screen.dart';
+import 'duplicate_cleanup_page.dart';
 import '../../tools/pages/merge_pdfs_page.dart';
 import 'widgets/pdf_custom_card.dart';
 import 'widgets/pdf_card_shimmer.dart';
@@ -30,7 +33,7 @@ import '../../../shared/widgets/glass_app_bar.dart';
 import '../../../shared/widgets/dynamic_island_notification.dart';
 import '../../../shared/utils/glass_bottom_sheet.dart';
 import '../../../shared/widgets/sheet/app_components.dart';
-import '../../../shared/widgets/animated_mesh_background.dart';
+import '../../../shared/widgets/arc_pdf_mark.dart';
 import '../../updater/updater_service.dart';
 import '../../settings/settings_controller.dart';
 
@@ -42,6 +45,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _headerKeys = List.generate(3, (_) => GlobalKey());
+
+  void _startSelection(PdfFileItem item) {
+    // Removing search/resume chrome must not scroll the selected document away.
+    final removedExtent = _headerKeys.fold<double>(0, (sum, key) {
+      final render = key.currentContext?.findRenderObject();
+      return sum +
+          (render is RenderSliver ? render.geometry?.scrollExtent ?? 0 : 0);
+    });
+    setState(() {
+      _isSelectionMode = true;
+      _selectedPaths.add(item.path);
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo((_scrollController.offset - removedExtent)
+          .clamp(0.0, double.infinity));
+    }
+  }
+
   final _searchController = TextEditingController();
 
   final _scrollController = ScrollController();
@@ -92,13 +114,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!Platform.isAndroid) {
       DynamicIslandNotification.show(context,
           'APK installation is Android-only. Download from Settings instead.',
-          icon: HugeIcons.strokeRoundedAlert01);
+          icon: ArcIcons.error);
       return;
     }
     final client = ref.read(updaterHttpClientProvider);
     setState(() => _isDownloadingUpdate = true);
     DynamicIslandNotification.show(context, 'Downloading update...',
-        icon: HugeIcons.strokeRoundedCloudDownload);
+        icon: ArcIcons.download);
     try {
       final file = await UpdaterService.downloadUpdate(release, client: client);
       if (!mounted || _availableUpdate?.version != release.version) return;
@@ -111,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       DynamicIslandNotification.show(
           context, 'Update downloaded! Opening installer...',
-          icon: HugeIcons.strokeRoundedCheckmarkBadge01);
+          icon: ArcIcons.success);
       final result = await InstallPlugin.install(file.path);
       if (result is Map && result['isSuccess'] == false) {
         throw StateError('Installer could not be opened');
@@ -121,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (mounted) {
         DynamicIslandNotification.show(
             context, 'Could not download or open the update. Please try again.',
-            icon: HugeIcons.strokeRoundedAlert01);
+            icon: ArcIcons.error);
       }
     } finally {
       if (mounted) setState(() => _isDownloadingUpdate = false);
@@ -163,6 +185,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.watch(pdfLibraryControllerProvider.select((s) => s.items));
     final favorites =
         ref.watch(pdfLibraryControllerProvider.select((s) => s.favorites));
+    final duplicateGroups = ref
+        .watch(pdfLibraryControllerProvider.select((s) => s.duplicateGroups));
     // A refresh, rename, or vault move must not leave actionable stale paths.
     if (_selectedPaths.isNotEmpty) {
       _selectedPaths.retainAll(libraryItems.map((item) => item.path));
@@ -176,7 +200,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Permission gate
     if (!loading && permissionStatus != StoragePermissionStatus.granted) {
       return Scaffold(
-        appBar: AppBar(title: const Text('ArcPDF')),
+        appBar: AppBar(
+          title: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ArcPdfMark(size: 28),
+              SizedBox(width: 8),
+              Text('ArcPDF'),
+            ],
+          ),
+        ),
         body: PermissionScreen(status: permissionStatus),
       );
     }
@@ -224,13 +257,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               backgroundColor: theme.colorScheme.secondaryContainer,
               foregroundColor: theme.colorScheme.onSecondaryContainer,
               elevation: 4,
-              child: const Icon(Icons.arrow_upward_rounded),
+              child: const Icon(ArcIcons.up),
             )
           : null,
       body: Stack(
         children: [
-          if (settings.enableMeshBackground && !reduceMotion)
-            const Positioned.fill(child: AnimatedMeshBackground()),
           SafeArea(
             top: false,
             bottom: false,
@@ -300,7 +331,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             ? 0
                                             : value * 2 * 3.14159,
                                         child: Icon(
-                                          HugeIcons.strokeRoundedRefresh,
+                                          ArcIcons.refresh,
                                           color: theme.colorScheme.primary
                                               .withValues(
                                             alpha: (value * 2).clamp(0.0, 1.0),
@@ -320,7 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: CustomScrollView(
                 cacheExtent: 200.0,
                 controller: _scrollController,
-                physics: const BouncingScrollPhysics(
+                physics: const ClampingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
                 slivers: [
                   // Unified app bar (no large duplication)
@@ -335,7 +366,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 horizontal: 16, vertical: 12),
                             child: Row(
                               children: [
-                                Icon(HugeIcons.strokeRoundedPackageOpen,
+                                Icon(ArcIcons.package,
                                     color: theme.colorScheme.primary),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -384,33 +415,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // Unified app bar (no large duplication)
                   if (!_isSelectionMode)
                     GlassSliverAppBar(
+                      key: _headerKeys[0],
                       title: Padding(
-                        padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
                           children: [
-                            const Text('ArcPDF',
-                                style: TextStyle(fontWeight: FontWeight.w800)),
-                            Text(
-                              'Your local PDF workspace',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    height: 1.1,
-                                  ),
+                            const ArcPdfMark(size: 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('ArcPDF',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w700)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                       actions: [
                         IconButton(
-                          icon:
-                              const Icon(HugeIcons.strokeRoundedFolderSecurity),
+                          icon: const Icon(ArcIcons.vault),
                           tooltip: 'Secure Vault',
                           onPressed: () {
                             Navigator.push(
@@ -420,8 +451,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(
-                              HugeIcons.strokeRoundedMoreVerticalCircle01),
+                          icon: const Icon(ArcIcons.menu),
                           tooltip: 'Menu',
                           onPressed: () {
                             ref.read(hapticServiceProvider).lightImpact();
@@ -431,125 +461,232 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
 
-                  if (!_isSelectionMode)
-                    const SliverToBoxAdapter(child: _HomeResumeCard()),
-
                   // Search + filter chips
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _searchController,
-                            onChanged: (val) {
-                              if (_debounceTimer?.isActive ?? false) {
-                                _debounceTimer!.cancel();
-                              }
-                              _debounceTimer =
-                                  Timer(const Duration(milliseconds: 300), () {
-                                ctrl.setQuery(val);
-                              });
-                            },
-                            onTapOutside: (_) =>
-                                FocusManager.instance.primaryFocus?.unfocus(),
-                            decoration: InputDecoration(
-                              hintText: 'Search PDFs…',
-                              filled: true,
-                              fillColor: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHigh,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 16),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(28),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withValues(alpha: 0.5),
-                                  width: 1.5,
+                  if (!_isSelectionMode)
+                    SliverToBoxAdapter(
+                      key: _headerKeys[1],
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _searchController,
+                              onChanged: (val) {
+                                if (_debounceTimer?.isActive ?? false) {
+                                  _debounceTimer!.cancel();
+                                }
+                                _debounceTimer = Timer(
+                                    const Duration(milliseconds: 300), () {
+                                  ctrl.setQuery(val);
+                                });
+                              },
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                              decoration: InputDecoration(
+                                hintText: 'Search PDFs…',
+                                filled: true,
+                                fillColor:
+                                    theme.colorScheme.surfaceContainerHigh,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                      ArcColors.buttonRadius),
+                                  borderSide: BorderSide(
+                                      color: theme.colorScheme.outlineVariant),
                                 ),
-                              ),
-                              prefixIcon: Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 8, right: 4),
-                                child: Icon(Icons.search_rounded,
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                      ArcColors.buttonRadius),
+                                  borderSide: BorderSide(
                                     color: Theme.of(context)
                                         .colorScheme
-                                        .onSurfaceVariant),
+                                        .primary
+                                        .withValues(alpha: 0.5),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                prefixIcon: Padding(
+                                  padding:
+                                      const EdgeInsets.only(left: 8, right: 4),
+                                  child: Icon(ArcIcons.search,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant),
+                                ),
+                                suffixIcon:
+                                    ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchController,
+                                  builder: (context, value, _) =>
+                                      value.text.isEmpty
+                                          ? const SizedBox.shrink()
+                                          : IconButton(
+                                              tooltip: 'Clear search',
+                                              icon: const Icon(ArcIcons.close,
+                                                  size: 20),
+                                              onPressed: () {
+                                                _debounceTimer?.cancel();
+                                                _searchController.clear();
+                                                ctrl.setQuery('');
+                                              },
+                                            ),
+                                ),
                               ),
-                              suffixIcon:
-                                  ValueListenableBuilder<TextEditingValue>(
-                                valueListenable: _searchController,
-                                builder: (context, value, _) =>
-                                    value.text.isEmpty
-                                        ? const SizedBox.shrink()
-                                        : IconButton(
-                                            tooltip: 'Clear search',
-                                            icon: const Icon(
-                                                Icons.clear_rounded,
-                                                size: 20),
-                                            onPressed: () {
-                                              _debounceTimer?.cancel();
-                                              _searchController.clear();
-                                              ctrl.setQuery('');
-                                            },
-                                          ),
-                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // Keep library filters and user tags in one compact
+                            // rail. Two stacked chip rows dominated the first
+                            // screen and pushed useful documents below the fold.
+                            Builder(builder: (context) {
+                              const filterOrder = [
+                                PdfFilter.all,
+                                PdfFilter.recent,
+                                PdfFilter.folders,
+                                PdfFilter.downloads,
+                                PdfFilter.large,
+                                PdfFilter.duplicates,
+                              ];
+                              final filterControls = <Widget>[
+                                for (final f in filterOrder)
+                                  _HomeFilterControl(
+                                    selected: filter == f,
+                                    onSelected: (_) {
+                                      ref
+                                          .read(hapticServiceProvider)
+                                          .lightImpact();
+                                      ctrl.setFilter(f);
+                                    },
+                                    label: _label(f),
+                                  ),
+                              ];
+                              final tagControls = <Widget>[
+                                for (final tag in tags)
+                                  _HomeFilterControl(
+                                    label: tag,
+                                    selected: selectedTag == tag,
+                                    onSelected: (selected) {
+                                      ref
+                                          .read(hapticServiceProvider)
+                                          .selectionClick();
+                                      ctrl.setSelectedTag(
+                                          selected ? tag : null);
+                                    },
+                                  ),
+                              ];
+                              if (MediaQuery.textScalerOf(context).scale(14) >
+                                  21) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (tagControls.isNotEmpty) ...[
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: tagControls,
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: filterControls,
+                                    ),
+                                  ],
+                                );
+                              }
+                              final controls = [
+                                ...filterControls,
+                                ...tagControls,
+                              ];
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(children: [
+                                  for (final control in controls)
+                                    Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: control),
+                                ]),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  if (!_isSelectionMode)
+                    SliverToBoxAdapter(
+                        key: _headerKeys[2], child: const _HomeResumeCard()),
+                  if (!_isSelectionMode &&
+                      filter == PdfFilter.duplicates &&
+                      duplicateGroups.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                        child: Card(
+                          margin: EdgeInsets.zero,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Icon(ArcIcons.copy,
+                                    color: theme.colorScheme.primary),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${duplicateGroups.length} exact duplicate ${duplicateGroups.length == 1 ? 'set' : 'sets'}',
+                                        style: theme.textTheme.titleSmall,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${_formatStorageBytes(duplicateGroups.fold<int>(0, (sum, group) => sum + group.reclaimableBytes))} can be freed',
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: theme
+                                              .colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const DuplicateCleanupPage(),
+                                    ),
+                                  ),
+                                  child: const Text('Manage'),
+                                ),
+                              ],
                             ),
                           ),
-
-                          const SizedBox(height: 8),
-
-                          // Tags and library filters share the same sizing and shape.
-                          if (tags.isNotEmpty) ...[
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              child: Row(
-                                children: tags.map((tag) {
-                                  final isSelected = selectedTag == tag;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: _HomeFilterControl(
-                                      label: tag,
-                                      selected: isSelected,
-                                      onSelected: (selected) {
-                                        ref
-                                            .read(hapticServiceProvider)
-                                            .selectionClick();
-                                        ctrl.setSelectedTag(
-                                            selected ? tag : null);
-                                      },
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                        ),
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: Text(
+                            query.isNotEmpty ? 'Search results' : 'Documents',
+                            style: theme.textTheme.titleMedium,
+                          )),
+                          Text(
+                            '${items.length} ${items.length == 1 ? 'file' : 'files'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(height: 4),
-                          ],
-
-                          // Filter chips
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: PdfFilter.values.map((f) {
-                              final selected = filter == f;
-                              return _HomeFilterControl(
-                                selected: selected,
-                                onSelected: (_) {
-                                  ref.read(hapticServiceProvider).lightImpact();
-                                  ctrl.setFilter(f);
-                                },
-                                label: _label(f),
-                              );
-                            }).toList(),
                           ),
                         ],
                       ),
@@ -596,7 +733,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: ArcEmptyState(
-                        icon: Icons.insert_drive_file_outlined,
+                        icon: ArcIcons.document,
                         title: query.isNotEmpty
                             ? 'No results found'
                             : 'No PDFs yet',
@@ -777,7 +914,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               const BoxConstraints(minWidth: 44, minHeight: 44),
                           tooltip: 'Exit selection',
                           onPressed: _bulkBusy ? null : _clearSelection,
-                          icon: const Icon(Icons.close_rounded),
+                          icon: const Icon(ArcIcons.close),
                         ),
                         Expanded(
                           child: Semantics(
@@ -798,7 +935,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Builder(
                             builder: (context) => action(
                                   'Share',
-                                  Icons.share_outlined,
+                                  ArcIcons.share,
                                   hasSelection
                                       ? () async {
                                           final box = context.findRenderObject()
@@ -813,8 +950,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         action(
                           allFavorites ? 'Unfavorite' : 'Favorite',
                           allFavorites
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
+                              ? ArcIcons.favoriteSelected
+                              : ArcIcons.favorite,
                           hasSelection
                               ? () => _favoriteSelected(
                                   selectedItems, !allFavorites)
@@ -822,7 +959,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         action(
                           'Merge',
-                          HugeIcons.strokeRoundedLayers01,
+                          ArcIcons.merge,
                           hasSelection && selectedItems.length > 1
                               ? () => _handleQuickCombine(context)
                               : null,
@@ -833,7 +970,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           enabled: !_bulkBusy,
                           constraints: const BoxConstraints(
                               minWidth: 220, maxWidth: 300),
-                          icon: const Icon(Icons.more_horiz_rounded),
+                          icon: const Icon(ArcIcons.more),
                           style: IconButton.styleFrom(
                             minimumSize: const Size(44, 44),
                             visualDensity: VisualDensity.standard,
@@ -865,7 +1002,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   !allVisibleSelected,
                               child: const ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: Icon(Icons.select_all_rounded),
+                                leading: Icon(ArcIcons.selectAll),
                                 title: Text('Select all'),
                               ),
                             ),
@@ -874,7 +1011,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               enabled: selectedItems.isNotEmpty,
                               child: const ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: Icon(Icons.deselect_rounded),
+                                leading: Icon(ArcIcons.deselect),
                                 title: Text('Clear selection'),
                               ),
                             ),
@@ -884,7 +1021,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               enabled: hasSelection,
                               child: ListTile(
                                 contentPadding: EdgeInsets.zero,
-                                leading: Icon(Icons.delete_outline_rounded,
+                                leading: Icon(ArcIcons.remove,
                                     color: hasSelection
                                         ? theme.colorScheme.error
                                         : null),
@@ -1062,7 +1199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SheetActionRow(
-                icon: HugeIcons.strokeRoundedRefresh,
+                icon: ArcIcons.refresh,
                 label: 'Refresh Library',
                 onTap: () {
                   Navigator.pop(context);
@@ -1128,6 +1265,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         PdfFilter.recent => 'Recent',
         PdfFilter.downloads => 'Downloads',
         PdfFilter.large => 'Large Files',
+        PdfFilter.duplicates => 'Duplicates',
         PdfFilter.folders => 'Folders',
       };
 
@@ -1169,17 +1307,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Delegate long press logic for the Multi-Select (Quick Combine) directly into the card
         onLongPress: () {
           ref.read(hapticServiceProvider).selectionClick();
-          setState(() {
-            _isSelectionMode = true;
-            _selectedPaths.add(item.path);
-          });
+          _startSelection(item);
         },
         onVault: () async {
           final security = ref.read(securityControllerProvider);
           if (!security.isLockEnabled) {
             DynamicIslandNotification.show(context,
                 'App lock is not enabled. Enable it in Settings first.',
-                icon: HugeIcons.strokeRoundedAlert01);
+                icon: ArcIcons.error);
             return;
           }
           final success = await ref
@@ -1188,7 +1323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (success && mounted && context.mounted) {
             ref.read(pdfLibraryControllerProvider.notifier).refresh();
             DynamicIslandNotification.show(context, 'Moved to Vault',
-                icon: HugeIcons.strokeRoundedFolderSecurity);
+                icon: ArcIcons.vault);
           }
         },
         onTap: () async {
@@ -1227,6 +1362,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 enum _HomeSelectionAction { selectAll, clear, delete }
 
+String _formatStorageBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024 * 1024) {
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+}
+
 class _HomeFilterControl extends StatelessWidget {
   const _HomeFilterControl({
     required this.label,
@@ -1246,24 +1390,19 @@ class _HomeFilterControl extends StatelessWidget {
       selected: selected,
       onSelected: onSelected,
       showCheckmark: false,
-      // Reserve the selection indicator so toggling a chip never shifts labels.
-      avatar: selected
-          ? Icon(Icons.check_rounded, size: 18, color: colors.onPrimary)
-          : const SizedBox(width: 18, height: 18),
-      avatarBoxConstraints:
-          const BoxConstraints.tightFor(width: 18, height: 18),
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      backgroundColor: colors.surfaceContainerLow,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      backgroundColor: colors.surfaceContainerHigh,
       selectedColor: colors.primary,
-      labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+      labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: selected ? colors.onPrimary : colors.onSurface,
             fontWeight: FontWeight.w600,
           ),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(ArcColors.buttonRadius)),
-      side: BorderSide(color: selected ? colors.primary : colors.outline),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      side: ArcContrast.isHigh(context)
+          ? BorderSide(color: colors.outline, width: 2)
+          : BorderSide.none,
     );
   }
 }
@@ -1285,12 +1424,14 @@ class _HomeResumeCard extends ConsumerWidget {
         ));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Material(
         color: colors.surfaceContainerLow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-          side: BorderSide(color: colors.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
+          side: ArcContrast.isHigh(context)
+              ? BorderSide(color: colors.outline, width: 2)
+              : BorderSide.none,
         ),
         clipBehavior: Clip.antiAlias,
         child: Semantics(
@@ -1304,47 +1445,48 @@ class _HomeResumeCard extends ConsumerWidget {
             excludeFromSemantics: true,
             onTap: resume,
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: colors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.restore_page_rounded,
-                            size: 20, color: colors.onSurface),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text('Resume reading',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            )),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded,
-                          size: 20, color: colors.onSurface),
-                    ],
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(ArcIcons.resume,
+                        size: 20, color: colors.onSurface),
                   ),
-                  const SizedBox(height: 12),
-                  Text(active.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colors.onSurface,
-                      )),
-                  const SizedBox(height: 4),
-                  Text('$tabCount ${tabCount == 1 ? 'open tab' : 'open tabs'}',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: colors.onSurfaceVariant)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Wrap(spacing: 8, runSpacing: 2, children: [
+                        Text('Resume reading',
+                            style: theme.textTheme.labelMedium
+                                ?.copyWith(color: colors.onSurfaceVariant)),
+                        Text(
+                            '$tabCount ${tabCount == 1 ? 'open tab' : 'open tabs'}',
+                            style: theme.textTheme.labelMedium
+                                ?.copyWith(color: colors.onSurfaceVariant)),
+                      ]),
+                      const SizedBox(height: 2),
+                      Text(active.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: colors.onSurface,
+                          )),
+                    ],
+                  )),
+                  const SizedBox(width: 12),
+                  Icon(ArcIcons.forward,
+                      size: 20, color: colors.onSurfaceVariant),
                 ],
               ),
             ),

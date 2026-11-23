@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:arcpdf/src/shared/theme/arc_control_theme.dart';
 import 'package:arcpdf/src/shared/widgets/dynamic_island_notification.dart';
 import 'package:arcpdf/src/shared/widgets/sheet/app_components.dart';
@@ -38,7 +39,7 @@ void main() {
             onPressed: () => DynamicIslandNotification.show(
               context,
               'Document moved',
-              icon: Icons.check,
+              icon: ArcIcons.check,
             ),
             child: const Text('Notify'),
           );
@@ -77,7 +78,7 @@ void main() {
         ),
       ));
       expect(tester.takeException(), isNull);
-      final icon = tester.widget<Icon>(find.byIcon(Icons.radio_button_checked));
+      final icon = tester.widget<Icon>(find.byIcon(ArcIcons.radioSelected));
       expect(icon.color, colors.primary);
       expect(tester.getSize(find.byType(SheetRadioRow<int>)).height,
           greaterThan(56));

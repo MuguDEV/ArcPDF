@@ -1,9 +1,8 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../settings/haptic_service.dart';
 import '../../../settings/settings_controller.dart';
@@ -11,11 +10,7 @@ import '../../application/pdf_library_controller.dart';
 import '../../domain/pdf_file_item.dart';
 import 'pdf_thumbnail.dart';
 import 'peek_overlay.dart';
-import '../../../../shared/widgets/arc_bouncy_card.dart';
-import '../../../../shared/widgets/particle_burst.dart';
-import 'package:sensors_plus/sensors_plus.dart';
-import 'dart:async';
-import '../../../../shared/theme/arc_colors.dart';
+import '../../../../shared/theme/arc_theme.dart';
 
 class PdfCustomCard extends ConsumerStatefulWidget {
   const PdfCustomCard({
@@ -47,65 +42,6 @@ class PdfCustomCard extends ConsumerStatefulWidget {
 
 class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
   final GlobalKey _cardKey = GlobalKey();
-  final GlobalKey<ParticleBurstState> _burstKey =
-      GlobalKey<ParticleBurstState>();
-
-  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
-  double _tiltX = 0;
-  double _tiltY = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _initGyro();
-  }
-
-  void _initGyro() {
-    final settings = ref.read(settingsControllerProvider);
-    if (settings.enableGyroCards) {
-      _gyroSubscription =
-          gyroscopeEventStream(samplingPeriod: SensorInterval.uiInterval)
-              .listen((event) {
-        if (mounted) {
-          setState(() {
-            // Apply smoothing and limit the tilt angles
-            _tiltX += event.y * 0.05;
-            _tiltY += event.x * 0.05;
-
-            // Decaying spring back to zero
-            _tiltX *= 0.95;
-            _tiltY *= 0.95;
-
-            // Clamp strictly
-            _tiltX = _tiltX.clamp(-0.15, 0.15);
-            _tiltY = _tiltY.clamp(-0.15, 0.15);
-          });
-        }
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant PdfCustomCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final settings = ref.read(settingsControllerProvider);
-    if (settings.enableGyroCards && _gyroSubscription == null) {
-      _initGyro();
-    } else if (!settings.enableGyroCards && _gyroSubscription != null) {
-      _gyroSubscription?.cancel();
-      _gyroSubscription = null;
-      setState(() {
-        _tiltX = 0;
-        _tiltY = 0;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _gyroSubscription?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,34 +51,37 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
         .select((s) => s.tags[widget.item.path] ?? []));
     final theme = Theme.of(context);
     final date = DateFormat.yMMMd().format(widget.item.lastModified);
-    final time = DateFormat.jm().format(widget.item.lastModified);
 
     final settings = ref.watch(settingsControllerProvider);
     final lowPowerMode = settings.lowPowerMode;
     final reduceMotion =
         lowPowerMode || MediaQuery.disableAnimationsOf(context);
+    final expandedLayout = MediaQuery.textScalerOf(context).scale(16) > 24;
 
     Widget innerContent = Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      child: Flex(
+        direction: expandedLayout ? Axis.vertical : Axis.horizontal,
+        crossAxisAlignment: expandedLayout
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.center,
         children: [
           // Thumbnail
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 52,
-              height: 72,
-              child: PdfThumbnail(
-                  path: widget.item.path,
-                  isEncrypted: widget.item.isEncrypted,
-                  isCorrupted: widget.item.isCorrupted),
-            ),
+          SizedBox(
+            width: 52,
+            height: 72,
+            child: PdfThumbnail(
+                path: widget.item.path,
+                cacheVersion:
+                    '${widget.item.sizeBytes}-${widget.item.lastModified.microsecondsSinceEpoch}',
+                isEncrypted: widget.item.isEncrypted,
+                isCorrupted: widget.item.isCorrupted),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12, height: expandedLayout ? 12 : 0),
 
           // Info Section
-          Expanded(
+          Flexible(
+            flex: expandedLayout ? 0 : 1,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -151,28 +90,37 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   widget.item.name
                       .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    height: 1.2,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: MediaQuery.textScalerOf(context).scale(16) > 24
+                      ? null
+                      : 2,
+                  overflow: MediaQuery.textScalerOf(context).scale(16) > 24
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
 
                 // Location label
                 Row(
                   children: [
-                    Icon(HugeIcons.strokeRoundedFolder01,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.7)),
+                    Icon(ArcIcons.folder,
+                        size: 12, color: theme.colorScheme.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         widget.item.locationLabel,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.7),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
+                        maxLines:
+                            MediaQuery.textScalerOf(context).scale(12) > 18
+                                ? null
+                                : 1,
+                        overflow:
+                            MediaQuery.textScalerOf(context).scale(12) > 18
+                                ? TextOverflow.visible
+                                : TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -185,40 +133,36 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                   children: [
                     Expanded(
                       child: Wrap(
-                        spacing: 6,
+                        spacing: 8,
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          _Badge(
-                              label: _fileSize(widget.item.sizeBytes),
-                              icon: HugeIcons.strokeRoundedHardDrive,
-                              theme: theme),
+                          Text(_fileSize(widget.item.sizeBytes),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant)),
                           if (widget.item.pageCount != null)
-                            _Badge(
-                                label: '${widget.item.pageCount}p',
-                                icon: HugeIcons.strokeRoundedFile01,
-                                theme: theme),
+                            Text('${widget.item.pageCount} pages',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant)),
                           if (widget.item.isEncrypted)
                             _Badge(
                                 label: 'Locked',
-                                icon: HugeIcons.strokeRoundedLockPassword,
+                                icon: ArcIcons.lock,
                                 theme: theme),
                           if (widget.item.isCorrupted)
                             _Badge(
                                 label: 'Corrupt',
-                                icon: HugeIcons.strokeRoundedAlert02,
+                                icon: ArcIcons.error,
                                 theme: theme,
                                 isError: true),
                           Text(
-                            '$date · $time',
+                            date,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                           ...tags.map((t) => _Badge(
-                              label: t,
-                              icon: HugeIcons.strokeRoundedTag01,
-                              theme: theme)),
+                              label: t, icon: ArcIcons.tag, theme: theme)),
                         ],
                       ),
                     ),
@@ -228,36 +172,42 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
             ),
           ),
           const SizedBox(width: 4),
-          Column(
+          Flex(
+            direction: expandedLayout ? Axis.horizontal : Axis.vertical,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (reduceMotion && widget.onVault != null)
                 SizedBox(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   child: widget.selectionMode
                       ? null
                       : IconButton(
                           tooltip: 'Move to Secure Vault',
                           onPressed: widget.onVault,
-                          icon:
-                              const Icon(HugeIcons.strokeRoundedSafe, size: 22),
+                          icon: const Icon(ArcIcons.lock, size: 22),
                         ),
                 ),
               SizedBox(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 child: widget.selectionMode
                     ? Icon(
                         widget.selected
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
+                            ? ArcIcons.selected
+                            : ArcIcons.unselected,
                         size: 24,
                         color: widget.selected
                             ? theme.colorScheme.primary
                             : theme.colorScheme.onSurfaceVariant,
                       )
                     : IconButton(
+                        style: IconButton.styleFrom(
+                          backgroundColor: isFav
+                              ? theme.colorScheme.primary
+                                  .withValues(alpha: 0.10)
+                              : null,
+                        ),
                         tooltip: isFav
                             ? 'Remove from favorites'
                             : 'Add to favorites',
@@ -266,9 +216,7 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
                           widget.onFavorite();
                         },
                         icon: Icon(
-                          isFav
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
+                          isFav ? ArcIcons.favoriteSelected : ArcIcons.favorite,
                           color: isFav
                               ? theme.colorScheme.primary
                               : theme.colorScheme.onSurfaceVariant,
@@ -286,178 +234,153 @@ class _PdfCustomCardState extends ConsumerState<PdfCustomCard> {
       color: widget.selected
           ? theme.colorScheme.primaryContainer
           : theme.colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(
         color: widget.selected
             ? theme.colorScheme.primary
-            : theme.colorScheme.outlineVariant.withValues(alpha: 0.1),
-        width: 1.5,
+            : ArcContrast.isHigh(context)
+                ? theme.colorScheme.outline
+                : Colors.transparent,
+        width: ArcContrast.isHigh(context) ? 2 : 1,
       ),
     );
     Widget cardContent = ClipRRect(
-      borderRadius: BorderRadius.circular(ArcColors.cardRadius),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
+        key: const ValueKey('pdf-card-surface'),
         decoration: decoration,
         child: innerContent,
       ),
     );
 
-    // List callers own the spacing between rows.
-    if (widget.selectionMode || reduceMotion) {
-      return Padding(
-        padding: EdgeInsets.zero,
-        child: Semantics(
-          label: widget.item.name,
-          checked: widget.selectionMode ? widget.selected : null,
-          button: true,
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(ArcColors.cardRadius),
-              onTap: widget.onTap,
-              onLongPress: widget.onLongPress,
-              child: widget.selectionMode
-                  ? ExcludeSemantics(child: cardContent)
-                  : cardContent,
-            ),
-          ),
+    void handleLongPress() {
+      if (widget.onLongPress != null) {
+        widget.onLongPress!.call();
+        return;
+      }
+      ref.read(hapticServiceProvider).mediumImpact();
+      OverlayEntry? entry;
+      entry = OverlayEntry(
+        builder: (context) => PeekOverlay(
+          item: widget.item,
+          onDismiss: () {
+            if (entry?.mounted ?? false) entry?.remove();
+          },
         ),
       );
+      Overlay.of(context).insert(entry);
     }
+
+    final interactiveCard = Semantics(
+      label: widget.item.name,
+      checked: widget.selectionMode ? widget.selected : null,
+      button: true,
+      onTap: widget.onTap,
+      onLongPress: widget.selectionMode ? null : handleLongPress,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            if (!widget.selectionMode) {
+              ref.read(hapticServiceProvider).selectionClick();
+            }
+            widget.onTap();
+          },
+          onLongPress: widget.selectionMode ? null : handleLongPress,
+          child: widget.selectionMode
+              ? ExcludeSemantics(child: cardContent)
+              : cardContent,
+        ),
+      ),
+    );
+
+    // List callers own the spacing between rows. Reduced-motion and selection
+    // modes avoid the horizontal action panes entirely.
+    if (widget.selectionMode || reduceMotion) return interactiveCard;
 
     return Padding(
         key: _cardKey,
         padding: EdgeInsets.zero,
-        child: ParticleBurst(
-          burstKey: _burstKey,
-          burstColor: theme.colorScheme.primary,
-          child: Slidable(
-            key: ValueKey(widget.item.path),
-            closeOnScroll: true,
-            startActionPane: ActionPane(
-              motion: const BehindMotion(),
-              extentRatio: 0.25,
-              openThreshold: 0.1,
-              closeThreshold: 0.1,
-              children: [
-                CustomSlidableAction(
-                  onPressed: (_) {
-                    ref.read(hapticServiceProvider).selectionClick();
-                    if (!isFav) {
-                      _burstKey.currentState?.triggerBurst();
-                    }
-                    widget.onFavorite();
-                  },
-                  backgroundColor: Colors.transparent,
-                  child: Container(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: isFav
-                          ? theme.colorScheme.surfaceContainerHigh
-                          : theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: isFav
-                              ? theme.colorScheme.outlineVariant
-                              : theme.colorScheme.primary
-                                  .withValues(alpha: 0.5),
-                          width: 1),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      isFav
-                          ? HugeIcons.strokeRoundedFavourite
-                          : Icons.favorite_rounded,
-                      color: isFav
-                          ? theme.colorScheme.onSurface
-                          : theme.colorScheme.primary,
-                      size: 28,
-                    ).animate(key: ValueKey(isFav)).scale(
-                          begin: const Offset(0.5, 0.5),
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.elasticOut,
-                        ),
+        child: Slidable(
+          key: ValueKey(widget.item.path),
+          closeOnScroll: true,
+          startActionPane: ActionPane(
+            motion: const BehindMotion(),
+            extentRatio: 0.25,
+            openThreshold: 0.1,
+            closeThreshold: 0.1,
+            children: [
+              CustomSlidableAction(
+                onPressed: (_) {
+                  ref.read(hapticServiceProvider).selectionClick();
+                  widget.onFavorite();
+                },
+                backgroundColor: Colors.transparent,
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: isFav
+                        ? theme.colorScheme.surfaceContainerHigh
+                        : theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: isFav
+                            ? theme.colorScheme.outlineVariant
+                            : theme.colorScheme.primary.withValues(alpha: 0.5),
+                        width: 1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    isFav ? ArcIcons.favorite : ArcIcons.favoriteSelected,
+                    color: isFav
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.primary,
+                    size: 28,
                   ),
                 ),
-              ],
-            ),
-            endActionPane: widget.onVault != null
-                ? ActionPane(
-                    motion: const BehindMotion(),
-                    extentRatio: 0.25,
-                    openThreshold: 0.1,
-                    closeThreshold: 0.1,
-                    children: [
-                      CustomSlidableAction(
-                        onPressed: (_) {
-                          ref.read(hapticServiceProvider).mediumImpact();
-                          widget.onVault?.call();
-                        },
-                        backgroundColor: Colors.transparent,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 4, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHigh,
-                            borderRadius:
-                                BorderRadius.circular(ArcColors.cardRadius),
-                            border: Border.all(
-                                color: theme.colorScheme.outlineVariant,
-                                width: 1),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            HugeIcons.strokeRoundedSafe,
-                            color: theme.colorScheme.onSurface,
-                            size: 28,
-                          ).animate().scale(
-                                begin: const Offset(0.5, 0.5),
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.elasticOut,
-                              ),
+              ),
+            ],
+          ),
+          endActionPane: widget.onVault != null
+              ? ActionPane(
+                  motion: const BehindMotion(),
+                  extentRatio: 0.25,
+                  openThreshold: 0.1,
+                  closeThreshold: 0.1,
+                  children: [
+                    CustomSlidableAction(
+                      onPressed: (_) {
+                        ref.read(hapticServiceProvider).mediumImpact();
+                        widget.onVault?.call();
+                      },
+                      backgroundColor: Colors.transparent,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 4, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                              width: 1),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          ArcIcons.lock,
+                          color: theme.colorScheme.onSurface,
+                          size: 28,
                         ),
                       ),
-                    ],
-                  )
-                : null,
-            child: RepaintBoundary(
-              child: ArcBouncyCard(
-                onTap: () {
-                  ref.read(hapticServiceProvider).selectionClick();
-                  widget.onTap();
-                },
-                onLongPress: () {
-                  // Custom injected long press (e.g., selection mode) wins over Peek
-                  if (widget.onLongPress != null) {
-                    widget.onLongPress!.call();
-                    return;
-                  }
-
-                  // Peek overlay
-                  ref.read(hapticServiceProvider).mediumImpact();
-                  OverlayEntry? entry;
-                  entry = OverlayEntry(
-                    builder: (context) => PeekOverlay(
-                      item: widget.item,
-                      onDismiss: () {
-                        // Guard against the overlay already having been
-                        // removed (e.g. if dismissal was triggered twice).
-                        if (entry?.mounted ?? false) {
-                          entry?.remove();
-                        }
-                      },
                     ),
-                  );
-                  Overlay.of(context).insert(entry);
-                },
-                child: cardContent,
-              ),
-            ),
+                  ],
+                )
+              : null,
+          child: RepaintBoundary(
+            child: interactiveCard,
           ),
         ));
   }
@@ -507,7 +430,6 @@ class _Badge extends StatelessWidget {
                 color: isError
                     ? theme.colorScheme.onErrorContainer
                     : theme.colorScheme.onSurfaceVariant,
-                fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),

@@ -14,6 +14,9 @@ import 'theme/arc_typography.dart';
 import 'features/pdf/viewer/route_observer.dart';
 import 'shared/theme/arc_theme.dart';
 import 'core/utils/app_diagnostics.dart';
+import 'core/utils/logger.dart';
+import 'core/platform/android_job_service.dart';
+import 'package:path/path.dart' as p;
 
 class ArcPdfApp extends ConsumerStatefulWidget {
   const ArcPdfApp({super.key});
@@ -59,6 +62,36 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isAndroid) {
         try {
+          final interrupted = await AndroidJobService.recover();
+          if (interrupted != null) {
+            final outputPath = interrupted.outputPath;
+            if (outputPath != null) {
+              final parent = Directory(p.dirname(outputPath));
+              if (await parent.exists()) {
+                await for (final entry in parent.list(followLinks: false)) {
+                  if (entry is Directory &&
+                      p.basename(entry.path).startsWith('.arcpdf_')) {
+                    await entry.delete(recursive: true);
+                  }
+                }
+              }
+            }
+            await AndroidJobService.finish();
+            await AppLogger.warning(
+              'Recovered an interrupted ${interrupted.title} job; temporary output was cleaned up',
+            );
+            final context =
+                ref.read(intentServiceProvider).navigatorKey.currentContext;
+            if (context != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '${interrupted.title} was interrupted. No partial output was kept.',
+                  ),
+                ),
+              );
+            }
+          }
           final settings = ref.read(settingsControllerProvider);
           if (settings.lowPowerMode) {
             await FlutterDisplayMode.setLowRefreshRate();
@@ -98,15 +131,16 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
     if (settings.lowPowerMode) {
       Animate.defaultDuration = 0.ms;
     } else {
-      Animate.defaultDuration = (300 * settings.animationSpeed).ms;
+      Animate.defaultDuration = (180 * settings.animationSpeed).ms;
     }
 
     final themes = _themesFor(font, settings.accent, settings.highContrast);
 
-    // Create a global scroll behavior to enforce bouncing everywhere
+    // Android-native scrolling is more predictable and avoids the elastic
+    // movement fighting document/card gestures on older devices.
     final scrollBehavior = const MaterialScrollBehavior().copyWith(
       physics:
-          const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          const ClampingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
       scrollbars: false,
       overscroll: false,
     );

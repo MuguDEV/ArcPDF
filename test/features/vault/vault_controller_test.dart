@@ -246,6 +246,26 @@ void main() {
         [1, 2, 3, 4]);
   });
 
+  test('authenticated vault files reject ciphertext tampering', () async {
+    final source = File(p.join(fakePathProvider.tempDir.path, 'private.pdf'));
+    source.writeAsBytesSync(List<int>.generate(128, (index) => index));
+    final controller = container.read(vaultControllerProvider.notifier);
+    expect(await controller.moveToVault(PdfFileItem.fromFile(source)), true);
+    controller.setUnlocked(true);
+    await controller.loadVaultFiles();
+    final item = container.read(vaultControllerProvider).vaultFiles.single;
+    final encrypted = File(item.path);
+    final bytes = encrypted.readAsBytesSync();
+    bytes[bytes.length ~/ 2] ^= 0x01;
+    encrypted.writeAsBytesSync(bytes);
+
+    expect(await controller.decryptToTempFile(item), isNull);
+    expect(
+        await controller.restoreFromVault(item, fakePathProvider.tempDir.path),
+        false);
+    expect(encrypted.existsSync(), true);
+  });
+
   test('preview is revoked if locked while waiting for temporary storage',
       () async {
     final source = File(p.join(fakePathProvider.tempDir.path, 'private.pdf'));

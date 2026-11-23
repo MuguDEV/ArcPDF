@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 
 import 'data/local_boxes.dart';
 
@@ -7,28 +8,39 @@ import 'features/pdf/domain/pdf_annotation.dart';
 import 'core/utils/logger.dart';
 import 'core/utils/app_diagnostics.dart';
 
-Future<void> bootstrap() async {
+class MetadataRepairRequired implements Exception {
+  const MetadataRepairRequired(this.boxName, this.cause);
+
+  final String boxName;
+  final Object cause;
+}
+
+Future<void> bootstrap({bool repairMetadata = false}) async {
   AppDiagnostics.instance.install();
   final timer = Stopwatch()..start();
   await AppLogger.event('bootstrap.started');
   try {
     await Hive.initFlutter();
-    await AppLogger.init();
-    await pdfrxFlutterInitialize();
     if (!Hive.isAdapterRegistered(2)) {
       Hive.registerAdapter(PdfAnnotationAdapter());
     }
-    await Hive.openBox<String>(LocalBoxes.favorites);
-    await Hive.openBox<String>(LocalBoxes.recents);
-    await Hive.openBox(LocalBoxes.settings);
-    await Hive.openBox<String>(LocalBoxes.thumbnailCache);
-    await Hive.openBox<int>(LocalBoxes.recentsTimestamps);
-    await Hive.openBox<List<String>>(LocalBoxes.tags);
-    await Hive.openBox<dynamic>(LocalBoxes.sessions);
-    await Hive.openBox<PdfAnnotation>('pdf_annotations');
-    await Hive.openBox<int>('reading_progress_pages');
-    await Hive.openBox<double>('reading_progress_zoom');
-    await Hive.openBox<int>('reading_progress_time');
+    // Open sequentially so a failed retry cannot race another Hive open. Never
+    // erase local metadata unless the user explicitly selects repair.
+    await _openMetadataBox<String>(LocalBoxes.favorites, repairMetadata);
+    await _openMetadataBox<String>(LocalBoxes.recents, repairMetadata);
+    await _openMetadataBox<dynamic>(LocalBoxes.settings, repairMetadata);
+    await _openMetadataBox<String>(LocalBoxes.thumbnailCache, repairMetadata);
+    await _openMetadataBox<int>(LocalBoxes.recentsTimestamps, repairMetadata);
+    await _openMetadataBox<List<String>>(LocalBoxes.tags, repairMetadata);
+    await _openMetadataBox<dynamic>(LocalBoxes.sessions, repairMetadata);
+    await _openMetadataBox<PdfAnnotation>('pdf_annotations', repairMetadata);
+    await _openMetadataBox<int>('reading_progress_pages', repairMetadata);
+    await _openMetadataBox<double>('reading_progress_zoom', repairMetadata);
+    await _openMetadataBox<int>('reading_progress_time', repairMetadata);
+
+    // Logging is diagnostic and PDFium initializes lazily when a document is
+    // first opened. Neither should delay access to the library UI.
+    unawaited(AppLogger.init());
 
     await AppLogger.event('bootstrap.completed',
         fields: {'elapsedMs': timer.elapsedMilliseconds});
@@ -38,5 +50,20 @@ Future<void> bootstrap() async {
     await AppLogger.error('bootstrap.failed', error, stack);
     await AppLogger.flush();
     rethrow;
+  }
+}
+
+Future<void> _openMetadataBox<T>(String name, bool repairMetadata) async {
+  if (Hive.isBoxOpen(name)) {
+    Hive.box<T>(name);
+    return;
+  }
+  try {
+    await Hive.openBox<T>(name);
+  } on HiveError catch (error) {
+    if (!repairMetadata) throw MetadataRepairRequired(name, error);
+    await Hive.deleteBoxFromDisk(name);
+    await Hive.openBox<T>(name);
+    await AppLogger.warning('bootstrap.metadata_box_repaired');
   }
 }

@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -8,7 +9,6 @@ import 'package:arcpdf/src/features/pdf/home/widgets/pdf_custom_card.dart';
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -143,10 +143,7 @@ void main() {
 
   Finder surface(Finder card) => find.descendant(
         of: card,
-        matching: find.byWidgetPredicate((widget) =>
-            widget is Container &&
-            widget.decoration is BoxDecoration &&
-            (widget.decoration! as BoxDecoration).border?.top.width == 1.5),
+        matching: find.byKey(const ValueKey('pdf-card-surface')),
       );
 
   for (final mode in ['animated', 'reduced motion', 'eco']) {
@@ -171,7 +168,16 @@ void main() {
           for (final height in heights) {
             expect(height, closeTo(heights.first, 0.01));
           }
-          expect(heights.first, inInclusiveRange(96, scale == 1 ? 132 : 308));
+          // At 3x the thumbnail, document details and actions stack vertically.
+          expect(
+              heights.first,
+              inInclusiveRange(
+                  96,
+                  scale == 1
+                      ? 132
+                      : scale > 2
+                          ? 360
+                          : 308));
         }
       });
     }
@@ -247,7 +253,7 @@ void main() {
       await mount(tester, brightness: brightness, vault: true);
       await tester.drag(find.byType(PdfCustomCard), const Offset(-220, 0));
       await tester.pumpAndSettle();
-      final vaultIcon = find.byIcon(HugeIcons.strokeRoundedSafe);
+      final vaultIcon = find.byIcon(ArcIcons.lock);
       expect(vaultIcon.hitTestable(), findsOneWidget);
       final scheme = Theme.of(tester.element(vaultIcon)).colorScheme;
       final vaultSurface = find
@@ -264,7 +270,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.drag(find.byType(PdfCustomCard), const Offset(220, 0));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.favorite_rounded));
+      await tester.tap(find.byIcon(ArcIcons.favoriteSelected).hitTestable());
       await tester.pumpAndSettle();
       expect(vaults, 1);
       expect(favorites, 1);

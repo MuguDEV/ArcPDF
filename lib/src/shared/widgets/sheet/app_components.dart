@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import '../../theme/arc_colors.dart';
 
@@ -20,7 +21,7 @@ class AppBottomSheet extends StatelessWidget {
             children: [
               const SizedBox(height: ArcColors.space12),
               Container(
-                width: 100,
+                width: 36,
                 height: ArcColors.space4,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -30,7 +31,7 @@ class AppBottomSheet extends StatelessWidget {
               ),
               const SizedBox(height: ArcColors.space12),
               Flexible(child: child),
-              SizedBox(height: MediaQuery.paddingOf(context).bottom),
+              const SizedBox(height: ArcColors.space8),
             ],
           ),
         ),
@@ -90,7 +91,7 @@ class SheetActionRow extends StatelessWidget {
               const EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
           child: Row(
             children: [
-              Icon(icon, size: 28, color: color),
+              Icon(icon, size: 22, color: color),
               const SizedBox(width: ArcColors.space12),
               Expanded(
                 child: Text(
@@ -136,9 +137,7 @@ class SheetRadioRow<T> extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
+                selected ? ArcIcons.radioSelected : ArcIcons.radio,
                 size: 24,
                 color: selected
                     ? Theme.of(context).colorScheme.primary
@@ -221,7 +220,7 @@ class AppSearchBar extends StatelessWidget {
         controller: controller,
         decoration: InputDecoration(
           hintText: hintText,
-          prefixIcon: const Icon(Icons.search),
+          prefixIcon: const Icon(ArcIcons.search),
         ),
       );
 }

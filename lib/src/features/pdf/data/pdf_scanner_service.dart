@@ -11,7 +11,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/utils/logger.dart';
+import '../../../core/native/native_job_runtime.dart';
+import '../../../core/platform/android_file_access.dart';
 import '../domain/pdf_file_item.dart';
+import 'native_pdf_scanner.dart';
+
+export 'native_pdf_scanner.dart' show NativeScanStats, PdfDuplicateGroup;
 
 enum StoragePermissionStatus {
   granted,
@@ -20,28 +25,44 @@ enum StoragePermissionStatus {
 }
 
 class ScanResult {
-  const ScanResult({required this.files, required this.permissionStatus});
+  const ScanResult({
+    required this.files,
+    required this.permissionStatus,
+    this.duplicateGroups = const [],
+    this.nativeStats,
+  });
   final List<PdfFileItem> files;
   final StoragePermissionStatus permissionStatus;
+  final List<PdfDuplicateGroup> duplicateGroups;
+  final NativeScanStats? nativeStats;
 }
 
 class PdfScannerService {
-  const PdfScannerService();
+  PdfScannerService();
+
+  NativeJobHandle? _activeNativeJob;
+
+  void cancelActiveScan() {
+    _activeNativeJob?.cancel();
+    _activeNativeJob = null;
+  }
 
   Future<StoragePermissionStatus> requestPermission(
       {bool request = true}) async {
     if (!Platform.isAndroid) return StoragePermissionStatus.granted;
 
-    // Try MANAGE_EXTERNAL_STORAGE first (full access, works Android 6+)
-    var manageStatus = await Permission.manageExternalStorage.status;
-    if (manageStatus.isGranted) return StoragePermissionStatus.granted;
-
-    if (request) {
-      manageStatus = await Permission.manageExternalStorage.request();
-      if (manageStatus.isGranted) return StoragePermissionStatus.granted;
+    // Android 11+ requires the dedicated all-files settings grant to discover
+    // PDFs across shared storage. It does not grant image/video media access.
+    final nativeStatus = await AndroidFileAccess.status();
+    if (nativeStatus == true) return StoragePermissionStatus.granted;
+    if (nativeStatus != null) {
+      if (request && await AndroidFileAccess.request() == true) {
+        return StoragePermissionStatus.granted;
+      }
+      return StoragePermissionStatus.denied;
     }
 
-    // Fallback: legacy READ_EXTERNAL_STORAGE (Android ≤ 12)
+    // Android 10 and earlier use the legacy storage permission.
     var storageStatus = await Permission.storage.status;
     if (storageStatus.isGranted) return StoragePermissionStatus.granted;
 
@@ -50,7 +71,7 @@ class PdfScannerService {
       if (storageStatus.isGranted) return StoragePermissionStatus.granted;
     }
 
-    if (manageStatus.isPermanentlyDenied || storageStatus.isPermanentlyDenied) {
+    if (storageStatus.isPermanentlyDenied) {
       return StoragePermissionStatus.permanentlyDenied;
     }
     return StoragePermissionStatus.denied;
@@ -153,8 +174,55 @@ class PdfScannerService {
     List<String> roots, {
     List<String> excludedRoots = const [],
   }) async {
+    final hashCachePath = Platform.isAndroid
+        ? p.join(
+            (await getApplicationSupportDirectory()).path,
+            'pdf_hash_cache.json',
+          )
+        : null;
+    return _scanDirectories(
+      roots,
+      excludedRoots: excludedRoots,
+      hashCachePath: hashCachePath,
+    );
+  }
+
+  Future<ScanResult> _scanDirectories(
+    List<String> roots, {
+    required List<String> excludedRoots,
+    String? hashCachePath,
+  }) async {
+    if (Platform.isAndroid) {
+      _activeNativeJob?.cancel();
+      NativeJobHandle? currentJob;
+      final NativePdfScanResult? native;
+      try {
+        native = await NativePdfScanner.scan(
+          roots: roots,
+          excludedRoots: excludedRoots,
+          cachePath: hashCachePath,
+          onHandle: (handle) {
+            currentJob = handle;
+            _activeNativeJob = handle;
+          },
+        );
+      } finally {
+        if (identical(_activeNativeJob, currentJob)) {
+          _activeNativeJob = null;
+        }
+      }
+      if (native != null) {
+        return ScanResult(
+          files: native.files,
+          permissionStatus: StoragePermissionStatus.granted,
+          duplicateGroups: native.duplicateGroups,
+          nativeStats: native.stats,
+        );
+      }
+      AppLogger.warning('Native PDF scan unavailable; using safe fallback');
+    }
     // Heavy FS walk runs in a separate isolate — main thread stays smooth.
-    final files = await Isolate.run(() => _walkRoots(roots, excludedRoots));
+    final files = await _walkRootsInIsolate(roots, excludedRoots);
 
     return ScanResult(
       files: files,
@@ -162,6 +230,10 @@ class PdfScannerService {
     );
   }
 }
+
+Future<List<PdfFileItem>> _walkRootsInIsolate(
+        List<String> roots, List<String> excludedRoots) =>
+    Isolate.run(() => _walkRoots(roots, excludedRoots));
 
 // Keep the isolate closure outside scan's shared async context: capturing a
 // pending scan/callback future can make the message graph unsendable.

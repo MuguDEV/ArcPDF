@@ -10,41 +10,67 @@ final annotationRepositoryProvider =
         (ref) => AnnotationRepository());
 
 class AnnotationRepository extends ChangeNotifier {
-  Box<PdfAnnotation> get _box => Hive.box<PdfAnnotation>('pdf_annotations');
+  Box<PdfAnnotation>? get _box {
+    // Widget tests and early startup can construct the provider before the
+    // bootstrap box is opened. The production bootstrap still opens this box
+    // before any document can be annotated.
+    if (!Hive.isBoxOpen('pdf_annotations')) return null;
+    return Hive.box<PdfAnnotation>('pdf_annotations');
+  }
 
   List<PdfAnnotation> getAnnotationsForPdf(String pdfPath) {
-    return _box.values.where((a) => a.pdfPath == pdfPath).toList();
+    final box = _box;
+    if (box == null) return const [];
+    return box.values.where((a) => a.pdfPath == pdfPath).toList();
   }
 
   List<PdfAnnotation> getAnnotationsForPage(String pdfPath, int pageNumber) {
-    return _box.values
+    final box = _box;
+    if (box == null) return const [];
+    return box.values
         .where((a) => a.pdfPath == pdfPath && a.pageNumber == pageNumber)
         .toList();
   }
 
   Future<void> addAnnotation(PdfAnnotation annotation) async {
-    await _box.put(annotation.id, annotation);
+    final box = _box;
+    if (box == null) return;
+    await box.put(annotation.id, annotation);
     notifyListeners();
   }
 
   Future<void> updateAnnotation(PdfAnnotation annotation) async {
-    await _box.put(annotation.id, annotation);
+    final box = _box;
+    if (box == null) return;
+    await box.put(annotation.id, annotation);
     notifyListeners();
   }
 
   Future<void> deleteAnnotation(String id) async {
-    await _box.delete(id);
+    final box = _box;
+    if (box == null) return;
+    await box.delete(id);
     notifyListeners();
   }
 
   Future<void> deleteAllAnnotationsForPdf(String pdfPath) async {
-    final toDelete = _box.values
-        .where((a) => a.pdfPath == pdfPath)
-        .map((a) => a.id)
-        .toList();
+    final box = _box;
+    if (box == null) return;
+    final toDelete =
+        box.values.where((a) => a.pdfPath == pdfPath).map((a) => a.id).toList();
     if (toDelete.isNotEmpty) {
-      await _box.deleteAll(toDelete);
+      await box.deleteAll(toDelete);
       notifyListeners();
     }
+  }
+
+  Future<void> migratePdfPath(String oldPath, String newPath) async {
+    final box = _box;
+    if (box == null) return;
+    final annotations = box.values.where((a) => a.pdfPath == oldPath).toList();
+    for (final annotation in annotations) {
+      await box.put(annotation.id, annotation.copyWith(pdfPath: newPath));
+    }
+    if (annotations.isNotEmpty) notifyListeners();
   }
 }

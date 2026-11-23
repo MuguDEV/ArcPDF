@@ -122,4 +122,87 @@ class ReadingProgressRepository {
     final current = getTotalReadTime(pdfPath);
     await _timeBox.put(pdfPath, current + seconds);
   }
+
+  /// Bookmarks are kept in the local session box so they survive reader tabs
+  /// and do not modify the source PDF. The map format is deliberately simple
+  /// to keep older Hive installations forward compatible.
+  List<ReadingBookmark> getBookmarks(String pdfPath) {
+    final raw =
+        Hive.box<dynamic>(LocalBoxes.sessions).get('readerBookmarks:$pdfPath');
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map(ReadingBookmark.fromMap).where((bookmark) {
+      return bookmark.page > 0;
+    }).toList(growable: false);
+  }
+
+  Future<void> saveBookmarks(
+      String pdfPath, List<ReadingBookmark> bookmarks) async {
+    await Hive.box<dynamic>(LocalBoxes.sessions).put(
+      'readerBookmarks:$pdfPath',
+      bookmarks.map((bookmark) => bookmark.toMap()).toList(growable: false),
+    );
+  }
+
+  Future<void> migratePath(String oldPath, String newPath) async {
+    final sessions = Hive.box<dynamic>(LocalBoxes.sessions);
+    final viewport = sessions.get('readingViewport:$oldPath');
+    final bookmarks = sessions.get('readerBookmarks:$oldPath');
+    await Future.wait([
+      if (_pageBox.containsKey(oldPath))
+        _pageBox.put(newPath, _pageBox.get(oldPath)!),
+      if (_zoomBox.containsKey(oldPath))
+        _zoomBox.put(newPath, _zoomBox.get(oldPath)!),
+      if (_timeBox.containsKey(oldPath))
+        _timeBox.put(newPath, _timeBox.get(oldPath)!),
+      if (viewport != null) sessions.put('readingViewport:$newPath', viewport),
+      if (bookmarks != null)
+        sessions.put('readerBookmarks:$newPath', bookmarks),
+      _pageBox.delete(oldPath),
+      _zoomBox.delete(oldPath),
+      _timeBox.delete(oldPath),
+      sessions.delete('readingViewport:$oldPath'),
+      sessions.delete('readerBookmarks:$oldPath'),
+    ]);
+  }
+
+  Future<void> removePath(String pdfPath) async {
+    await Future.wait([
+      _pageBox.delete(pdfPath),
+      _zoomBox.delete(pdfPath),
+      _timeBox.delete(pdfPath),
+      Hive.box<dynamic>(LocalBoxes.sessions).delete('readingViewport:$pdfPath'),
+      Hive.box<dynamic>(LocalBoxes.sessions).delete('readerBookmarks:$pdfPath'),
+    ]);
+  }
+}
+
+class ReadingBookmark {
+  const ReadingBookmark({
+    required this.id,
+    required this.page,
+    required this.label,
+    required this.createdAt,
+  });
+
+  final String id;
+  final int page;
+  final String label;
+  final DateTime createdAt;
+
+  factory ReadingBookmark.fromMap(Map value) {
+    return ReadingBookmark(
+      id: value['id']?.toString() ?? '',
+      page: value['page'] is num ? (value['page'] as num).toInt() : 1,
+      label: value['label']?.toString() ?? 'Page bookmark',
+      createdAt: DateTime.tryParse(value['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  Map<String, Object> toMap() => {
+        'id': id,
+        'page': page,
+        'label': label,
+        'createdAt': createdAt.toIso8601String(),
+      };
 }

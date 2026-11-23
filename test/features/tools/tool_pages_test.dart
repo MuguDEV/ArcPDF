@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
 import 'package:arcpdf/src/features/tools/pages/merge_pdfs_page.dart';
@@ -135,7 +136,7 @@ void main() {
     completer.completeError(StateError('Output directory unavailable'));
     await tester.pumpAndSettle();
     expect(find.text('Working'), findsNothing);
-    expect(find.text('Error'), findsOneWidget);
+    expect(find.text('Couldn’t complete operation'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -217,6 +218,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Unable to open or share'), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('result preview reports actual input and output sizes',
+      (tester) async {
+    final directory = Directory.systemTemp.createTempSync('arcpdf_result_');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final inputA = File('${directory.path}/input-a.pdf')
+      ..writeAsBytesSync(List<int>.filled(2048, 1));
+    final inputB = File('${directory.path}/input-b.pdf')
+      ..writeAsBytesSync(List<int>.filled(1024, 2));
+    final outputA = File('${directory.path}/output-a.pdf')
+      ..writeAsBytesSync(List<int>.filled(1024, 3));
+    final outputB = File('${directory.path}/output-b.pdf')
+      ..writeAsBytesSync(List<int>.filled(512, 4));
+
+    await pumpWithSettings(
+      tester,
+      MaterialApp(
+        home: Scaffold(
+          body: ToolActionDialog(
+            title: 'Success',
+            message: 'Saved',
+            isLoading: false,
+            outputPath: directory.path,
+            inputPaths: [inputA.path, inputB.path],
+            outputFiles: [outputA.path, outputB.path],
+            resultKind: ToolResultKind.compression,
+          ),
+        ),
+      ),
+    );
+    for (var tick = 0; tick < 10; tick++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+      if (find.text('Input  3.0 KB').evaluate().isNotEmpty) break;
+    }
+
+    expect(find.text('Input  3.0 KB'), findsOneWidget);
+    expect(find.text('Output  1.5 KB'), findsOneWidget);
+    expect(find.text('1.5 KB smaller (50%)'), findsOneWidget);
+    expect(find.text('2 output files'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

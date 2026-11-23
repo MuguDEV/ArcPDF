@@ -1,14 +1,15 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../pdf/application/pdf_error_handler.dart';
 import 'package:path/path.dart' as p;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../tools_service.dart';
 import '../utils/run_tool_action.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
+import '../job_queue.dart';
 
 import '../../pdf/domain/pdf_file_item.dart';
 
@@ -79,14 +80,23 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
 
   Future<void> _processPdf() async {
     if (_selectedFile == null || _pageOrder.isEmpty) return;
-    await runToolAction(context, title: 'Saving PDF', action: () async {
-      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      return ToolsService.rearrangePdf(
-          _selectedFile!,
-          p.join(
-              dir, 'Rearranged_${DateTime.now().microsecondsSinceEpoch}.pdf'),
-          _pageOrder.map((page) => page + 1).toList());
-    });
+    final progress =
+        ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+    VoidCallback? cancel;
+    await runToolAction(context,
+        title: 'Saving PDF',
+        progress: progress,
+        onCancel: () => cancel?.call(),
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          return ToolsService.rearrangePdf(
+              _selectedFile!,
+              p.join(dir,
+                  'Rearranged_${DateTime.now().microsecondsSinceEpoch}.pdf'),
+              _pageOrder.map((page) => page + 1).toList(),
+              onProgress: (value) => progress.value = value,
+              onHandle: (handle) => cancel = handle.cancel);
+        });
   }
 
   @override
@@ -94,7 +104,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Rearrange / Delete Pages')),
+      appBar: AppBar(title: const Text('Organize pages')),
       body: Column(
         children: [
           Expanded(
@@ -103,7 +113,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedLayers01,
+                        Icon(ArcIcons.merge,
                             size: 64,
                             color: theme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.5)),
@@ -213,8 +223,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       IconButton(
-                                        icon: Icon(
-                                            HugeIcons.strokeRoundedDelete01,
+                                        icon: Icon(ArcIcons.remove,
                                             color: theme.colorScheme.error,
                                             size: 22),
                                         onPressed: () => setState(
@@ -226,8 +235,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                                         index: index,
                                         child: MouseRegion(
                                           cursor: SystemMouseCursors.grab,
-                                          child: Icon(
-                                              Icons.drag_indicator_rounded,
+                                          child: Icon(ArcIcons.drag,
                                               color: theme
                                                   .colorScheme.onSurfaceVariant
                                                   .withValues(alpha: 0.5)),

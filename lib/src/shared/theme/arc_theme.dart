@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../utils/traced_page_transitions_builder.dart';
 import 'arc_accent.dart';
 import 'arc_colors.dart';
 import 'arc_control_theme.dart';
@@ -117,14 +116,14 @@ const _lightScheme = ColorScheme(
   onError: Color(0xFFFFFFFF),
   errorContainer: Color(0xFFE0E0E0),
   onErrorContainer: Color(0xFF1E1E1E),
-  surface: Color(0xFFECECEC),
+  surface: Color(0xFFF7F7F7),
   onSurface: Color(0xFF171717),
-  surfaceContainerHighest: Color(0xFFD0D0D0),
-  surfaceContainerHigh: Color(0xFFE0E0E0),
-  surfaceContainer: Color(0xFFE6E6E6),
-  surfaceContainerLow: Color(0xFFF7F7F7),
+  surfaceContainerHighest: Color(0xFFE8E8E8),
+  surfaceContainerHigh: Color(0xFFF0F0F0),
+  surfaceContainer: Color(0xFFF3F3F3),
+  surfaceContainerLow: Color(0xFFFFFFFF),
   surfaceContainerLowest: Color(0xFFFFFFFF),
-  onSurfaceVariant: Color(0xFF424242),
+  onSurfaceVariant: Color(0xFF595959),
   outline: Color(0xFF9E9E9E),
   outlineVariant: Color(0xFFE0E0E0),
   shadow: Color(0xFF000000),
@@ -153,16 +152,16 @@ const _darkScheme = ColorScheme(
   onError: Color(0xFF1E1E1E),
   errorContainer: Color(0xFF424242),
   onErrorContainer: Color(0xFFFFFFFF),
-  surface: Color(0xFF121212),
+  surface: Color(0xFF101010),
   onSurface: Color(0xFFE0E0E0),
-  surfaceContainerHighest: Color(0xFF383838),
-  surfaceContainerHigh: Color(0xFF2C2C2C),
-  surfaceContainer: Color(0xFF242424),
-  surfaceContainerLow: Color(0xFF1E1E1E),
+  surfaceContainerHighest: Color(0xFF303030),
+  surfaceContainerHigh: Color(0xFF242424),
+  surfaceContainer: Color(0xFF202020),
+  surfaceContainerLow: Color(0xFF191919),
   surfaceContainerLowest: Color(0xFF0F0F0F),
-  onSurfaceVariant: Color(0xFFBDBDBD),
+  onSurfaceVariant: Color(0xFFB0B0B0),
   outline: Color(0xFF757575),
-  outlineVariant: Color(0xFF424242),
+  outlineVariant: Color(0xFF303030),
   shadow: Color(0xFF000000),
   scrim: Color(0xFF000000),
   inverseSurface: Color(0xFFE0E0E0),
@@ -278,11 +277,12 @@ ThemeData buildArcTheme({
     highlightColor: isLight ? Colors.black12 : Colors.white12,
     visualDensity: VisualDensity.adaptivePlatformDensity,
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
-      TargetPlatform.android: TracedZoomPageTransitionsBuilder(
-        allowEnterRouteSnapshotting: true,
-      )
+      TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
     }),
     appBarTheme: AppBarTheme(
+      titleTextStyle: text.titleLarge?.copyWith(color: colorScheme.onSurface),
+      centerTitle: false,
+      titleSpacing: ArcColors.screenPadding,
       backgroundColor: colorScheme.surface,
       foregroundColor: colorScheme.onSurface,
       elevation: 0,
@@ -300,6 +300,10 @@ ThemeData buildArcTheme({
       elevation: 0,
     ),
     dialogTheme: DialogThemeData(
+      titleTextStyle:
+          text.headlineSmall?.copyWith(color: colorScheme.onSurface),
+      contentTextStyle:
+          text.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
       shape: rounded(ArcColors.dialogRadius,
           side: highContrast ? outlineSide : BorderSide.none),
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -316,38 +320,43 @@ ThemeData buildArcTheme({
       elevation: 0,
     ),
     chipTheme: ChipThemeData(
-      shape: rounded(ArcColors.pillRadius),
+      labelStyle: text.labelLarge,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      shape: rounded(12),
       side: highContrast
           ? BorderSide(color: colorScheme.outline, width: 1.5)
           : BorderSide.none,
     ),
     inputDecorationTheme: InputDecorationTheme(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      hintStyle: text.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
         borderSide: BorderSide(width: outlineWidth),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
-        borderSide: BorderSide(width: outlineWidth, color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+        borderSide: BorderSide(
+            width: outlineWidth,
+            color: highContrast ? colorScheme.outline : Colors.transparent),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
         borderSide: BorderSide(
             width: highContrast ? 3.0 : 2.0, color: colorScheme.primary),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
         borderSide: BorderSide(width: outlineWidth, color: colorScheme.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
         borderSide: BorderSide(
             width: highContrast ? 3.0 : 2.0, color: colorScheme.error),
       ),
       filled: true,
-      fillColor: highContrast
-          ? colorScheme.surface
-          : colorScheme.surfaceContainerHighest,
+      fillColor:
+          highContrast ? colorScheme.surface : colorScheme.surfaceContainerHigh,
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor:
@@ -370,11 +379,19 @@ ThemeData buildArcTheme({
       space: 1,
       thickness: highContrast ? 2 : 1,
     ),
-    listTileTheme: const ListTileThemeData(
+    iconTheme: IconThemeData(size: 22, color: colorScheme.onSurfaceVariant),
+    listTileTheme: ListTileThemeData(
       minTileHeight: ArcColors.minRowHeight,
-      contentPadding: EdgeInsets.symmetric(horizontal: ArcColors.screenPadding),
-      dense: true,
-      visualDensity: VisualDensity(horizontal: -1, vertical: -1),
+      contentPadding: const EdgeInsets.symmetric(
+          horizontal: ArcColors.space16, vertical: 4),
+      titleTextStyle: text.titleMedium?.copyWith(color: colorScheme.onSurface),
+      subtitleTextStyle:
+          text.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+      iconColor: colorScheme.onSurfaceVariant,
+      minLeadingWidth: 24,
+      horizontalTitleGap: 12,
+      dense: false,
+      visualDensity: VisualDensity.standard,
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: colorScheme.surfaceContainerHigh,

@@ -9,8 +9,30 @@ class JobProgress {
   const JobProgress({required this.percentage, required this.stage});
 }
 
+class JobCancelledException implements Exception {
+  const JobCancelledException();
+}
+
+class JobHandle<T> {
+  JobHandle(this._entry);
+  final JobEntry<T> _entry;
+
+  Future<T> get future => _entry.completer.future;
+  JobState get state => _entry.state;
+
+  void cancel() {
+    if (_entry.state == JobState.completed ||
+        _entry.state == JobState.failed ||
+        _entry.state == JobState.cancelled) {
+      return;
+    }
+    _entry.cancel?.call();
+  }
+}
+
 abstract class Job<T> {
-  Future<T> run(void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled);
+  Future<T> run(void Function(JobProgress progress)? onProgress,
+      Future<void> Function()? checkCancelled);
 }
 
 class JobQueue {
@@ -20,19 +42,41 @@ class JobQueue {
 
   final int _concurrencyLimit = 2;
   int _activeJobs = 0;
-  final _queue = <_JobEntry>[];
+  final _queue = <JobEntry>[];
 
-  Future<T> enqueue<T>(Job<T> job, {void Function(JobProgress progress)? onProgress, Future<void> Function()? checkCancelled}) {
+  Future<T> enqueue<T>(Job<T> job,
+      {void Function(JobProgress progress)? onProgress,
+      Future<void> Function()? checkCancelled,
+      void Function(JobHandle<T> handle)? onHandle}) {
     final completer = Completer<T>();
-    final entry = _JobEntry<T>(
+    final entry = JobEntry<T>(
       job: job,
       completer: completer,
       onProgress: onProgress,
       checkCancelled: checkCancelled,
     );
+    entry.cancel = () => _cancel(entry);
+    onHandle?.call(JobHandle<T>(entry));
     _queue.add(entry);
     _processQueue();
     return completer.future;
+  }
+
+  void _cancel<T>(JobEntry<T> entry) {
+    if (entry.state == JobState.queued) {
+      _queue.remove(entry);
+      entry.cancelRequested = true;
+      entry.state = JobState.cancelled;
+      if (!entry.completer.isCompleted) {
+        entry.completer.completeError(const JobCancelledException());
+      }
+      _processQueue();
+      return;
+    }
+    if (entry.state == JobState.running) {
+      entry.cancelRequested = true;
+      entry.state = JobState.cancelling;
+    }
   }
 
   void _processQueue() {
@@ -48,33 +92,34 @@ class JobQueue {
     });
   }
 
-  Future<void> _runJob(_JobEntry entry) async {
+  Future<void> _runJob(JobEntry entry) async {
     try {
-      final result = await entry.job.run(
-        entry.onProgress,
-        entry.checkCancelled
-      );
-      if (entry.state == JobState.cancelling) {
-         entry.state = JobState.cancelled;
-      } else {
-         entry.state = JobState.completed;
-      }
+      final result = await entry.job.run(entry.onProgress, () async {
+        if (entry.cancelRequested) throw const JobCancelledException();
+        await entry.checkCancelled?.call();
+        if (entry.cancelRequested) throw const JobCancelledException();
+      });
+      if (entry.cancelRequested) throw const JobCancelledException();
+      entry.state = JobState.completed;
       entry.completer.complete(result);
     } catch (e, st) {
-      entry.state = JobState.failed;
-      entry.completer.completeError(e, st);
+      entry.state =
+          e is JobCancelledException ? JobState.cancelled : JobState.failed;
+      if (!entry.completer.isCompleted) entry.completer.completeError(e, st);
     }
   }
 }
 
-class _JobEntry<T> {
+class JobEntry<T> {
   final Job<T> job;
   final Completer<T> completer;
   final void Function(JobProgress progress)? onProgress;
   final Future<void> Function()? checkCancelled;
   JobState state = JobState.queued;
+  bool cancelRequested = false;
+  void Function()? cancel;
 
-  _JobEntry({
+  JobEntry({
     required this.job,
     required this.completer,
     this.onProgress,

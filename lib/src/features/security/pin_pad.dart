@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
@@ -120,7 +121,7 @@ class _PinPadState extends ConsumerState<PinPad> {
             _KeypadButton(text: '$i', onTap: () => _onKeypadTap('$i')),
           const SizedBox.shrink(), // Empty space
           _KeypadButton(text: '0', onTap: () => _onKeypadTap('0')),
-          _KeypadButton(icon: Icons.backspace_outlined, onTap: _onBackspaceTap),
+          _KeypadButton(icon: ArcIcons.backspace, onTap: _onBackspaceTap),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/utils/logger.dart';
 import '../../shared/theme/arc_colors.dart';
+import '../../shared/widgets/arc_pdf_mark.dart';
 import '../pdf/application/pdf_library_controller.dart';
 import '../settings/settings_controller.dart';
 import 'gesture_illustration.dart';
@@ -99,7 +101,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (_requesting) return;
     if (_permission == StoragePermissionStatus.permanentlyDenied) {
       AppLogger.event('onboarding.permission.open_settings');
-      await openAppSettings();
+      await Permission.manageExternalStorage.request();
+      if (!mounted) return;
+      await ref
+          .read(pdfLibraryControllerProvider.notifier)
+          .refresh(requestPermission: false);
+      if (!mounted) return;
+      setState(() => _permission =
+          ref.read(pdfLibraryControllerProvider).permissionStatus);
       return;
     }
     setState(() => _requesting = true);
@@ -243,6 +252,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: ArcColors.minTouchTarget),
       child: Padding(
@@ -253,13 +263,29 @@ class _TopBar extends StatelessWidget {
               IconButton(
                 onPressed: onBack,
                 tooltip: 'Back',
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(ArcIcons.back),
                 style: IconButton.styleFrom(
                   minimumSize: const Size(
                       ArcColors.minTouchTarget, ArcColors.minTouchTarget),
                 ),
               ),
-            const Spacer(),
+            if (!showBack) const SizedBox(width: ArcColors.minTouchTarget),
+            const SizedBox(width: ArcColors.space8),
+            const ArcPdfMark(size: 22),
+            const SizedBox(width: ArcColors.space8),
+            Flexible(
+              child: Text(
+                'ArcPDF',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+            const SizedBox(width: ArcColors.space8),
             if (showSkip)
               TextButton(
                 onPressed: onSkip,
@@ -315,24 +341,29 @@ class _BottomBar extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (var i = 0; i < _stepCount; i++)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => onDot(i),
-                        child: SizedBox(
-                          width: ArcColors.minTouchTarget,
-                          height: ArcColors.minTouchTarget,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: duration,
-                              curve: Curves.easeOutCubic,
-                              width: i == index ? 24 : 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: i == index
-                                    ? scheme.onSurface
-                                    : scheme.outlineVariant,
-                                borderRadius:
-                                    BorderRadius.circular(ArcColors.pillRadius),
+                      Semantics(
+                        button: true,
+                        selected: i == index,
+                        label: 'Go to step ${i + 1}',
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onDot(i),
+                          child: SizedBox(
+                            width: ArcColors.minTouchTarget,
+                            height: ArcColors.minTouchTarget,
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: duration,
+                                curve: Curves.easeOutCubic,
+                                width: i == index ? 24 : 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: i == index
+                                      ? scheme.onSurface
+                                      : scheme.outlineVariant,
+                                  borderRadius: BorderRadius.circular(
+                                      ArcColors.pillRadius),
+                                ),
                               ),
                             ),
                           ),
@@ -342,6 +373,14 @@ class _BottomBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: ArcColors.space4),
+              Text(
+                'Step ${index + 1} of $_stepCount',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: ArcColors.space8),
               FilledButton(
                 onPressed: onNext,
                 style: FilledButton.styleFrom(
@@ -430,24 +469,34 @@ class _CardScaffold extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(child: hero),
-                  const SizedBox(height: ArcColors.space24),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(ArcColors.space16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(child: hero),
+                      const SizedBox(height: ArcColors.space20),
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: ArcColors.space12),
+                      ...children,
+                    ],
                   ),
-                  const SizedBox(height: ArcColors.space12),
-                  ...children,
-                ],
+                ),
               ),
             ),
           ),
@@ -572,21 +621,21 @@ class _PermissionCard extends StatelessWidget {
       null => null,
     };
     return _CardScaffold(
-      hero: const _IconHero(Icons.folder_open_rounded),
+      hero: const _IconHero(ArcIcons.folderOpen),
       title: _stepTitles[0],
       children: [
         const _Body(
-          'ArcPDF lists the PDFs already on your device. On Android 11 and '
-          'newer this needs All files access, a special permission you '
-          'switch on in system settings.',
+          'ArcPDF looks for PDF documents across your device so they appear '
+          'in one local library. Android 11 and newer opens the system “All '
+          'files access” screen for this permission.',
         ),
         const SizedBox(height: ArcColors.space16),
         const _InfoRow(
-          icon: Icons.picture_as_pdf_rounded,
-          text: 'Only used to find PDF documents.',
+          icon: ArcIcons.pdf,
+          text: 'Used only to discover and manage documents you choose.',
         ),
         const _InfoRow(
-          icon: Icons.tune_rounded,
+          icon: ArcIcons.controls,
           text: 'You can change it any time in system settings.',
         ),
         const SizedBox(height: ArcColors.space16),
@@ -598,10 +647,10 @@ class _PermissionCard extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Icon(granted
-                  ? Icons.check_rounded
+                  ? ArcIcons.check
                   : blocked
-                      ? Icons.settings_rounded
-                      : Icons.folder_open_rounded),
+                      ? ArcIcons.settings
+                      : ArcIcons.folderOpen),
           label: Text(label, textAlign: TextAlign.center),
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 52),
@@ -642,7 +691,7 @@ class _VaultCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return _CardScaffold(
-      hero: const _IconHero(Icons.lock_outline_rounded),
+      hero: const _IconHero(ArcIcons.lock),
       title: _stepTitles[1],
       children: [
         const _Body(
@@ -651,12 +700,12 @@ class _VaultCard extends StatelessWidget {
         ),
         const SizedBox(height: ArcColors.space16),
         const _InfoRow(
-          icon: Icons.shield_outlined,
+          icon: ArcIcons.vault,
           title: 'Optional App Lock',
           text: 'Turn it on to require authentication before the vault opens.',
         ),
         const _InfoRow(
-          icon: Icons.visibility_off_outlined,
+          icon: ArcIcons.hide,
           title: 'Kept apart',
           text: 'Vault files stay out of your regular lists.',
         ),
@@ -670,7 +719,7 @@ class _VaultCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.settings_outlined, color: scheme.onSurface),
+                Icon(ArcIcons.settings, color: scheme.onSurface),
                 const SizedBox(width: ArcColors.space16),
                 Expanded(
                   child: Text(
@@ -702,22 +751,22 @@ class _GesturesCard extends StatelessWidget {
       title: _stepTitles[2],
       children: const [
         _InfoRow(
-          icon: Icons.swipe_rounded,
+          icon: ArcIcons.swipe,
           title: 'Fling to travel',
           text: 'A fast fling carries you across many pages at once.',
         ),
         _InfoRow(
-          icon: Icons.touch_app_rounded,
+          icon: ArcIcons.tap,
           title: 'Tap',
           text: 'Tap the page to show or hide the toolbar.',
         ),
         _InfoRow(
-          icon: Icons.zoom_in_rounded,
+          icon: ArcIcons.zoom,
           title: 'Pinch or double-tap',
           text: 'Zoom in and back out.',
         ),
         _InfoRow(
-          icon: Icons.pan_tool_alt_rounded,
+          icon: ArcIcons.pan,
           title: 'Long-press a card',
           text: 'Open actions for any PDF in your library.',
         ),

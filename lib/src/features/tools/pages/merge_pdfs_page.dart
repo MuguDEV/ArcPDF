@@ -1,7 +1,7 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 
 import 'package:path/path.dart' as p;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import 'dart:ui';
@@ -10,6 +10,7 @@ import '../tools_service.dart';
 import '../utils/run_tool_action.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
+import '../job_queue.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
 
 class MergePdfsPage extends StatefulWidget {
@@ -44,11 +45,24 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
 
   Future<void> _mergeFiles() async {
     if (_selectedFiles.length < 2) return;
-    await runToolAction(context, title: 'Merging PDFs', action: () async {
-      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      return ToolsService.mergePdfs(List.of(_selectedFiles),
-          p.join(dir, 'Merged_${DateTime.now().microsecondsSinceEpoch}.pdf'));
-    });
+    final progress =
+        ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+    VoidCallback? cancel;
+    await runToolAction(context,
+        title: 'Merging PDFs',
+        inputPaths: List.of(_selectedFiles),
+        resultKind: ToolResultKind.merge,
+        progress: progress,
+        onCancel: () => cancel?.call(),
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          return ToolsService.mergePdfs(
+              List.of(_selectedFiles),
+              p.join(
+                  dir, 'Merged_${DateTime.now().microsecondsSinceEpoch}.pdf'),
+              onProgress: (value) => progress.value = value,
+              onHandle: (handle) => cancel = handle.cancel);
+        });
   }
 
   @override
@@ -64,7 +78,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedFile02,
+                        Icon(ArcIcons.document,
                             size: 64,
                             color: theme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.5)),
@@ -175,7 +189,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(HugeIcons.strokeRoundedHardDrive,
+                                          Icon(ArcIcons.storage,
                                               size: 12,
                                               color: theme.colorScheme
                                                   .onSurfaceVariant),
@@ -186,7 +200,6 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                                 ?.copyWith(
                                               color: theme
                                                   .colorScheme.onSurfaceVariant,
-                                              fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -203,15 +216,14 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: Icon(HugeIcons.strokeRoundedView,
+                                        icon: Icon(ArcIcons.view,
                                             color: theme.colorScheme.primary,
                                             size: 22),
                                         onPressed: () => OpenFile.open(path),
                                         visualDensity: VisualDensity.compact,
                                       ),
                                       IconButton(
-                                        icon: Icon(
-                                            HugeIcons.strokeRoundedDelete01,
+                                        icon: Icon(ArcIcons.remove,
                                             color: theme.colorScheme.error,
                                             size: 22),
                                         onPressed: () => setState(() =>
@@ -225,7 +237,7 @@ class _MergePdfsPageState extends State<MergePdfsPage> {
                                     index: index,
                                     child: MouseRegion(
                                       cursor: SystemMouseCursors.grab,
-                                      child: Icon(Icons.drag_indicator_rounded,
+                                      child: Icon(ArcIcons.drag,
                                           color: theme
                                               .colorScheme.onSurfaceVariant
                                               .withValues(alpha: 0.5)),

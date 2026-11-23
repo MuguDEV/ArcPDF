@@ -1,7 +1,7 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -12,9 +12,11 @@ class PdfThumbnail extends ConsumerStatefulWidget {
   const PdfThumbnail(
       {super.key,
       required this.path,
+      this.cacheVersion = '',
       this.isEncrypted = false,
       this.isCorrupted = false});
   final String path;
+  final String cacheVersion;
   final bool isEncrypted;
   final bool isCorrupted;
 
@@ -23,7 +25,7 @@ class PdfThumbnail extends ConsumerStatefulWidget {
 }
 
 class _PdfThumbnailState extends ConsumerState<PdfThumbnail> {
-  (String, bool, bool, bool)? _request;
+  (String, String, bool, bool, bool)? _request;
   Future<ui.Image?>? _thumbnail;
 
   @override
@@ -32,14 +34,19 @@ class _PdfThumbnailState extends ConsumerState<PdfThumbnail> {
     final lowPowerMode =
         ref.watch(settingsControllerProvider.select((s) => s.lowPowerMode));
 
-    final request =
-        (widget.path, lowPowerMode, widget.isEncrypted, widget.isCorrupted);
+    final request = (
+      widget.path,
+      widget.cacheVersion,
+      lowPowerMode,
+      widget.isEncrypted,
+      widget.isCorrupted
+    );
     if (_request != request) {
       _request = request;
       _thumbnail = widget.isEncrypted || widget.isCorrupted
           ? null
           : PdfThumbnailCache.getThumbnail(widget.path,
-              lowPowerMode: lowPowerMode);
+              lowPowerMode: lowPowerMode, cacheVersion: widget.cacheVersion);
     }
     final reduceMotion =
         lowPowerMode || MediaQuery.disableAnimationsOf(context);
@@ -57,46 +64,90 @@ class _PdfThumbnailState extends ConsumerState<PdfThumbnail> {
           color: theme.colorScheme.surfaceContainerHighest,
           child: widget.isEncrypted
               ? _LockedState(theme: theme)
-              : FutureBuilder<ui.Image?>(
+              : _ThumbnailImage(
                   key: ValueKey(_request),
-                  initialData: PdfThumbnailCache.getCached(widget.path,
-                      lowPowerMode: lowPowerMode),
                   future: _thumbnail,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      if (reduceMotion) {
-                        return ColoredBox(
-                            color: theme.colorScheme.surfaceContainer);
-                      }
-                      return Shimmer.fromColors(
-                        // Do not keep ticking while slow I/O or queued work waits.
-                        loop: 1,
-                        baseColor: theme.colorScheme.surfaceContainer,
-                        highlightColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        child: Container(
-                            color: theme.colorScheme.surfaceContainer),
-                      );
-                    }
-
-                    if (snapshot.hasError ||
-                        !snapshot.hasData ||
-                        snapshot.data == null) {
-                      return const _Fallback();
-                    }
-
-                    return SizedBox.expand(
-                      child: RawImage(
-                        image: snapshot.data!,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                      ),
-                    );
-                  },
+                  reduceMotion: reduceMotion,
                 ),
         ),
       ),
+    );
+  }
+}
+
+class _ThumbnailImage extends StatefulWidget {
+  const _ThumbnailImage(
+      {super.key, required this.future, required this.reduceMotion});
+
+  final Future<ui.Image?>? future;
+  final bool reduceMotion;
+
+  @override
+  State<_ThumbnailImage> createState() => _ThumbnailImageState();
+}
+
+class _ThumbnailImageState extends State<_ThumbnailImage> {
+  ui.Image? _image;
+  Object? _error;
+  bool _complete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final image = await widget.future;
+      if (!mounted) {
+        image?.dispose();
+        return;
+      }
+      setState(() {
+        _image = image;
+        _complete = true;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error;
+          _complete = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _image?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null || (_complete && _image == null)) {
+      return const _Fallback();
+    }
+    final image = _image;
+    if (image != null) {
+      return SizedBox.expand(
+        child: RawImage(
+          image: image,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+        ),
+      );
+    }
+    final colors = Theme.of(context).colorScheme;
+    if (widget.reduceMotion) {
+      return ColoredBox(color: colors.surfaceContainer);
+    }
+    return Shimmer.fromColors(
+      loop: 1,
+      baseColor: colors.surfaceContainer,
+      highlightColor: colors.surfaceContainerHighest,
+      child: Container(color: colors.surfaceContainer),
     );
   }
 }
@@ -112,7 +163,7 @@ class _CorruptedFallback extends StatelessWidget {
       height: 72,
       child: Center(
         child: Icon(
-          Icons.broken_image_rounded,
+          ArcIcons.brokenImage,
           color: theme.colorScheme.error.withValues(alpha: 0.7),
           size: 28,
         ),
@@ -131,7 +182,7 @@ class _Fallback extends StatelessWidget {
       height: 72,
       child: Center(
         child: Icon(
-          HugeIcons.strokeRoundedPdf02,
+          ArcIcons.pdf,
           color: Theme.of(context)
               .colorScheme
               .onSurfaceVariant
@@ -171,7 +222,7 @@ class _LockedState extends StatelessWidget {
                         .withValues(alpha: 0.5)),
               ),
               child: Icon(
-                HugeIcons.strokeRoundedLockKey,
+                ArcIcons.lock,
                 size: 24,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

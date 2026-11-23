@@ -1,8 +1,8 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import '../pdf/application/pdf_error_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/haptic_service.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'vault_controller.dart';
 import '../pdf/viewer/pdf_viewer_screen.dart';
@@ -124,7 +124,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  HugeIcons.strokeRoundedLockPassword,
+                  ArcIcons.lock,
                   size: 80,
                   color: theme.colorScheme.error,
                 ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
@@ -154,7 +154,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                     // Provide a nice feedback interaction and close the page
                     ref.read(hapticServiceProvider).selectionClick();
                   },
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(ArcIcons.back),
                   label: const Text('Go Back'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -182,7 +182,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       appBar: AppBar(
         title: const Text('Secure Vault'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(ArcIcons.back),
           onPressed: () {
             ref.read(vaultControllerProvider.notifier).setUnlocked(false);
             Navigator.pop(context);
@@ -203,8 +203,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                       itemBuilder: (context, index) {
                         final item = vaultState.vaultFiles[index];
                         return ListTile(
-                          leading:
-                              const Icon(HugeIcons.strokeRoundedLockPassword),
+                          leading: const Icon(ArcIcons.lock),
                           title: Text(item.name),
                           subtitle: const Text('Encrypted Vault File'),
                           onTap: () async {
@@ -244,7 +243,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                             }
                           },
                           trailing: IconButton(
-                            icon: const Icon(Icons.restore),
+                            icon: const Icon(ArcIcons.restore),
                             onPressed: () async {
                               ref.read(hapticServiceProvider).mediumImpact();
                               final downloads =

@@ -11,16 +11,30 @@ import 'dart:io';
 import '../../../data/local_boxes.dart';
 
 import '../data/pdf_scanner_service.dart';
+import '../data/reading_progress_repository.dart';
+import '../data/annotation_repository.dart';
 import '../domain/pdf_file_item.dart';
 import '../../../core/utils/fuzzy_search.dart';
 
 export '../data/pdf_scanner_service.dart' show StoragePermissionStatus;
 
-enum PdfFilter { all, recent, downloads, large, folders }
+enum PdfFilter { all, recent, downloads, large, duplicates, folders }
 
 enum PdfSortField { name, date, size }
 
 enum PdfSortDirection { ascending, descending }
+
+class DuplicateCleanupResult {
+  const DuplicateCleanupResult({
+    required this.deletedPaths,
+    required this.failedPaths,
+    required this.reclaimedBytes,
+  });
+
+  final Set<String> deletedPaths;
+  final Set<String> failedPaths;
+  final int reclaimedBytes;
+}
 
 const _unchangedTag = Object();
 
@@ -36,6 +50,7 @@ class PdfLibraryState {
     this.recents = const {},
     this.permissionStatus = StoragePermissionStatus.granted,
     this.tags = const {},
+    this.duplicateGroups = const [],
     this.selectedTag,
   });
 
@@ -49,6 +64,7 @@ class PdfLibraryState {
   final Map<String, DateTime> recents; // path → openedAt
   final StoragePermissionStatus permissionStatus;
   final Map<String, List<String>> tags; // path → list of tags
+  final List<PdfDuplicateGroup> duplicateGroups;
   final String? selectedTag;
 
   PdfLibraryState copyWith({
@@ -62,6 +78,7 @@ class PdfLibraryState {
     Map<String, DateTime>? recents,
     StoragePermissionStatus? permissionStatus,
     Map<String, List<String>>? tags,
+    List<PdfDuplicateGroup>? duplicateGroups,
     Object? selectedTag = _unchangedTag,
   }) {
     return PdfLibraryState(
@@ -75,6 +92,7 @@ class PdfLibraryState {
       recents: recents ?? this.recents,
       permissionStatus: permissionStatus ?? this.permissionStatus,
       tags: tags ?? this.tags,
+      duplicateGroups: duplicateGroups ?? this.duplicateGroups,
       selectedTag: identical(selectedTag, _unchangedTag)
           ? this.selectedTag
           : selectedTag as String?,
@@ -83,13 +101,11 @@ class PdfLibraryState {
 }
 
 class PdfLibraryController extends StateNotifier<PdfLibraryState> {
-  PdfLibraryController(
-    this._scanner,
-    this._favBox,
-    this._recentsBox,
-    this._timestampsBox,
-    this._tagsBox,
-  ) : super(const PdfLibraryState()) {
+  PdfLibraryController(this._scanner, this._favBox, this._recentsBox,
+      this._timestampsBox, this._tagsBox,
+      {Ref? ref})
+      : _ref = ref,
+        super(const PdfLibraryState()) {
     _loadSavedState();
     // Yield to the initial UI without adding a fixed delay before the isolate scan.
     _initialRefresh = Timer(Duration.zero, refresh);
@@ -99,6 +115,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   int _refreshGeneration = 0;
   Future<void>? _activeRefresh;
   Future<void> _pendingMutation = Future<void>.value();
+  final Ref? _ref;
 
   // Serialize metadata read-modify-write operations, including scan commits.
   Future<T> _mutate<T>(Future<T> Function() action) {
@@ -112,6 +129,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   void dispose() {
     _initialRefresh?.cancel();
     _refreshGeneration++;
+    _scanner.cancelActiveScan();
     super.dispose();
   }
 
@@ -207,6 +225,7 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         state = state.copyWith(
           loading: false,
           items: result.files,
+          duplicateGroups: result.duplicateGroups,
           permissionStatus: result.permissionStatus,
         );
         final currentTags = Map<String, List<String>>.from(state.tags);
@@ -401,6 +420,15 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
             if (timestamp != null) await _timestampsBox.put(newPath, timestamp);
             if (fileTags != null) await _tagsBox.put(newPath, fileTags);
             await _removeMetadata(item.path);
+            final ref = _ref;
+            if (ref != null) {
+              await ref
+                  .read(readingProgressRepositoryProvider)
+                  .migratePath(item.path, newPath);
+              await ref
+                  .read(annotationRepositoryProvider)
+                  .migratePdfPath(item.path, newPath);
+            }
           } catch (_) {
             AppLogger.warning(
                 'PDF renamed, but saved metadata could not be migrated');
@@ -428,6 +456,131 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
   Future<bool> deleteFile(PdfFileItem item) =>
       _removeFile(item, deleteFromDisk: true);
 
+  Future<DuplicateCleanupResult> keepOnlyDuplicate(
+          PdfDuplicateGroup requestedGroup, String keepPath) =>
+      _mutate(() async {
+        if (!mounted) {
+          return const DuplicateCleanupResult(
+            deletedPaths: {},
+            failedPaths: {},
+            reclaimedBytes: 0,
+          );
+        }
+        final matchingGroups = state.duplicateGroups.where(
+          (group) => group.digest == requestedGroup.digest,
+        );
+        if (matchingGroups.isEmpty) {
+          return const DuplicateCleanupResult(
+            deletedPaths: {},
+            failedPaths: {},
+            reclaimedBytes: 0,
+          );
+        }
+        final group = matchingGroups.first;
+        if (!group.paths.contains(keepPath)) {
+          return DuplicateCleanupResult(
+            deletedPaths: const {},
+            failedPaths: group.paths.toSet(),
+            reclaimedBytes: 0,
+          );
+        }
+
+        final candidates = group.paths.where((path) => path != keepPath);
+        final scannedItems = {for (final item in state.items) item.path: item};
+        final results = await Future.wait(candidates.map((path) async {
+          try {
+            final type = await FileSystemEntity.type(path, followLinks: false);
+            if (type == FileSystemEntityType.notFound) {
+              return (path: path, removed: true, reclaimed: false);
+            }
+            if (type != FileSystemEntityType.file) {
+              return (path: path, removed: false, reclaimed: false);
+            }
+            // A file may change after the scan. Never delete unless its scan
+            // identity still matches the size and modification timestamp.
+            final scanned = scannedItems[path];
+            final current = await File(path).stat();
+            if (scanned == null ||
+                current.size != scanned.sizeBytes ||
+                current.modified != scanned.lastModified) {
+              return (path: path, removed: false, reclaimed: false);
+            }
+            await File(path).delete();
+            return (path: path, removed: true, reclaimed: true);
+          } on FileSystemException {
+            return (path: path, removed: false, reclaimed: false);
+          }
+        }));
+        final deleted = {
+          for (final result in results)
+            if (result.removed) result.path,
+        };
+        final failed = {
+          for (final result in results)
+            if (!result.removed) result.path,
+        };
+        if (deleted.isEmpty) {
+          return DuplicateCleanupResult(
+            deletedPaths: deleted,
+            failedPaths: failed,
+            reclaimedBytes: 0,
+          );
+        }
+
+        _invalidateScans();
+        if (mounted) {
+          final duplicateGroups = state.duplicateGroups
+              .map((existing) {
+                final remaining = existing.paths
+                    .where((path) => !deleted.contains(path))
+                    .toList(growable: false);
+                return PdfDuplicateGroup(
+                  digest: existing.digest,
+                  sizeBytes: existing.sizeBytes,
+                  reclaimableBytes: existing.sizeBytes * (remaining.length - 1),
+                  paths: remaining,
+                );
+              })
+              .where((existing) => existing.paths.length > 1)
+              .toList(growable: false);
+          state = state.copyWith(
+            items: state.items
+                .where((file) => !deleted.contains(file.path))
+                .toList(growable: false),
+            duplicateGroups: duplicateGroups,
+            favorites: {...state.favorites}..removeAll(deleted),
+            recents: {...state.recents}
+              ..removeWhere((path, _) => deleted.contains(path)),
+            tags: {...state.tags}
+              ..removeWhere((path, _) => deleted.contains(path)),
+          );
+        }
+
+        await Future.wait(deleted.map((path) async {
+          try {
+            await _removeMetadata(path);
+            final ref = _ref;
+            if (ref != null) {
+              await Future.wait([
+                ref.read(readingProgressRepositoryProvider).removePath(path),
+                ref
+                    .read(annotationRepositoryProvider)
+                    .deleteAllAnnotationsForPdf(path),
+              ]);
+            }
+          } catch (_) {
+            AppLogger.warning(
+                'Duplicate deleted, but saved metadata could not be removed');
+          }
+        }));
+        return DuplicateCleanupResult(
+          deletedPaths: deleted,
+          failedPaths: failed,
+          reclaimedBytes: results.where((result) => result.reclaimed).length *
+              group.sizeBytes,
+        );
+      });
+
   Future<bool> removeMissingFile(PdfFileItem item) =>
       _removeFile(item, deleteFromDisk: false);
 
@@ -450,8 +603,24 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         }
         _invalidateScans();
         if (mounted) {
+          final duplicateGroups = state.duplicateGroups
+              .map(
+                (group) => PdfDuplicateGroup(
+                  digest: group.digest,
+                  sizeBytes: group.sizeBytes,
+                  reclaimableBytes: group.sizeBytes *
+                      (group.paths.where((path) => path != item.path).length -
+                          1),
+                  paths: group.paths
+                      .where((path) => path != item.path)
+                      .toList(growable: false),
+                ),
+              )
+              .where((group) => group.paths.length > 1)
+              .toList(growable: false);
           state = state.copyWith(
             items: state.items.where((file) => file.path != item.path).toList(),
+            duplicateGroups: duplicateGroups,
             favorites: {...state.favorites}..remove(item.path),
             recents: {...state.recents}..remove(item.path),
             tags: {...state.tags}..remove(item.path),
@@ -459,6 +628,15 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         }
         try {
           await _removeMetadata(item.path);
+          final ref = _ref;
+          if (ref != null) {
+            await ref
+                .read(readingProgressRepositoryProvider)
+                .removePath(item.path);
+            await ref
+                .read(annotationRepositoryProvider)
+                .deleteAllAnnotationsForPdf(item.path);
+          }
         } catch (_) {
           AppLogger.warning(
               'PDF deleted, but saved metadata could not be removed');
@@ -477,6 +655,9 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
       {bool favoritesOnly = false, bool recentsOnly = false}) {
     final q = state.query.trim().toLowerCase();
     final now = DateTime.now();
+    final duplicatePaths = state.filter == PdfFilter.duplicates
+        ? state.duplicateGroups.expand((group) => group.paths).toSet()
+        : const <String>{};
     var filtered = state.items.where((e) {
       if (favoritesOnly && !state.favorites.contains(e.path)) return false;
       if (recentsOnly && !state.recents.containsKey(e.path)) return false;
@@ -489,6 +670,10 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
         return false;
       }
       if (state.filter == PdfFilter.large && e.sizeBytes < 10 * 1024 * 1024) {
+        return false;
+      }
+      if (state.filter == PdfFilter.duplicates &&
+          !duplicatePaths.contains(e.path)) {
         return false;
       }
       if (q.isNotEmpty && !isFuzzyMatch(e.name.toLowerCase(), q)) {
@@ -598,10 +783,11 @@ class PdfLibraryController extends StateNotifier<PdfLibraryState> {
 final pdfLibraryControllerProvider =
     StateNotifierProvider<PdfLibraryController, PdfLibraryState>(
   (ref) => PdfLibraryController(
-    const PdfScannerService(),
+    PdfScannerService(),
     Hive.box<String>(LocalBoxes.favorites),
     Hive.box<String>(LocalBoxes.recents),
     Hive.box<int>(LocalBoxes.recentsTimestamps),
     Hive.box<List<String>>(LocalBoxes.tags),
+    ref: ref,
   ),
 );

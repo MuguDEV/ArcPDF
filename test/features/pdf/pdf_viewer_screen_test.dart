@@ -1,18 +1,21 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:pdfrx/pdfrx.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as pdf;
 import 'package:arcpdf/src/features/pdf/application/open_tabs_provider.dart';
 import 'package:arcpdf/src/features/pdf/application/pdf_library_controller.dart';
 import 'package:arcpdf/src/features/pdf/data/pdf_scanner_service.dart';
+import 'package:arcpdf/src/features/pdf/data/reflow_engine.dart';
 import 'package:arcpdf/src/features/pdf/data/reading_progress_repository.dart';
 import 'package:arcpdf/src/features/pdf/domain/pdf_file_item.dart';
 import 'package:arcpdf/src/features/pdf/viewer/pdf_viewer_screen.dart';
 import 'package:arcpdf/src/features/pdf/viewer/reader_controls_sheet.dart';
 import 'package:arcpdf/src/features/pdf/viewer/route_observer.dart';
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
-import 'package:arcpdf/src/shared/widgets/arc_bouncy_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,13 +34,32 @@ void main() {
   late _MockProgress progress;
   late ProviderContainer container;
   late List<MethodCall> platformCalls;
+  late Directory reflowCache;
 
-  setUpAll(() {
+  setUpAll(() async {
     registerFallbackValue(
         const ReadingViewport(page: 1, pageCount: 1, zoom: 1, x: 0.5, y: 0.5));
+    final fontDirectory =
+        File(Platform.resolvedExecutable).uri.resolve('../../material_fonts/');
+    for (final font in {
+      'Roboto': 'Roboto-Regular.ttf',
+      'MaterialIcons': 'MaterialIcons-Regular.otf',
+    }.entries) {
+      await (FontLoader(font.key)
+            ..addFont(Future.value(ByteData.sublistView(
+                await File.fromUri(fontDirectory.resolve(font.value))
+                    .readAsBytes()))))
+          .load();
+    }
+    final lucide = await rootBundle
+        .load('packages/lucide_icons_flutter/assets/lucide.ttf');
+    await (FontLoader('packages/lucide_icons_flutter/Lucide')
+          ..addFont(SynchronousFuture(lucide)))
+        .load();
   });
 
   setUp(() {
+    reflowCache = Directory.systemTemp.createTempSync('reflow_reader_cache_');
     platformCalls = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -65,6 +87,9 @@ void main() {
     container = ProviderContainer(overrides: [
       settingsControllerProvider.overrideWith((ref) => SettingsController(box)),
       readingProgressRepositoryProvider.overrideWithValue(progress),
+      reflowEngineProvider.overrideWithValue(
+        ReflowEngine(cacheDirectory: () async => reflowCache),
+      ),
       openTabsProvider.overrideWith((ref) => OpenTabsNotifier(box)),
       pdfLibraryControllerProvider.overrideWith((ref) {
         final favorites = _MockTypedBox<String>();
@@ -93,7 +118,10 @@ void main() {
     );
   });
 
-  tearDown(() => container.dispose());
+  tearDown(() {
+    container.dispose();
+    if (reflowCache.existsSync()) reflowCache.deleteSync(recursive: true);
+  });
 
   Future<void> pumpViewer(
     WidgetTester tester, {
@@ -114,6 +142,13 @@ void main() {
       lastModified: DateTime(2026),
       locationLabel: 'Documents',
     );
+    final tabs = container.read(openTabsProvider.notifier);
+    if (!container
+        .read(openTabsProvider)
+        .tabs
+        .any((tab) => tab.path == item.path)) {
+      tabs.openTab(item);
+    }
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
@@ -128,7 +163,10 @@ void main() {
           ),
           child: child!,
         ),
-        home: PdfViewerScreen(item: item, isActive: isActive),
+        home: RepaintBoundary(
+          key: const ValueKey('reader-preview'),
+          child: PdfViewerScreen(item: item, isActive: isActive),
+        ),
       ),
     ));
     // File IO completes outside the fake clock; its FutureBuilder continuation
@@ -157,10 +195,9 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Unable to open PDF'), findsOneWidget);
     expect(find.text('Back to library'), findsOneWidget);
-    final search = tester.widget<ArcBouncyButton>(
-      find.byWidgetPredicate((widget) =>
-          widget is ArcBouncyButton && widget.tooltip == 'Search document'),
-    );
+    final search = tester.widget<IconButton>(find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == 'Search document',
+    ));
     expect(search.onPressed, isNull);
     await disposeViewer(tester);
     expect(tester.takeException(), isNull);
@@ -181,6 +218,34 @@ void main() {
     await disposeViewer(tester);
   });
 
+  testWidgets('top address bar owns document tab navigation', (tester) async {
+    const firstPath = '/arcpdf_missing_viewer_test/document.pdf';
+    await pumpViewer(tester, path: firstPath);
+    final tabs = container.read(openTabsProvider.notifier);
+    tabs.openTab(PdfFileItem(
+      path: '/arcpdf_missing_viewer_test/second.pdf',
+      name: 'Second document.pdf',
+      sizeBytes: 100,
+      lastModified: DateTime(2026),
+      locationLabel: 'Documents',
+    ));
+    tabs.setActiveIndex(0);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('reader-tab-address')), findsOneWidget);
+    expect(find.text('1/2'), findsOneWidget);
+    expect(find.text('Tabs'), findsNothing);
+    await tester.drag(
+        find.byKey(const ValueKey('reader-tab-address')), const Offset(-80, 0));
+    await tester.pump();
+    expect(container.read(openTabsProvider).activeIndex, 1);
+
+    await tester.tap(find.byKey(const ValueKey('reader-tab-address')));
+    await tester.pumpAndSettle();
+    expect(find.text('Open tabs'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('real PDF restores progress and keeps reader actions consistent',
       (tester) async {
     final directory = Directory.systemTemp.createTempSync('arcpdf_viewer_test');
@@ -190,6 +255,7 @@ void main() {
       document.pages.add().graphics.drawString(
             'ArcPDF searchable page ${i + 1}',
             pdf.PdfStandardFont(pdf.PdfFontFamily.helvetica, 18),
+            bounds: const Rect.fromLTWH(24, 120, 300, 28),
           );
     }
     file.writeAsBytesSync(document.saveSync());
@@ -209,10 +275,26 @@ void main() {
 
     expect(viewer.controller!.isReady, isTrue);
     await tester.pump();
-    final search = tester.widget<ArcBouncyButton>(
-      find.byWidgetPredicate((widget) =>
-          widget is ArcBouncyButton && widget.tooltip == 'Search document'),
-    );
+    expect(find.text('3 / 3'), findsOneWidget);
+    const previewDir = String.fromEnvironment('ARC_UI_PREVIEW_DIR');
+    if (previewDir.isNotEmpty) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('reader-preview')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final output = File('$previewDir/reader-top-bar.png');
+          await output.parent.create(recursive: true);
+          await output.writeAsBytes(bytes!.buffer.asUint8List());
+        } finally {
+          image.dispose();
+        }
+      });
+    }
+    final search = tester.widget<IconButton>(find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == 'Search document',
+    ));
     expect(search.onPressed, isNotNull);
     expect(viewer.controller!.pageCount, 3);
     expect(viewer.controller!.currentZoom, closeTo(1.5, 0.001));
@@ -227,6 +309,11 @@ void main() {
         viewer.params.matchTextColor, colors.primary.withValues(alpha: 0.16));
     expect(viewer.params.activeMatchTextColor,
         colors.primary.withValues(alpha: 0.32));
+    final selectionTheme =
+        Theme.of(tester.element(find.byType(PdfViewer))).textSelectionTheme;
+    expect(selectionTheme.selectionColor, isNotNull);
+    expect(selectionTheme.selectionColor!.a, greaterThanOrEqualTo(0.33));
+    expect(viewer.params.buildContextMenu, isNotNull);
     expect(viewer.controller!.pageNumber, 3); // Saved page 7 is clamped.
     final initialCheckpoint =
         verify(() => progress.saveViewport(file.path, captureAny()))
@@ -235,7 +322,69 @@ void main() {
     expect(initialCheckpoint.page, 3);
     expect(initialCheckpoint.pageCount, 3);
     final originalDocument = viewer.controller!.document;
+    // Settings changes update render budgets without reopening the PDF.
+    final settings = container.read(settingsControllerProvider.notifier);
+    for (final preset in [
+      PerformancePreset.battery,
+      PerformancePreset.smooth,
+      PerformancePreset.balanced
+    ]) {
+      await settings.setPerformancePreset(preset);
+      await tester.pump();
+      final updated = tester.widget<PdfViewer>(find.byType(PdfViewer));
+      final expectedMb = switch (preset) {
+        PerformancePreset.battery => 48,
+        PerformancePreset.smooth => 96,
+        _ => 80,
+      };
+      final expectedExtent = switch (preset) {
+        PerformancePreset.battery => 0.25,
+        PerformancePreset.smooth => 1.0,
+        _ => 0.5,
+      };
+      expect(
+          updated.params.maxImageBytesCachedOnMemory, expectedMb * 1024 * 1024);
+      expect(updated.params.verticalCacheExtent, expectedExtent);
+      expect(updated.controller!.document, same(originalDocument));
+    }
     expect(find.byType(PopupMenuButton<String>), findsNothing);
+
+    // Reflow uses the structured engine rather than displaying raw page text.
+    await tester.tap(find.byTooltip('Reading controls'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey(ReaderAction.reflow)));
+    await tester.tap(find.byKey(const ValueKey(ReaderAction.reflow)));
+    await tester.pump();
+    for (var i = 0;
+        i < 100 &&
+            find.textContaining('ArcPDF searchable page 3').evaluate().isEmpty;
+        i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(find.text('Reflow text · Page 3'), findsOneWidget);
+    expect(find.textContaining('ArcPDF searchable page 3'), findsOneWidget);
+    expect(find.byTooltip('View original page'), findsOneWidget);
+    if (previewDir.isNotEmpty) {
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('reflow-reader-preview')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 2);
+        try {
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final output = File('$previewDir/reflow-reader.png');
+          await output.parent.create(recursive: true);
+          await output.writeAsBytes(bytes!.buffer.asUint8List());
+        } finally {
+          image.dispose();
+        }
+      });
+    }
+    await tester.tap(find.byTooltip('View original page'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PdfViewer), findsOneWidget);
 
     // Zoom gestures should not write Hive history on every rendered frame.
     await tester.pump(const Duration(milliseconds: 350));

@@ -1,8 +1,9 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 import '../../shared/widgets/arc_bouncy_card.dart';
+import '../../shared/widgets/arc_pdf_mark.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -46,11 +47,7 @@ class AboutScreen extends StatelessWidget {
                     )
                   ],
                 ),
-                child: Icon(
-                  HugeIcons.strokeRoundedPdf02,
-                  size: 56,
-                  color: theme.colorScheme.primary,
-                ),
+                child: const Center(child: ArcPdfMark(size: 64)),
               ).animate().scale(
                   delay: 100.ms, duration: 500.ms, curve: Curves.elasticOut),
             ),
@@ -87,7 +84,7 @@ class AboutScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(HugeIcons.strokeRoundedCopyright,
+                      Icon(ArcIcons.copyright,
                           size: 20, color: theme.colorScheme.onSurfaceVariant),
                       const SizedBox(width: 8),
                       Text(
@@ -148,7 +145,7 @@ class AboutScreen extends StatelessWidget {
                         color: theme.colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(HugeIcons.strokeRoundedBookOpen01,
+                      child: Icon(ArcIcons.reading,
                           color: theme.colorScheme.onPrimary, size: 24),
                     ),
                     const SizedBox(width: 16),
@@ -174,7 +171,7 @@ class AboutScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(HugeIcons.strokeRoundedArrowRight01,
+                    Icon(ArcIcons.forward,
                         color: theme.colorScheme.onPrimaryContainer),
                   ],
                 ),

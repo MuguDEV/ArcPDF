@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/sheet/app_components.dart';
 
@@ -28,7 +29,7 @@ Future<String?> showRenameDialog(BuildContext context, String currentName) {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.edit_document,
+                  ArcIcons.editDocument,
                   size: 32,
                   color: theme.colorScheme.primary,
                 ),

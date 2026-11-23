@@ -30,9 +30,7 @@ class AppShell extends ConsumerWidget {
       body: Builder(builder: (context) {
         final media = MediaQuery.of(context);
         return MediaQuery(
-          // extendBody supplies the measured bar height as padding. Nested
-          // Scaffold FABs use viewPadding instead; keep both in sync without
-          // shortening the viewport or doubling the lists' existing footers.
+          // The outer scaffold owns the dock and bottom system inset.
           data: media.copyWith(
             viewPadding: media.viewPadding.copyWith(
               bottom: media.padding.bottom,
@@ -40,25 +38,26 @@ class AppShell extends ConsumerWidget {
           ),
           child: Stack(
             children: [
-              _buildOffstage(0, nav.index, const HomeScreen()),
-              _buildOffstage(1, nav.index, const FavoritesScreen()),
-              _buildOffstage(2, nav.index, const RecentScreen()),
-              _buildOffstage(3, nav.index, const ToolsScreen()),
-              _buildOffstage(4, nav.index, const SettingsScreen()),
+              _screenForIndex(nav.index),
             ],
           ),
         );
       }),
+      // Let each screen continue behind the transparent area surrounding the
+      // dock. Scaffold still contributes the dock height to MediaQuery so the
+      // final list item and floating actions can clear it safely.
       extendBody: true,
       bottomNavigationBar: ArcNavBar(selectedIndex: nav.index),
     );
   }
 
-  Widget _buildOffstage(int tabIndex, int currentIndex, Widget child) {
-    final isSelected = tabIndex == currentIndex;
-    return Offstage(
-      offstage: !isSelected,
-      child: TickerMode(enabled: isSelected, child: child),
-    );
+  Widget _screenForIndex(int index) {
+    return switch (index) {
+      1 => const FavoritesScreen(),
+      2 => const RecentScreen(),
+      3 => const ToolsScreen(),
+      4 => const SettingsScreen(),
+      _ => const HomeScreen(),
+    };
   }
 }

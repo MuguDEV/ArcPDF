@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:arcpdf/src/shared/widgets/arc_bouncy_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -18,7 +19,7 @@ Widget buttonApp({
             tooltip: tooltip,
             onPressed: onPressed,
             scaleDown: 0.75,
-            child: const Icon(Icons.arrow_forward, size: 16),
+            child: const Icon(ArcIcons.forward, size: 16),
           ),
         ),
       ),

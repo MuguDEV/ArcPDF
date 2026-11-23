@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/material.dart';
 import '../../application/pdf_error_handler.dart';
 import '../../../settings/haptic_service.dart';
@@ -7,7 +8,6 @@ import '../../application/pdf_library_controller.dart';
 import '../../application/open_tabs_provider.dart';
 import '../../domain/pdf_file_item.dart';
 import '../../../vault/vault_controller.dart';
-import 'package:hugeicons/hugeicons.dart';
 import '../../../tools/pages/rearrange_pages_page.dart';
 import '../../../tools/pages/metadata_editor_page.dart';
 import '../../../../shared/utils/glass_bottom_sheet.dart';
@@ -119,7 +119,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
-                          HugeIcons.strokeRoundedPdf02,
+                          ArcIcons.pdf,
                           color: theme.colorScheme.onPrimaryContainer,
                           size: 28,
                         ),
@@ -208,8 +208,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                             filled: true,
                             fillColor:
                                 theme.colorScheme.surfaceContainerHighest,
-                            prefixIcon: const Icon(HugeIcons.strokeRoundedTag01,
-                                size: 20),
+                            prefixIcon: const Icon(ArcIcons.tag, size: 20),
                           ),
                           onSubmitted: (val) {
                             if (val.trim().isNotEmpty) {
@@ -231,7 +230,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                           }
                         },
                         tooltip: 'Add tag',
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(ArcIcons.add),
                         style: IconButton.styleFrom(
                           padding: const EdgeInsets.all(14),
                         ),
@@ -247,7 +246,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                         .withValues(alpha: 0.5)),
                 const SizedBox(height: 8),
                 _ActionTile(
-                  icon: HugeIcons.strokeRoundedGridView,
+                  icon: ArcIcons.grid,
                   title: 'Rearrange / Delete Pages',
                   color: theme.colorScheme.onSurface,
                   onTap: () {
@@ -260,7 +259,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   },
                 ),
                 _ActionTile(
-                  icon: HugeIcons.strokeRoundedInformationCircle,
+                  icon: ArcIcons.info,
                   title: 'Edit Metadata',
                   color: theme.colorScheme.onSurface,
                   onTap: () {
@@ -273,13 +272,13 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                   },
                 ),
                 _ActionTile(
-                  icon: HugeIcons.strokeRoundedFolderSecurity,
+                  icon: ArcIcons.vault,
                   title: 'Move to Secure Vault',
                   color: theme.colorScheme.primary,
                   onTap: _moveToVault,
                 ),
                 _ActionTile(
-                  icon: HugeIcons.strokeRoundedDelete01,
+                  icon: ArcIcons.remove,
                   title: 'Delete File',
                   color: theme.colorScheme.error,
                   onTap: () async {
@@ -304,7 +303,7 @@ class _PdfBottomSheetState extends ConsumerState<_PdfBottomSheet> {
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    HugeIcons.strokeRoundedDelete01,
+                                    ArcIcons.remove,
                                     size: 32,
                                     color: theme.colorScheme.error,
                                   ),

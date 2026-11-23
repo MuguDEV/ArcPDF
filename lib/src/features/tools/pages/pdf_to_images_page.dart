@@ -1,17 +1,15 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-
-import 'package:hugeicons/hugeicons.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'dart:ui';
 
 import '../utils/run_tool_action.dart';
 import '../tools_service.dart';
 import '../widgets/in_app_pdf_selector.dart';
 import '../utils/tools_directory_util.dart';
 import '../../pdf/home/widgets/pdf_thumbnail.dart';
+import '../job_queue.dart';
 
 class PdfToImagesPage extends StatefulWidget {
   const PdfToImagesPage({super.key});
@@ -22,6 +20,9 @@ class PdfToImagesPage extends StatefulWidget {
 
 class _PdfToImagesPageState extends State<PdfToImagesPage> {
   String? _selectedFile;
+  int _dpi = 144;
+  PdfImageFormat _format = PdfImageFormat.jpeg;
+  int _quality = 90;
 
   Future<void> _pickFile() async {
     final paths = await InAppPdfSelector.show(context, allowMultiple: false);
@@ -34,10 +35,22 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
   Future<void> _extractImages() async {
     final input = _selectedFile;
     if (input == null) return;
-    await runToolAction(context, title: 'Extracting Images', action: () async {
-      final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
-      return ToolsService.pdfToImages(input, dir);
-    });
+    final progress =
+        ValueNotifier(const JobProgress(percentage: 0, stage: 'Preparing…'));
+    VoidCallback? cancel;
+    await runToolAction(context,
+        title: 'Extracting Images',
+        progress: progress,
+        onCancel: () => cancel?.call(),
+        action: () async {
+          final dir = await ToolsDirectoryUtil.getDefaultOutputDirectory();
+          return ToolsService.pdfToImages(input, dir,
+              dpi: _dpi,
+              format: _format,
+              quality: _quality,
+              onProgress: (value) => progress.value = value,
+              onHandle: (handle) => cancel = handle.cancel);
+        });
   }
 
   @override
@@ -53,7 +66,7 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(HugeIcons.strokeRoundedImage02,
+                        Icon(ArcIcons.images,
                             size: 64,
                             color: theme.colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.5)),
@@ -74,60 +87,101 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerLow
-                                    .withValues(alpha: 0.65),
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: theme.colorScheme.outlineVariant
-                                      .withValues(alpha: 0.5),
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: SizedBox(
-                                      width: 120,
-                                      height: 160,
-                                      child: PdfThumbnail(
-                                          path: _selectedFile!,
-                                          isEncrypted: false,
-                                          isCorrupted: false),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    p.basename(_selectedFile!),
-                                    maxLines: 2,
-                                    textAlign: TextAlign.center,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${(File(_selectedFile!).statSync().size.clamp(0, 0x7fffffffffffffff) / (1024 * 1024)).toStringAsFixed(1)} MB',
-                                    style:
-                                        theme.textTheme.labelMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
                             ),
                           ),
-                        ).animate().fadeIn().slideY(begin: 0.1),
-                        const SizedBox(height: 32),
+                          child: Column(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: SizedBox(
+                                  width: 120,
+                                  height: 160,
+                                  child: PdfThumbnail(
+                                      path: _selectedFile!,
+                                      isEncrypted: false,
+                                      isCorrupted: false),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                p.basename(_selectedFile!),
+                                maxLines: 2,
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${(File(_selectedFile!).statSync().size.clamp(0, 0x7fffffffffffffff) / (1024 * 1024)).toStringAsFixed(1)} MB',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('Image format', style: theme.textTheme.titleSmall),
+                        const SizedBox(height: 8),
+                        SegmentedButton<PdfImageFormat>(
+                          segments: const [
+                            ButtonSegment(
+                                value: PdfImageFormat.jpeg,
+                                label: Text('JPEG')),
+                            ButtonSegment(
+                                value: PdfImageFormat.png, label: Text('PNG')),
+                          ],
+                          selected: {_format},
+                          onSelectionChanged: (value) =>
+                              setState(() => _format = value.first),
+                        ),
+                        const SizedBox(height: 20),
+                        Text('Resolution', style: theme.textTheme.titleSmall),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          initialValue: _dpi,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(ArcIcons.image),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 72, child: Text('72 DPI · Small')),
+                            DropdownMenuItem(
+                                value: 144,
+                                child: Text('144 DPI · Recommended')),
+                            DropdownMenuItem(
+                                value: 216, child: Text('216 DPI · Detailed')),
+                            DropdownMenuItem(
+                                value: 300, child: Text('300 DPI · Print')),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) setState(() => _dpi = value);
+                          },
+                        ),
+                        if (_format == PdfImageFormat.jpeg) ...[
+                          const SizedBox(height: 20),
+                          Text('JPEG quality · $_quality%',
+                              style: theme.textTheme.titleSmall),
+                          Slider(
+                            value: _quality.toDouble(),
+                            min: 50,
+                            max: 100,
+                            divisions: 10,
+                            label: '$_quality%',
+                            onChanged: (value) =>
+                                setState(() => _quality = value.round()),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -137,12 +191,14 @@ class _PdfToImagesPageState extends State<PdfToImagesPage> {
                           ),
                           child: Row(
                             children: [
-                              Icon(HugeIcons.strokeRoundedInformationCircle,
+                              Icon(ArcIcons.info,
                                   color: theme.colorScheme.primary),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'This will extract all pages as high-quality JPG images into a new folder.',
+                                  _format == PdfImageFormat.png
+                                      ? 'PNG preserves transparency and sharp graphics but uses more storage.'
+                                      : 'JPEG is smaller and works well for scanned or photographic pages.',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),

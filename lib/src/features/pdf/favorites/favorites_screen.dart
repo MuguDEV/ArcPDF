@@ -1,6 +1,6 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,15 +46,13 @@ class FavoritesScreen extends ConsumerWidget {
             ),
           )
         else if (items.isEmpty)
-          SliverFillRemaining(
+          const SliverFillRemaining(
             hasScrollBody: false,
             child: ArcEmptyState(
-              icon: Icons.favorite_border_rounded,
+              icon: ArcIcons.favorite,
               title: 'No favorites yet',
               subtitle:
-                  'Long-press any PDF in the Home tab to add it to your favorites.',
-              iconColor: Colors.grey.shade400,
-              animated: true,
+                  'Tap the heart beside a PDF to keep it here for quick access.',
             ),
           )
         else ...[
@@ -66,7 +64,7 @@ class FavoritesScreen extends ConsumerWidget {
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-              ).animate().fadeIn(duration: 300.ms),
+              ),
             ),
           ),
           SliverPadding(
@@ -124,33 +122,14 @@ class FavoritesScreen extends ConsumerWidget {
                             builder: (_) => PdfViewerScreen(item: item)),
                       );
                     },
-                  )
-                      .animate(key: ValueKey('fav_${item.path}'))
-                      .fadeIn(
-                        duration: 400.ms,
-                        delay: (index > 20 ? 0 : index * 20).ms,
-                        curve: Curves.easeOut,
-                      )
-                      .slideY(
-                        begin: 0.15,
-                        duration: 400.ms,
-                        delay: (index > 20 ? 0 : index * 20).ms,
-                        curve: Curves.easeOutCubic,
-                      )
-                      .scaleXY(
-                        begin: 0.92,
-                        end: 1.0,
-                        duration: 400.ms,
-                        delay: (index > 20 ? 0 : index * 20).ms,
-                        curve: Curves.easeOutBack,
-                      ),
+                  ),
                 );
               },
             ),
           ),
         ],
         const SliverSafeArea(
-          minimum: EdgeInsets.only(bottom: 140),
+          minimum: EdgeInsets.only(bottom: 24),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
       ],

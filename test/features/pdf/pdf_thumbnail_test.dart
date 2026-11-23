@@ -14,6 +14,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:pdfrx/pdfrx.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 class _Document extends Mock implements PdfDocument {}
 
@@ -85,7 +87,8 @@ void main() {
     PdfrxEntryFunctions.instance = backend;
   });
 
-  File diskFile() => File('${root.path}/thumbnails/${source.hashCode}.png');
+  File diskFile() => File(
+      '${root.path}/thumbnails/${sha256.convert(utf8.encode('$source\u0000'))}.png');
 
   _Document document({List<PdfPage> pages = const []}) {
     final doc = _Document();
@@ -119,13 +122,12 @@ void main() {
       expect(backend.calls, isEmpty);
     });
 
-    test('coalesces requests and releases failed in-flight entries', () async {
+    test('coalesces work and releases failed in-flight entries', () async {
       await File(source).writeAsString('pdf');
       final gate = Completer<PdfDocument>();
       backend.open = (_) => gate.future;
       final first = PdfThumbnailCache.getThumbnail(source);
       final second = PdfThumbnailCache.getThumbnail(source);
-      expect(identical(first, second), isTrue);
       await _until(() => backend.calls.length == 1);
       gate.completeError(StateError('open failed'));
       expect(await first, isNull);
@@ -177,10 +179,10 @@ void main() {
         final image = await PdfThumbnailCache.getThumbnail(source,
             lowPowerMode: lowPower);
         expect(image, isNotNull);
-        expect(
-            await PdfThumbnailCache.getThumbnail(source,
-                lowPowerMode: lowPower),
-            same(image));
+        final second = await PdfThumbnailCache.getThumbnail(source,
+            lowPowerMode: lowPower);
+        expect(second, isNotNull);
+        expect(identical(second, image), isFalse);
         expect(backend.calls.length, 1);
         final width = lowPower ? 150.0 : 180.0;
         verify(() => page.render(fullWidth: width, fullHeight: width * 1.5))
@@ -189,6 +191,8 @@ void main() {
         verify(() => doc.dispose()).called(1);
         await _until(
             () => diskFile().existsSync() && diskFile().lengthSync() > 0);
+        second?.dispose();
+        image?.dispose();
       });
     }
 
@@ -278,6 +282,12 @@ void main() {
 
     tearDown(() => container.dispose());
 
+    Future<ui.Image?>? thumbnailFuture(WidgetTester tester) {
+      final finder = find.byWidgetPredicate(
+          (widget) => widget.runtimeType.toString() == '_ThumbnailImage');
+      return (tester.widget(finder) as dynamic).future as Future<ui.Image?>?;
+    }
+
     Future<void> mount(WidgetTester tester,
         {String? path,
         bool encrypted = false,
@@ -311,19 +321,11 @@ void main() {
       when(() => file.existsSync()).thenThrow(StateError('sync IO in build'));
       await IOOverrides.runZoned(() async {
         await mount(tester);
-        final first = tester
-            .widget<FutureBuilder<ui.Image?>>(
-                find.byType(FutureBuilder<ui.Image?>))
-            .future;
+        final first = thumbnailFuture(tester);
         for (var i = 0; i < 5; i++) {
           await mount(tester,
               brightness: i.isEven ? Brightness.dark : Brightness.light);
-          expect(
-              tester
-                  .widget<FutureBuilder<ui.Image?>>(
-                      find.byType(FutureBuilder<ui.Image?>))
-                  .future,
-              same(first));
+          expect(thumbnailFuture(tester), same(first));
         }
         exists.complete(false);
         await tester.pumpAndSettle();
@@ -377,22 +379,13 @@ void main() {
       when(() => file.exists()).thenAnswer((_) async => false);
       await IOOverrides.runZoned(() async {
         await mount(tester);
-        final first = tester
-            .widget<FutureBuilder<ui.Image?>>(
-                find.byType(FutureBuilder<ui.Image?>))
-            .future;
+        final first = thumbnailFuture(tester);
         await mount(tester, path: '$source.other');
-        final second = tester
-            .widget<FutureBuilder<ui.Image?>>(
-                find.byType(FutureBuilder<ui.Image?>))
-            .future;
+        final second = thumbnailFuture(tester);
         expect(second, isNot(same(first)));
         await settings.setLowPowerMode(true);
         await tester.pump();
-        final third = tester
-            .widget<FutureBuilder<ui.Image?>>(
-                find.byType(FutureBuilder<ui.Image?>))
-            .future;
+        final third = thumbnailFuture(tester);
         expect(third, isNot(same(second)));
         await tester.pumpAndSettle();
         verify(() => file.exists()).called(3);

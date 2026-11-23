@@ -1,8 +1,7 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:async';
 
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -135,7 +134,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    HugeIcons.strokeRoundedPackageOpen,
+                    ArcIcons.package,
                     size: 32,
                     color: theme.colorScheme.primary,
                   ),
@@ -233,8 +232,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ));
                         }
                       },
-                      icon: const Icon(HugeIcons.strokeRoundedDownload04,
-                          size: 20),
+                      icon: const Icon(ArcIcons.download, size: 20),
                       label: const Text('Download'),
                     ),
                   ],
@@ -282,15 +280,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   _Choice(
                       value: ThemeMode.system,
                       label: 'System',
-                      icon: Icons.brightness_auto_rounded),
+                      icon: ArcIcons.systemTheme),
                   _Choice(
                       value: ThemeMode.light,
                       label: 'Light',
-                      icon: Icons.light_mode_rounded),
+                      icon: ArcIcons.lightMode),
                   _Choice(
                       value: ThemeMode.dark,
                       label: 'Dark',
-                      icon: Icons.dark_mode_rounded),
+                      icon: ArcIcons.darkMode),
                 ],
                 selected: settings.themeMode,
                 onSelected: ctrl.setThemeMode,
@@ -327,7 +325,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           value: accent,
                           label: accent.displayName,
                           icon: accent == ArcAccent.none
-                              ? Icons.format_color_reset_rounded
+                              ? ArcIcons.noAccent
                               : null,
                           swatch: accent.colorFor(theme.brightness),
                         ))
@@ -398,7 +396,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             keywords: 'blur glass frosted translucent effects',
             child: SwitchListTile.adaptive(
               value: settings.useBlurEffect,
-              secondary: const Icon(Icons.blur_on_rounded),
+              secondary: const Icon(ArcIcons.blur),
               onChanged: ctrl.setUseBlurEffect,
               title: const Text('Frosted Glass (Blur)'),
               subtitle:
@@ -410,7 +408,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             keywords: 'liquid glass ios premium effects',
             child: SwitchListTile.adaptive(
               value: settings.useLiquidGlass,
-              secondary: const Icon(Icons.auto_awesome_rounded),
+              secondary: const Icon(ArcIcons.sparkles),
               onChanged: settings.useBlurEffect ? ctrl.setUseLiquidGlass : null,
               title: const Text('Apple Liquid Glass'),
               subtitle:
@@ -422,7 +420,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             keywords: 'haptic vibration vibrate touch feedback',
             child: SwitchListTile.adaptive(
               value: settings.useHaptics,
-              secondary: const Icon(Icons.vibration_rounded),
+              secondary: const Icon(ArcIcons.haptics),
               onChanged: (enabled) async {
                 final haptics = ref.read(hapticServiceProvider);
                 await ctrl.setUseHaptics(enabled);
@@ -437,7 +435,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             keywords: 'screen awake wake lock sleep timeout display',
             child: SwitchListTile.adaptive(
               value: settings.keepScreenAwake,
-              secondary: const Icon(Icons.screen_lock_portrait_rounded),
+              secondary: const Icon(ArcIcons.keepAwake),
               onChanged: (val) {
                 ctrl.setKeepScreenAwake(val);
                 WakelockPlus.toggle(enable: val);
@@ -469,7 +467,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: const Text(
                   'Disables blur, 120Hz, animations, and lowers thumbnail quality to save battery and memory.'),
               activeTrackColor: colors.primary,
-              secondary: Icon(HugeIcons.strokeRoundedBatteryLow,
+              secondary: Icon(ArcIcons.battery,
                   color: settings.lowPowerMode ? colors.primary : null),
             ),
           ),
@@ -483,7 +481,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle:
                   const Text('Cards physically tilt with your device sensors.'),
               activeTrackColor: colors.primary,
-              secondary: Icon(Icons.screen_rotation_rounded,
+              secondary: Icon(ArcIcons.orientation,
                   color: settings.enableGyroCards ? colors.primary : null),
             ),
           ),
@@ -497,7 +495,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: const Text(
                   'Adds a slowly shifting liquid aura background to the Home screen.'),
               activeTrackColor: colors.primary,
-              secondary: Icon(HugeIcons.strokeRoundedLayers01,
+              secondary: Icon(ArcIcons.merge,
                   color: settings.enableMeshBackground ? colors.primary : null),
             ),
           ),
@@ -562,10 +560,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Backup & Restore',
             keywords: 'backup restore export import save migrate data library',
             child: ListTile(
-              leading: const Icon(Icons.settings_backup_restore_rounded),
+              leading: const Icon(ArcIcons.backup),
               title: const Text('Backup & Restore'),
               subtitle: const Text('Save or restore your ArcPDF data'),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: const Icon(ArcIcons.next),
               onTap: () => showBackupRestoreSheet(context),
             ),
           ),
@@ -573,10 +571,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'View Logs',
             keywords: 'logs diagnostics errors debug bug report support',
             child: ListTile(
-              leading: const Icon(Icons.bug_report_rounded),
+              leading: const Icon(ArcIcons.diagnostics),
               title: const Text('View Logs'),
               subtitle: const Text('Open Diagnostics & Logs'),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: const Icon(ArcIcons.next),
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -602,11 +600,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: colors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(ArcColors.cardRadius),
                 ),
-                child: const Icon(HugeIcons.strokeRoundedPdf02, size: 22),
+                child: const Icon(ArcIcons.pdf, size: 22),
               ),
               title: const Text('ArcPDF'),
               subtitle: Text('$_version · Your local PDF workspace'),
-              trailing: const Icon(Icons.info_outline_rounded),
+              trailing: const Icon(ArcIcons.info),
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const AboutScreen()),
@@ -618,9 +616,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Check for Updates',
             keywords: 'update upgrade version release new',
             child: ListTile(
-              leading: const Icon(Icons.system_update_rounded),
+              leading: const Icon(ArcIcons.update),
               title: const Text('Check for Updates'),
-              trailing: const Icon(Icons.chevron_right_rounded),
+              trailing: const Icon(ArcIcons.next),
               onTap: _checkingForUpdates ? null : _checkForUpdates,
             ),
           ),
@@ -654,7 +652,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       minVerticalPadding: ArcColors.space4,
       minLeadingWidth: 24,
       horizontalTitleGap: ArcColors.space12,
-      titleTextStyle: theme.textTheme.bodyLarge,
+      titleTextStyle: theme.textTheme.titleMedium,
       subtitleTextStyle: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       ),
@@ -702,7 +700,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SliverSafeArea(
-              minimum: EdgeInsets.only(bottom: 140),
+              minimum: EdgeInsets.only(bottom: 24),
               sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
             ),
           ],
@@ -776,7 +774,6 @@ class _GroupView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delay = (40 * index).ms;
     final standalone = group.standalone;
     final Widget card = standalone ??
         _SettingsCard(
@@ -793,14 +790,9 @@ class _GroupView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHeader(label: group.title)
-            .animate(delay: delay)
-            .fadeIn(duration: 260.ms),
+        _SectionHeader(label: group.title),
         const SizedBox(height: ArcColors.space8),
-        card
-            .animate(delay: delay + 40.ms)
-            .fadeIn(duration: 300.ms)
-            .slideY(begin: 0.05),
+        card,
         const SizedBox(height: ArcColors.space20),
       ],
     );
@@ -836,11 +828,11 @@ class _SearchField extends StatelessWidget {
           enableSuggestions: false,
           decoration: InputDecoration(
             hintText: 'Search settings',
-            prefixIcon: const Icon(Icons.search_rounded),
+            prefixIcon: const Icon(ArcIcons.search),
             suffixIcon: hasText
                 ? IconButton(
                     tooltip: 'Clear search',
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(ArcIcons.close),
                     onPressed: onClear,
                   )
                 : null,
@@ -878,7 +870,7 @@ class _EmptySearch extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: ArcColors.space32),
       child: Column(
         children: [
-          Icon(Icons.search_off_rounded,
+          Icon(ArcIcons.searchEmpty,
               size: 48, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(height: ArcColors.space12),
           Text('No matching settings',
@@ -977,7 +969,7 @@ class _TextSizePreview extends StatelessWidget {
               padding: const EdgeInsets.all(ArcColors.space12),
               decoration: BoxDecoration(
                 color: high ? colors.surface : colors.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: high ? colors.outline : colors.outlineVariant,
                   width: high ? 2 : 1,
@@ -1095,12 +1087,13 @@ class _SettingsChoices<T> extends StatelessWidget {
         children: options.map((option) {
           final isSelected = option.value == selected;
           final foreground = isSelected
-              ? theme.colorScheme.onPrimary
-              : theme.colorScheme.onSurface;
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurfaceVariant;
           return SizedBox(
             width: width,
             height: height,
-            child: Semantics(
+            child: MergeSemantics(
+                child: Semantics(
               selected: isSelected,
               inMutuallyExclusiveGroup: true,
               child: OutlinedButton(
@@ -1113,16 +1106,19 @@ class _SettingsChoices<T> extends StatelessWidget {
                   side: BorderSide(
                     color: isSelected
                         ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
-                    width: high ? 2 : 1,
+                        : high
+                            ? theme.colorScheme.outline
+                            : Colors.transparent,
+                    width: high || isSelected ? 2 : 1,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(ArcColors.buttonRadius),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   textStyle: style,
                   foregroundColor: foreground,
-                  backgroundColor:
-                      isSelected ? theme.colorScheme.primary : null,
+                  backgroundColor: isSelected
+                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                      : theme.colorScheme.surfaceContainerHigh,
                 ),
                 onPressed: () => onSelected(option.value),
                 child: Row(
@@ -1148,7 +1144,7 @@ class _SettingsChoices<T> extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
+            )),
           );
         }).toList(),
       );
@@ -1167,11 +1163,9 @@ class _SectionHeader extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 2),
         child: Text(
-          label.toUpperCase(),
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          label,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
               ),
         ),
       ),
@@ -1242,8 +1236,7 @@ class _SettingsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(ArcColors.cardRadius),
         side: high
             ? BorderSide(color: theme.colorScheme.outline, width: 2)
-            : BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            : const BorderSide(color: Colors.transparent),
       ),
       clipBehavior: Clip.antiAlias,
       child: child,

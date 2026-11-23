@@ -1,8 +1,8 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 import 'security_controller.dart';
 import 'pin_pad.dart';
@@ -78,7 +78,7 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      HugeIcons.strokeRoundedSecurityLock,
+                      ArcIcons.lock,
                       size: 64,
                       color: theme.colorScheme.primary,
                     )
@@ -118,8 +118,7 @@ class _SharedLockOverlayState extends ConsumerState<SharedLockOverlay> {
                     if (security.isBiometricEnabled)
                       TextButton.icon(
                         onPressed: widget.onBiometricAuth,
-                        icon:
-                            const Icon(HugeIcons.strokeRoundedFingerprintScan),
+                        icon: const Icon(ArcIcons.fingerprint),
                         label: const Text('Use Biometrics'),
                       ).animate().fadeIn(duration: 400.ms, delay: 200.ms),
                   ],

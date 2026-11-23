@@ -12,6 +12,7 @@ class PdfAnnotation {
     required this.color,
     required this.bounds,
     this.content,
+    this.points,
     required this.createdAt,
   });
 
@@ -36,21 +37,27 @@ class PdfAnnotation {
   @HiveField(6)
   final String? content; // Text content for sticky notes
 
+  @HiveField(8)
+  final List<double>? points; // normalized x/y pairs for freehand ink
+
   @HiveField(7)
   final DateTime createdAt;
 
   PdfAnnotation copyWith({
+    String? pdfPath,
     String? content,
     int? color,
+    List<double>? points,
   }) {
     return PdfAnnotation(
       id: id,
-      pdfPath: pdfPath,
+      pdfPath: pdfPath ?? this.pdfPath,
       pageNumber: pageNumber,
       type: type,
       color: color ?? this.color,
       bounds: bounds,
       content: content ?? this.content,
+      points: points ?? this.points,
       createdAt: createdAt,
     );
   }

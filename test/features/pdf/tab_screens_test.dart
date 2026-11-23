@@ -1,3 +1,4 @@
+import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'dart:io';
 
 import 'package:arcpdf/src/features/pdf/application/open_tabs_provider.dart';
@@ -7,6 +8,8 @@ import 'package:arcpdf/src/features/pdf/viewer/tab_switcher_screen.dart';
 import 'package:arcpdf/src/features/settings/settings_controller.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -67,6 +70,7 @@ void main() {
       {bool reducedMotion = true,
       double width = 800,
       double textScale = 1,
+      ThemeData? theme,
       Brightness brightness = Brightness.light}) async {
     tester.view.physicalSize = Size(width, 1000);
     tester.view.devicePixelRatio = 1;
@@ -75,7 +79,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: ThemeData(brightness: brightness),
+        theme: theme ?? ThemeData(brightness: brightness),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             disableAnimations: reducedMotion,
@@ -304,15 +308,95 @@ void main() {
     await disposeScreen(tester);
   });
 
-  testWidgets('user swipes still update the active tab', (tester) async {
+  testWidgets('right-edge touch swipe advances the active tab', (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    tabs.setActiveIndex(0);
+    await pumpScreen(tester, viewer);
+    final gesture = await tester.startGesture(const Offset(798, 500));
+    await gesture.moveBy(const Offset(-100, 0));
+    await gesture.up();
+    await tester.pump();
+    expect(tabs.state.activeIndex, 1);
+    expect(pageController(tester).page, 1);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('center drag stays inside the active PDF', (tester) async {
     tabs.openTab(_item('a'));
     tabs.openTab(_item('b'));
     tabs.setActiveIndex(0);
     await pumpScreen(tester, viewer);
     await tester.drag(find.byType(PageView), const Offset(-650, 0));
-    await tester.pumpAndSettle();
-    expect(tabs.state.activeIndex, 1);
-    expect(pageController(tester).page, 1);
+    await tester.pump();
+    expect(tabs.state.activeIndex, 0);
+    expect(pageController(tester).page, 0);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('pinch beginning at an edge never changes tabs', (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    tabs.setActiveIndex(0);
+    await pumpScreen(tester, viewer);
+    final first = await tester.startGesture(const Offset(798, 500), pointer: 1);
+    final second =
+        await tester.startGesture(const Offset(650, 500), pointer: 2);
+    await first.moveBy(const Offset(-110, 0));
+    await second.moveBy(const Offset(40, 0));
+    await first.up();
+    await second.up();
+    await tester.pump();
+    expect(tabs.state.activeIndex, 0);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('stylus edge drag never changes tabs', (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    tabs.setActiveIndex(0);
+    await pumpScreen(tester, viewer);
+    final stylus = await tester.startGesture(const Offset(798, 500),
+        kind: PointerDeviceKind.stylus);
+    await stylus.moveBy(const Offset(-110, 0));
+    await stylus.up();
+    await tester.pump();
+    expect(tabs.state.activeIndex, 0);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('long-press selection gesture at an edge never changes tabs',
+      (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    tabs.setActiveIndex(0);
+    await pumpScreen(tester, viewer);
+    final gesture = await tester.startGesture(const Offset(798, 500));
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveBy(const Offset(-110, 0));
+    await gesture.up();
+    await tester.pump();
+    expect(tabs.state.activeIndex, 0);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('selection or large zoom blocks edge tab switching',
+      (tester) async {
+    tabs.openTab(_item('a'));
+    tabs.openTab(_item('b'));
+    tabs.setActiveIndex(0);
+    await pumpScreen(
+      tester,
+      const MultiTabViewerScreen(
+        viewerBuilder: _buildViewer,
+        edgeSwipeEligibleForTesting: false,
+      ),
+    );
+    final gesture = await tester.startGesture(const Offset(798, 500));
+    await gesture.moveBy(const Offset(-110, 0));
+    await gesture.up();
+    await tester.pump();
+    expect(tabs.state.activeIndex, 0);
     await disposeScreen(tester);
   });
 
@@ -400,7 +484,7 @@ void main() {
         grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
     expect(delegate.crossAxisCount, 2);
     expect(find.text('Reading now'), findsOneWidget);
-    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    expect(find.byIcon(ArcIcons.selected), findsOneWidget);
     expect(find.byTooltip('Close a.pdf').hitTestable(), findsOneWidget);
     expect(find.byTooltip('Close b.pdf').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -443,6 +527,40 @@ void main() {
     expect(find.text('No open tabs'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Go Home'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('tab footers fit custom fonts at 3x text', (tester) async {
+    tabs.openTab(_item('A long document title with supporting material'));
+    tabs.openTab(_item('Another document'));
+    final base = ThemeData();
+    await pumpScreen(tester, const TabSwitcherScreen(),
+        width: 320,
+        textScale: 3,
+        theme: base.copyWith(
+            textTheme: base.textTheme.copyWith(
+                titleSmall: const TextStyle(fontSize: 18, height: 1.6),
+                labelSmall: const TextStyle(fontSize: 16, height: 1.8))));
+    await tester.pumpAndSettle();
+    final status = find.text('PDF document').first;
+    await tester.ensureVisible(status);
+    await tester.pumpAndSettle();
+    final paragraph = tester.renderObject<RenderParagraph>(status);
+    expect(paragraph.didExceedMaxLines, isFalse);
+    expect(tester.takeException(), isNull);
+    await disposeScreen(tester);
+  });
+
+  testWidgets('battery mode skips tab entrance even when system motion is on',
+      (tester) async {
+    tabs.openTab(_item('a'));
+    await container
+        .read(settingsControllerProvider.notifier)
+        .setLowPowerMode(true);
+    await pumpScreen(tester, const TabSwitcherScreen(), reducedMotion: false);
+    expect(find.byType(Animate), findsNothing);
+    await tester.pumpAndSettle();
+    expect(tester.binding.hasScheduledFrame, isFalse);
     await disposeScreen(tester);
   });
 }

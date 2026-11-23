@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/open_tabs_provider.dart';
@@ -5,11 +8,19 @@ import '../domain/pdf_file_item.dart';
 import 'pdf_viewer_screen.dart';
 
 class MultiTabViewerScreen extends ConsumerStatefulWidget {
-  const MultiTabViewerScreen({super.key, this.viewerBuilder});
+  const MultiTabViewerScreen({
+    super.key,
+    this.viewerBuilder,
+    this.edgeSwipeEligibleForTesting,
+  });
 
   /// Allows tab navigation to be tested independently of PDF platform plugins.
   @visibleForTesting
   final Widget Function(BuildContext context, PdfFileItem item)? viewerBuilder;
+
+  /// Simulates reader selection/zoom blocking without loading PDFium.
+  @visibleForTesting
+  final bool? edgeSwipeEligibleForTesting;
 
   @override
   ConsumerState<MultiTabViewerScreen> createState() =>
@@ -17,18 +28,36 @@ class MultiTabViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
+  static const double _edgeWidth = 28;
+  static const double _switchDistance = 72;
+  static const double _verticalTolerance = 48;
+  static const Duration _edgeGestureTimeout = Duration(milliseconds: 450);
   late final PageController _pageController;
   bool _pageSyncScheduled = false;
+  final Set<int> _activePointers = <int>{};
+  int? _edgePointer;
+  Offset? _edgeStart;
+  Offset? _edgeLatest;
+  bool _edgeStartedOnLeft = false;
+  Duration? _edgeStartedAt;
+  bool _edgeGestureBlocked = false;
+  Timer? _edgeTimeoutTimer;
+  bool _tabSwipeEligible = true;
+
+  bool get _canEdgeSwipe =>
+      widget.edgeSwipeEligibleForTesting ?? _tabSwipeEligible;
 
   @override
   void initState() {
     super.initState();
+    _tabSwipeEligible = widget.viewerBuilder != null;
     final activeIndex = ref.read(openTabsProvider).activeIndex;
     _pageController = PageController(initialPage: activeIndex);
   }
 
   @override
   void dispose() {
+    _edgeTimeoutTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -50,11 +79,92 @@ class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
     });
   }
 
+  void _onPointerDown(PointerDownEvent event, double width) {
+    _activePointers.add(event.pointer);
+    if (_activePointers.length > 1) {
+      _edgeGestureBlocked = true;
+      _edgePointer = null;
+      return;
+    }
+    if (!_canEdgeSwipe || event.kind != PointerDeviceKind.touch) return;
+    final onLeft = event.localPosition.dx <= _edgeWidth;
+    final onRight = event.localPosition.dx >= width - _edgeWidth;
+    if (!onLeft && !onRight) return;
+    _edgePointer = event.pointer;
+    _edgeStart = event.localPosition;
+    _edgeLatest = event.localPosition;
+    _edgeStartedOnLeft = onLeft;
+    _edgeStartedAt = event.timeStamp;
+    _edgeGestureBlocked = false;
+    _edgeTimeoutTimer?.cancel();
+    _edgeTimeoutTimer = Timer(_edgeGestureTimeout, () {
+      _edgeGestureBlocked = true;
+    });
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _edgePointer) return;
+    _edgeLatest = event.localPosition;
+    final start = _edgeStart;
+    final startedAt = _edgeStartedAt;
+    if (start == null ||
+        startedAt == null ||
+        event.timeStamp - startedAt > _edgeGestureTimeout ||
+        (event.localPosition.dy - start.dy).abs() > _verticalTolerance ||
+        !_canEdgeSwipe) {
+      _edgeGestureBlocked = true;
+    }
+  }
+
+  void _onPointerEnd(PointerEvent event) {
+    _activePointers.remove(event.pointer);
+    if (event.pointer != _edgePointer) {
+      if (_activePointers.isEmpty) _resetEdgeGesture();
+      return;
+    }
+    final start = _edgeStart;
+    final end = _edgeLatest;
+    final startedAt = _edgeStartedAt;
+    final state = ref.read(openTabsProvider);
+    if (!_edgeGestureBlocked &&
+        _canEdgeSwipe &&
+        start != null &&
+        end != null &&
+        startedAt != null &&
+        event.timeStamp - startedAt <= _edgeGestureTimeout) {
+      final dx = end.dx - start.dx;
+      final target = _edgeStartedOnLeft && dx >= _switchDistance
+          ? state.activeIndex - 1
+          : !_edgeStartedOnLeft && dx <= -_switchDistance
+              ? state.activeIndex + 1
+              : null;
+      if (target != null && target >= 0 && target < state.tabs.length) {
+        ref.read(openTabsProvider.notifier).setActiveIndex(target);
+      }
+    }
+    _resetEdgeGesture();
+  }
+
+  void _resetEdgeGesture() {
+    _edgeTimeoutTimer?.cancel();
+    _edgeTimeoutTimer = null;
+    _edgePointer = null;
+    _edgeStart = null;
+    _edgeLatest = null;
+    _edgeStartedAt = null;
+    _edgeGestureBlocked = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<OpenTabsState>(openTabsProvider, (previous, next) {
       if (previous?.activeIndex != next.activeIndex ||
           !identical(previous?.tabs, next.tabs)) {
+        if (previous?.activeIndex != next.activeIndex) {
+          _tabSwipeEligible = widget.viewerBuilder != null;
+          _activePointers.clear();
+          _resetEdgeGesture();
+        }
         _schedulePageSync();
       }
     });
@@ -79,34 +189,54 @@ class _MultiTabViewerScreenState extends ConsumerState<MultiTabViewerScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: PageView.builder(
-        controller: _pageController,
-        physics: const BouncingScrollPhysics(),
-        onPageChanged: (index) {
-          // Ignore layout corrections and callbacks from an outdated child list.
-          if (_pageSyncScheduled ||
-              !identical(tabs, ref.read(openTabsProvider).tabs)) {
-            return;
-          }
-          ref.read(openTabsProvider.notifier).setActiveIndex(index);
-        },
-        itemCount: tabs.length,
-        findChildIndexCallback: (key) =>
-            key is ValueKey<String> ? indicesByPath[key.value] : null,
-        itemBuilder: (context, index) {
-          final item = tabs[index];
-          return _TabPage(
-            key: ValueKey(item.path),
-            isActive: index == tabsState.activeIndex,
-            child: widget.viewerBuilder?.call(context, item) ??
-                PdfViewerScreen(
-                  key: ValueKey(item.path),
-                  item: item,
-                  isActive: index == tabsState.activeIndex,
+      body: LayoutBuilder(
+          builder: (context, constraints) => Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) =>
+                    _onPointerDown(event, constraints.maxWidth),
+                onPointerMove: _onPointerMove,
+                onPointerUp: _onPointerEnd,
+                onPointerCancel: _onPointerEnd,
+                child: PageView.builder(
+                  controller: _pageController,
+                  // The PDF viewer owns horizontal drags, text-selection handles, and
+                  // pinch gestures. Letting this outer pager compete for the same touch
+                  // stream makes a selection at the page edge switch documents and
+                  // prevents pinch-to-zoom from completing. The raw listener outside
+                  // this pager provides the restricted one-finger edge gesture.
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (index) {
+                    // Ignore layout corrections and callbacks from an outdated child list.
+                    if (_pageSyncScheduled ||
+                        !identical(tabs, ref.read(openTabsProvider).tabs)) {
+                      return;
+                    }
+                    ref.read(openTabsProvider.notifier).setActiveIndex(index);
+                  },
+                  itemCount: tabs.length,
+                  findChildIndexCallback: (key) =>
+                      key is ValueKey<String> ? indicesByPath[key.value] : null,
+                  itemBuilder: (context, index) {
+                    final item = tabs[index];
+                    return _TabPage(
+                      key: ValueKey(item.path),
+                      isActive: index == tabsState.activeIndex,
+                      child: widget.viewerBuilder?.call(context, item) ??
+                          PdfViewerScreen(
+                            key: ValueKey(item.path),
+                            item: item,
+                            isActive: index == tabsState.activeIndex,
+                            onTabSwipeEligibilityChanged: (eligible) {
+                              if (index ==
+                                  ref.read(openTabsProvider).activeIndex) {
+                                _tabSwipeEligible = eligible;
+                              }
+                            },
+                          ),
+                    );
+                  },
                 ),
-          );
-        },
-      ),
+              )),
     );
   }
 }

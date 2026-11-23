@@ -2,20 +2,140 @@ package com.arcpdf.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
 import android.os.Build
+import android.os.Environment
 import android.os.CancellationSignal
 import java.util.Timer
 import java.util.TimerTask
-import android.os.Environment
+import android.net.Uri
 import android.provider.MediaStore
+import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import java.util.Locale
+import java.util.UUID
+import java.io.File
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
+    private val storageAccessRequestCode = 9042
+    private var pendingStorageAccessResult: MethodChannel.Result? = null
+    private var readerSpeech: TextToSpeech? = null
+    private var readerSpeechChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        ReflowOcrChannel.register(this, messenger)
+        MethodChannel(messenger, "com.arcpdf.app/file_access")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "status" -> result.success(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            Environment.isExternalStorageManager()
+                        } else {
+                            null
+                        }
+                    )
+                    "request" -> requestAllFilesAccess(result)
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(messenger, "com.arcpdf.app/job_service")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        ArcPdfJobService.start(
+                            this,
+                            call.argument<String>("jobId").orEmpty(),
+                            call.argument<String>("title") ?: "ArcPDF operation",
+                            call.argument<String>("stage") ?: "Preparing…",
+                            call.argument<String>("outputPath"),
+                        )
+                        result.success(null)
+                    }
+                    "update" -> {
+                        ArcPdfJobService.update(
+                            this,
+                            call.argument<String>("stage") ?: "Working…",
+                            call.argument<Int>("progress"),
+                        )
+                        result.success(null)
+                    }
+                    "finish" -> {
+                        ArcPdfJobService.finish(this)
+                        result.success(null)
+                    }
+                    "recover" -> result.success(ArcPdfJobService.recover(this))
+                    "clearRecovery" -> {
+                        ArcPdfJobService.clearRecovery(this)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        readerSpeechChannel = MethodChannel(messenger, "com.arcpdf.app/reader_speech")
+        readerSpeechChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "speak" -> {
+                    val text = call.argument<String>("text")?.trim().orEmpty()
+                    if (text.isEmpty()) {
+                        result.error("empty_text", "No readable text was supplied", null)
+                        return@setMethodCallHandler
+                    }
+                    if (readerSpeech == null) {
+                        readerSpeech = TextToSpeech(this) { status ->
+                            if (status == TextToSpeech.SUCCESS) {
+                                readerSpeech?.language = Locale.getDefault()
+                                readerSpeech?.setOnUtteranceProgressListener(readerSpeechListener())
+                                readerSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "arcpdf-reader")
+                            }
+                        }
+                    } else {
+                        readerSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "arcpdf-reader")
+                    }
+                    result.success(null)
+                }
+                "stop" -> {
+                    readerSpeech?.stop()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+        MethodChannel(
+            messenger,
+            "com.arcpdf.app/share_import",
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "copyContentUri") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            val rawUri = call.argument<String>("uri")
+            if (rawUri.isNullOrBlank() || !rawUri.startsWith("content://")) {
+                result.error("invalid_uri", "Only content URIs are supported", null)
+                return@setMethodCallHandler
+            }
+            try {
+                val directory = File(filesDir, "shared_imports").apply { mkdirs() }
+                val target = File(directory, "shared_${UUID.randomUUID()}.pdf")
+                contentResolver.openInputStream(Uri.parse(rawUri)).use { input ->
+                    if (input == null) {
+                        result.error("unreadable_uri", "The shared document could not be read", null)
+                        return@setMethodCallHandler
+                    }
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+                result.success(target.absolutePath)
+            } catch (_: Exception) {
+                result.error("import_failed", "The shared document could not be imported", null)
+            }
+        }
         // ContentResolver queries/cursor traversal must not block Android's UI
         // thread. Flutter's serial background queue also bounds native concurrency.
         MethodChannel(
@@ -40,6 +160,73 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    private fun requestAllFilesAccess(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            result.success(null)
+            return
+        }
+        if (Environment.isExternalStorageManager()) {
+            result.success(true)
+            return
+        }
+        if (pendingStorageAccessResult != null) {
+            result.error("request_active", "A file-access request is already open", null)
+            return
+        }
+        pendingStorageAccessResult = result
+        val appSettings = Intent(
+            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+        try {
+            startActivityForResult(appSettings, storageAccessRequestCode)
+        } catch (_: Exception) {
+            try {
+                startActivityForResult(
+                    Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+                    storageAccessRequestCode,
+                )
+            } catch (_: Exception) {
+                pendingStorageAccessResult = null
+                result.error("settings_unavailable", "File-access settings are unavailable", null)
+            }
+        }
+    }
+
+    @Deprecated("Android settings still return through the activity result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != storageAccessRequestCode) return
+        pendingStorageAccessResult?.success(
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+                Environment.isExternalStorageManager()
+        )
+        pendingStorageAccessResult = null
+    }
+
+    private fun readerSpeechListener() = object : UtteranceProgressListener() {
+        override fun onStart(utteranceId: String?) = Unit
+        override fun onError(utteranceId: String?) {
+            runOnUiThread { readerSpeechChannel?.invokeMethod("completed", null) }
+        }
+        override fun onDone(utteranceId: String?) {
+            runOnUiThread { readerSpeechChannel?.invokeMethod("completed", null) }
+        }
+    }
+
+    override fun onDestroy() {
+        pendingStorageAccessResult?.error(
+            "activity_destroyed",
+            "The file-access request was interrupted",
+            null,
+        )
+        pendingStorageAccessResult = null
+        readerSpeech?.stop()
+        readerSpeech?.shutdown()
+        readerSpeech = null
+        super.onDestroy()
+    }
+
     @Suppress("DEPRECATION") // The library/viewer require readable filesystem paths.
     private fun indexedPdfPaths(): List<String> {
         val manager = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
@@ -48,7 +235,9 @@ class MainActivity : FlutterFragmentActivity() {
             (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2 &&
                 checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
                 PackageManager.PERMISSION_GRANTED)
-        if (!manager && !legacy) throw SecurityException()
+        if (!manager && !legacy) {
+            throw SecurityException()
+        }
 
         val data = MediaStore.MediaColumns.DATA
         val name = MediaStore.MediaColumns.DISPLAY_NAME
