@@ -81,11 +81,23 @@ android {
         }
     }
 
+    signingConfigs {
+        create("arcpdfRelease") {
+            val keyPath = System.getenv("ARCPDF_KEYSTORE_PATH")
+            if (!keyPath.isNullOrBlank()) {
+                storeFile = file(keyPath)
+                storePassword = System.getenv("ARCPDF_STORE_PASSWORD")
+                keyAlias = System.getenv("ARCPDF_KEY_ALIAS")
+                keyPassword = System.getenv("ARCPDF_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (System.getenv("ARCPDF_KEYSTORE_PATH").isNullOrBlank()) signingConfigs.getByName("debug") else signingConfigs.getByName("arcpdfRelease")
             isMinifyEnabled = true
             isShrinkResources = true
         }
