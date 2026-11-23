@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ArcPDF — Local-first PDF manager for Android</title>
-    <meta name="description" content="ArcPDF is a fast, private PDF library, reader, and toolkit for Android. Organize, read, merge, split, compress, and lock your documents — without an account or a cloud.">
+    <meta name="description" content="ArcPDF is a local-first Android PDF library, reader, structured reflow engine, duplicate finder, and document toolkit powered by Flutter, PDFium, and Rust.">
     <meta name="author" content="MuguDEV">
     <meta name="theme-color" content="#F4F3EF">
     <link rel="canonical" href="https://mugudev.github.io/ArcPDF/">
@@ -126,7 +126,7 @@
             <div class="hero-copy">
                 <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Local-first · Android</p>
                 <h1 id="hero-title">Your PDFs,<br><span class="hero-title-muted">finally in order.</span></h1>
-                <p class="hero-lede">ArcPDF is a fast, private PDF library, reader, and toolkit for Android. Organize, merge, split, compress, and lock your documents — without an account or a cloud.</p>
+                <p class="hero-lede">ArcPDF is a private PDF library, advanced reader, structured reflow engine, duplicate finder, and document toolkit for Android — without an account or document cloud.</p>
 
                 <div class="hero-actions">
                     <a class="btn btn-primary" id="hero-download" href="https://github.com/MuguDEV/ArcPDF/releases/latest" target="_blank" rel="noopener noreferrer">
@@ -194,6 +194,8 @@
                     <li>Edit metadata</li>
                     <li>Images to PDF</li>
                     <li>PDF to images</li>
+                    <li>Structured reflow</li>
+                    <li>Duplicate cleanup</li>
                     <li>Encrypted vault</li>
                 </ul>
                 <ul class="ticker-list" aria-hidden="true">
@@ -204,6 +206,8 @@
                     <li>Edit metadata</li>
                     <li>Images to PDF</li>
                     <li>PDF to images</li>
+                    <li>Structured reflow</li>
+                    <li>Duplicate cleanup</li>
                     <li>Encrypted vault</li>
                 </ul>
             </div>
@@ -255,12 +259,16 @@
                             <span class="card-icon" aria-hidden="true"><svg class="icon"><use href="#i-file"/></svg></span>
                         </div>
                         <h3>A reader that<br>disappears.</h3>
-                        <p>Page after page with saved progress, outlines, search, and tabs for the documents you’re juggling.</p>
+                        <p>Read with saved position, search, annotations, text selection, read aloud, structured reflow, and safe multi-document tabs.</p>
                         <ul class="chips">
                             <li>Saved progress</li>
                             <li>Outlines &amp; search</li>
                             <li>Multiple tabs</li>
-                            <li>Page colours</li>
+                            <li>Annotations</li>
+                            <li>Read aloud</li>
+                            <li>Reflow + OCR</li>
+                            <li>Three layouts</li>
+                            <li>Smart zoom</li>
                         </ul>
                     </article>
 
@@ -270,7 +278,7 @@
                             <span class="card-icon" aria-hidden="true"><svg class="icon"><use href="#i-sliders"/></svg></span>
                         </div>
                         <h3>Small app.<br>Full toolkit.</h3>
-                        <p>Edit the document instead of emailing it to a converter. Every tool runs locally, on the file you already have open.</p>
+                        <p>Edit the document instead of emailing it to a converter. Native PDFium operations, typed errors, real progress, cancellation, and previews stay on your device.</p>
                         <ul class="chips chips--tools">
                             <li>Merge</li>
                             <li>Split</li>
@@ -280,6 +288,8 @@
                             <li>Images → PDF</li>
                             <li>PDF → images</li>
                             <li>Rotate pages</li>
+                            <li>Duplicate cleanup</li>
+                            <li>PNG / JPEG export</li>
                         </ul>
                     </article>
 
@@ -468,6 +478,16 @@
                             <p>Not currently. ArcPDF is built for Android phones and tablets. The source is available if you want to follow or contribute to other platforms.</p>
                         </div>
                     </details>
+
+                    <details class="faq-item">
+                        <summary>
+                            <h3>Can I contribute?</h3>
+                            <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+                        </summary>
+                        <div class="faq-answer">
+                            <p>Yes. Start with the repository README and CONTRIBUTING guide. They cover Flutter and Rust setup, architecture, tests, document-safety rules, accessibility, and current limitations.</p>
+                        </div>
+                    </details>
                 </div>
             </div>
         </section>
@@ -538,6 +558,14 @@
                         All releases
                         <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
                     </a>
+                    <a href="https://github.com/MuguDEV/ArcPDF/blob/Main/README.md" target="_blank" rel="noopener noreferrer">
+                        Documentation
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+                    </a>
+                    <a href="https://github.com/MuguDEV/ArcPDF/blob/Main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">
+                        Contribute
+                        <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
+                    </a>
                     <a href="https://github.com/MuguDEV/ArcPDF/blob/Main/LICENSE" target="_blank" rel="noopener noreferrer">
                         Licence
                         <svg class="icon" aria-hidden="true"><use href="#i-arrow-up-right"/></svg>
@@ -566,7 +594,7 @@
             "name": "ArcPDF",
             "applicationCategory": "UtilitiesApplication",
             "operatingSystem": "Android",
-            "description": "A local-first PDF library, reader, and toolkit for Android.",
+            "description": "A local-first PDF library, advanced reader, structured reflow engine, duplicate finder, and toolkit for Android.",
             "url": "https://mugudev.github.io/ArcPDF/",
             "downloadUrl": "https://github.com/MuguDEV/ArcPDF/releases/latest",
             "license": "https://www.gnu.org/licenses/agpl-3.0.html",

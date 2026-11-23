@@ -1,5 +1,11 @@
 # Code and usability audit
 
+> **Historical snapshot:** This audit was reviewed on 2026-10-19. Several
+> feature-gap items were implemented later. See [the documentation index](README.md)
+> and [the current project overview](../README.md). Security and preservation
+> findings still require review against current code; this file is not a current
+> certification.
+
 Reviewed: 2026-10-19. Scope: library/scanning, incoming files, reader, tools,
 settings/updating, and vault lifecycle. This is a targeted source and regression
 review, not a claim that the application is bug-free or a formal security audit.

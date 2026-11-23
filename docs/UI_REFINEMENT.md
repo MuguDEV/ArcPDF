@@ -1,5 +1,9 @@
 # ArcPDF UI refinement
 
+> **Dated implementation record:** This document includes validation and build
+> details from the November 2026 UI pass. See [the documentation index](README.md)
+> and [the current project overview](../README.md) for current status.
+
 The existing monochrome identity, local storage, navigation destinations and PDF
 features are preserved. This pass changes presentation and interaction layout,
 and connects reader rendering budgets to the existing performance preferences.
