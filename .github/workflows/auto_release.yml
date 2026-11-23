@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   build-release:
-    name: Build and publish ARM64 release
+    name: Build and publish release
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -56,10 +56,10 @@ jobs:
         with:
           packages: 'platform-tools'
 
-      - name: Install Rust ARM64 target
+      - name: Install Rust Android targets
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -203,25 +203,41 @@ jobs:
             echo "ARCPDF_KEY_PASSWORD=$KEY_PASS"
           } >> "$GITHUB_ENV"
 
-      - name: Build signed ARM64 APK
+      - name: Build signed universal APK
         run: |
           flutter build apk \
             --release \
-            --target-platform android-arm64 \
+            --target-platform android-arm,android-arm64,android-x64 \
             --build-name='${{ steps.version.outputs.version }}' \
             --build-number='${{ github.run_number }}' \
             --obfuscate \
-            --split-debug-info=build/symbols
+            --split-debug-info=build/symbols/universal
+
+          # The split build below reuses the flutter-apk output directory.
+          mkdir -p build/universal
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/universal/app-universal-release.apk
+
+      - name: Build signed per-ABI APKs
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi \
+            --target-platform android-arm,android-arm64,android-x64 \
+            --build-name='${{ steps.version.outputs.version }}' \
+            --build-number='${{ github.run_number }}' \
+            --obfuscate \
+            --split-debug-info=build/symbols/split
 
       - name: Build signed Android App Bundle
         run: |
           flutter build appbundle \
             --release \
-            --target-platform android-arm64 \
+            --target-platform android-arm,android-arm64,android-x64 \
             --build-name='${{ steps.version.outputs.version }}' \
             --build-number='${{ github.run_number }}' \
             --obfuscate \
-            --split-debug-info=build/symbols
+            --split-debug-info=build/symbols/bundle
 
       - name: Verify native libraries and APK signature
         shell: bash
@@ -231,26 +247,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          apk='build/app/outputs/flutter-apk/app-release.apk'
           aab='build/app/outputs/bundle/release/app-release.aab'
+          split_dir='build/app/outputs/flutter-apk'
 
-          test -s "$apk"
           test -s "$aab"
-
-          unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-files.txt"
-
-          for lib in \
-            libarcpdf_indexer.so \
-            libpdfium.so \
-            libflutter.so; do
-
-            if ! grep -Fxq \
-              "lib/arm64-v8a/$lib" \
-              "$RUNNER_TEMP/apk-files.txt"; then
-              echo "::error::Missing native library $lib"
-              exit 1
-            fi
-          done
 
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 
@@ -259,25 +259,57 @@ jobs:
 
           test -n "$signer"
 
-          "$signer" verify --verbose "$apk"
-
           expected="$(keytool -exportcert \
             -keystore "$ARCPDF_KEYSTORE_PATH" \
             -storepass "$STORE_PASS" \
             -alias "$KEY_ALIAS" | \
             sha256sum | cut -d' ' -f1)"
 
-          actual="$("$signer" verify \
-            --print-certs "$apk" | \
-            sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | \
-            head -1)"
+          # "file:abi1 abi2 ..." entries; the universal APK must hold all ABIs.
+          checks=(
+            "build/universal/app-universal-release.apk:arm64-v8a armeabi-v7a x86_64"
+            "$split_dir/app-arm64-v8a-release.apk:arm64-v8a"
+            "$split_dir/app-armeabi-v7a-release.apk:armeabi-v7a"
+            "$split_dir/app-x86_64-release.apk:x86_64"
+          )
 
-          if [[ -z "$actual" || "$actual" != "$expected" ]]; then
-            echo "::error::APK signing certificate mismatch"
-            exit 1
-          fi
+          for entry in "${checks[@]}"; do
+            apk="${entry%%:*}"
+            abis="${entry#*:}"
 
-          echo "APK, Rust, PDFium and signing verified"
+            test -s "$apk"
+
+            unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-files.txt"
+
+            for abi in $abis; do
+              for lib in \
+                libarcpdf_indexer.so \
+                libpdfium.so \
+                libflutter.so; do
+
+                if ! grep -Fxq \
+                  "lib/$abi/$lib" \
+                  "$RUNNER_TEMP/apk-files.txt"; then
+                  echo "::error::Missing $lib for $abi in $apk"
+                  exit 1
+                fi
+              done
+            done
+
+            "$signer" verify --verbose "$apk"
+
+            actual="$("$signer" verify \
+              --print-certs "$apk" | \
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | \
+              head -1)"
+
+            if [[ -z "$actual" || "$actual" != "$expected" ]]; then
+              echo "::error::Signing certificate mismatch for $apk"
+              exit 1
+            fi
+          done
+
+          echo "APKs, Rust, PDFium and signing verified"
 
       - name: Package release files
         shell: bash
@@ -289,8 +321,14 @@ jobs:
           mkdir -p release
 
           cp \
-            build/app/outputs/flutter-apk/app-release.apk \
-            "release/ArcPDF-$tag-arm64-v8a.apk"
+            build/universal/app-universal-release.apk \
+            "release/ArcPDF-$tag-universal.apk"
+
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp \
+              "build/app/outputs/flutter-apk/app-$abi-release.apk" \
+              "release/ArcPDF-$tag-$abi.apk"
+          done
 
           cp \
             build/app/outputs/bundle/release/app-release.aab \
