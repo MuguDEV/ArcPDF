@@ -447,39 +447,4 @@ jobs:
           fail_on_unmatched_files: true
           make_latest: ${{ github.event_name == 'workflow_dispatch' }}
           files: release/*
-bols/**
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Commit manually bumped version
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git config user.name 'github-actions[bot]'
-          git config user.email \
-            '41898282+github-actions[bot]@users.noreply.github.com'
-
-          git add pubspec.yaml
-
-          git commit -m \
-            'chore: release ${{ steps.version.outputs.tag }} [skip ci]'
-
-          git push origin HEAD:Main
-
-      - name: Resolve release commit
-        id: release_commit
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          target_commitish: ${{ steps.release_commit.outputs.sha }}
-          name: ArcPDF ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          make_latest: ${{ github.event_name == 'workflow_dispatch' }}
-          files: release/*
+          
