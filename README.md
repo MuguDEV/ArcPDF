@@ -22,7 +22,8 @@ detection, structural PDF operations, and document reflow analysis.
 
 > [!IMPORTANT]
 > ArcPDF is under active development. Back up important documents before using
-> editing tools. The current Android release configuration is ARM64-only and is
+> editing tools. Android releases include a universal APK, per-ABI APKs (arm64-v8a,
+> armeabi-v7a, x86_64) and an app bundle, and are
 > signed with a development key until production signing is configured.
 
 ## Contents
@@ -245,7 +246,8 @@ certification. Known security work is listed under [Known limitations](#known-li
 - Dart supported by `pubspec.yaml` (`>=3.3.0 <4.0.0`).
 - JDK 17 or newer supported by the selected Flutter/Gradle combination.
 - Android SDK, platform tools, and the NDK version selected by Flutter.
-- Rust stable with the `aarch64-linux-android` target.
+- Rust stable with the `aarch64-linux-android`, `armv7-linux-androideabi` and
+  `x86_64-linux-android` targets (set `ARCPDF_ABIS=arm64-v8a` to build one ABI).
 - A Linux x86-64 build host for the current native Android task. The Gradle task
   currently resolves the Linux NDK toolchain directly.
 
@@ -265,11 +267,17 @@ rustup target add aarch64-linux-android
 flutter run
 ```
 
-### Build the current ARM64 release
+### Build a release
 
 ```bash
-flutter build apk --release --target-platform android-arm64
+# Universal APK
+flutter build apk --release --target-platform android-arm,android-arm64,android-x64
+# Per-ABI APKs
+flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
 ```
+
+For a single ABI, pass the matching `--target-platform` and set
+`ARCPDF_ABIS` (for example `ARCPDF_ABIS=arm64-v8a`).
 
 The Android Gradle task builds `native/arcpdf_indexer`, copies its shared
 library, and packages the matching PDFium library. `ANDROID_HOME` or
