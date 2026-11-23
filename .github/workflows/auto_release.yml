@@ -183,13 +183,15 @@ jobs:
             fi
           done
 
-          printf '%s' "$KEYSTORE_B64" | base64 --decode \
-            > "$RUNNER_TEMP/arcpdf-release.jks"
+          keystore="$RUNNER_TEMP/arcpdf-release.jks"
 
-          test -s "$RUNNER_TEMP/arcpdf-release.jks"
+          printf '%s' "$KEYSTORE_B64" | \
+            base64 --decode > "$keystore"
+
+          test -s "$keystore"
 
           keytool -list \
-            -keystore "$RUNNER_TEMP/arcpdf-release.jks" \
+            -keystore "$keystore" \
             -storepass "$STORE_PASS" \
             -alias "$KEY_ALIAS" > /dev/null
 
@@ -197,14 +199,19 @@ jobs:
           echo "::add-mask::$KEY_PASS"
 
           {
-            echo "ARCPDF_KEYSTORE_PATH=$RUNNER_TEMP/arcpdf-release.jks"
+            echo "ARCPDF_KEYSTORE_PATH=$keystore"
             echo "ARCPDF_STORE_PASSWORD=$STORE_PASS"
             echo "ARCPDF_KEY_ALIAS=$KEY_ALIAS"
             echo "ARCPDF_KEY_PASSWORD=$KEY_PASS"
           } >> "$GITHUB_ENV"
 
+          echo "Production signing configured"
+
       - name: Build signed universal APK
+        shell: bash
         run: |
+          set -euo pipefail
+
           flutter build apk \
             --release \
             --target-platform android-arm,android-arm64,android-x64 \
@@ -213,13 +220,19 @@ jobs:
             --obfuscate \
             --split-debug-info=build/symbols/universal
 
-          # The split build below reuses the flutter-apk output directory.
           mkdir -p build/universal
-          cp build/app/outputs/flutter-apk/app-release.apk \
+
+          cp \
+            build/app/outputs/flutter-apk/app-release.apk \
             build/universal/app-universal-release.apk
 
+          test -s build/universal/app-universal-release.apk
+
       - name: Build signed per-ABI APKs
+        shell: bash
         run: |
+          set -euo pipefail
+
           flutter build apk \
             --release \
             --split-per-abi \
@@ -230,7 +243,10 @@ jobs:
             --split-debug-info=build/symbols/split
 
       - name: Build signed Android App Bundle
+        shell: bash
         run: |
+          set -euo pipefail
+
           flutter build appbundle \
             --release \
             --target-platform android-arm,android-arm64,android-x64 \
@@ -239,7 +255,7 @@ jobs:
             --obfuscate \
             --split-debug-info=build/symbols/bundle
 
-      - name: Verify native libraries and APK signature
+      - name: Verify native libraries and APK signatures
         shell: bash
         env:
           STORE_PASS: ${{ secrets.ARCPDF_KEYSTORE_PASSWORD }}
@@ -254,18 +270,36 @@ jobs:
 
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 
-          signer="$(find "$sdk/build-tools" \
-            -type f -name apksigner | sort -V | tail -1)"
+          if [[ -z "$sdk" ]]; then
+            echo "::error::Android SDK path missing"
+            exit 1
+          fi
 
-          test -n "$signer"
+          signer="$sdk/build-tools/36.0.0/apksigner"
+
+          if [[ ! -x "$signer" ]]; then
+            echo "::error::apksigner not found"
+            exit 1
+          fi
 
           expected="$(keytool -exportcert \
             -keystore "$ARCPDF_KEYSTORE_PATH" \
             -storepass "$STORE_PASS" \
-            -alias "$KEY_ALIAS" | \
-            sha256sum | cut -d' ' -f1)"
+            -alias "$KEY_ALIAS" |
+            sha256sum |
+            awk '{print $1}')"
 
-          # "file:abi1 abi2 ..." entries; the universal APK must hold all ABIs.
+          expected="$(
+            printf '%s' "$expected" |
+            tr '[:upper:]' '[:lower:]' |
+            tr -d ':[:space:]'
+          )"
+
+          if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Invalid expected certificate digest"
+            exit 1
+          fi
+
           checks=(
             "build/universal/app-universal-release.apk:arm64-v8a armeabi-v7a x86_64"
             "$split_dir/app-arm64-v8a-release.apk:arm64-v8a"
@@ -277,9 +311,17 @@ jobs:
             apk="${entry%%:*}"
             abis="${entry#*:}"
 
-            test -s "$apk"
+            echo "========================================"
+            echo "Verifying: $apk"
 
-            unzip -Z1 "$apk" > "$RUNNER_TEMP/apk-files.txt"
+            if [[ ! -s "$apk" ]]; then
+              echo "::error::Missing or empty APK: $apk"
+              exit 1
+            fi
+
+            file_list="$RUNNER_TEMP/apk-files.txt"
+
+            unzip -Z1 "$apk" > "$file_list"
 
             for abi in $abis; do
               for lib in \
@@ -289,27 +331,48 @@ jobs:
 
                 if ! grep -Fxq \
                   "lib/$abi/$lib" \
-                  "$RUNNER_TEMP/apk-files.txt"; then
+                  "$file_list"; then
+
                   echo "::error::Missing $lib for $abi in $apk"
                   exit 1
                 fi
               done
             done
 
+            echo "Native libraries verified"
+
             "$signer" verify --verbose "$apk"
 
-            actual="$("$signer" verify \
-              --print-certs "$apk" | \
-              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | \
-              head -1)"
+            cert_output="$("$signer" verify \
+              --print-certs "$apk")"
 
-            if [[ -z "$actual" || "$actual" != "$expected" ]]; then
+            actual="$(
+              printf '%s\n' "$cert_output" |
+              sed -nE \
+                's/^[[:space:]]*Signer #1 certificate SHA-256 digest:[[:space:]]*//p' |
+              tr '[:upper:]' '[:lower:]' |
+              tr -d ':[:space:]'
+            )"
+
+            if [[ ! "$actual" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::Unable to parse APK certificate digest"
+              printf '%s\n' "$cert_output"
+              exit 1
+            fi
+
+            echo "Expected SHA256: $expected"
+            echo "Actual SHA256:   $actual"
+
+            if [[ "$actual" != "$expected" ]]; then
               echo "::error::Signing certificate mismatch for $apk"
               exit 1
             fi
+
+            echo "Signature verified: $apk"
           done
 
-          echo "APKs, Rust, PDFium and signing verified"
+          echo "========================================"
+          echo "All APKs, Rust, PDFium and signatures verified"
 
       - name: Package release files
         shell: bash
@@ -348,6 +411,43 @@ jobs:
           path: |
             release/*
             build/symbols/**
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit manually bumped version
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email \
+            '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add pubspec.yaml
+
+          git commit -m \
+            'chore: release ${{ steps.version.outputs.tag }} [skip ci]'
+
+          git push origin HEAD:Main
+
+      - name: Resolve release commit
+        id: release_commit
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ steps.release_commit.outputs.sha }}
+          name: ArcPDF ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          make_latest: ${{ github.event_name == 'workflow_dispatch' }}
+          files: release/*
+bols/**
           if-no-files-found: error
           retention-days: 30
 
