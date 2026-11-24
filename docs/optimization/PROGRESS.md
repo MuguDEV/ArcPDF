@@ -19,6 +19,7 @@ Rules for this table:
 | --- | --- | --- | --- |
 | 0 | Baseline audit and documentation | done | `BASELINE.md`, `PROGRESS.md`. No production code changed. |
 | 1 | Downloadable OCR module (Play services unbundled ML Kit) | implemented, device validation pending | See [PHASE_01_OCR.md](PHASE_01_OCR.md). Local ARM64 release APK built and inspected; not committed or released. |
+| 2-pkg | Configurable native library compression (`ARCPDF_COMPRESS_NATIVE_LIBS`, experimental, default off) | implemented, device validation pending | See [PHASE_02_PACKAGING.md](PHASE_02_PACKAGING.md). Local ARM64 A/B: 34,061,686 vs 17,234,914 bytes (-49.40%). Not the proposed "Phase 2 quick wins" below. Acceptance pending. |
 | 1b | Measurement tooling (CI size report, startup trace, benchmarks) | proposed | Needed before most size and speed claims. Formerly listed as Phase 1. |
 | 2 | Quick wins (dead dependencies and assets, updater ABI selection) | proposed | |
 | 3 | Security hardening (vault format, PIN KDF) | proposed | Needs design and migration plan. |
@@ -108,3 +109,4 @@ Priority: H high, M medium, L low. Expected effect is a hypothesis, not a result
 | --- | --- |
 | Baseline phase | Created from the audit of commit `6c9cb1d`. No improvement implemented. |
 | Phase 1 | Downloadable OCR implemented on `feat/phase-01-downloadable-ocr`. Native library total in this file corrected to 41,421,600 bytes. Not released. |
+| Phase 2 packaging | Added `ARCPDF_COMPRESS_NATIVE_LIBS` switch, `tool/apk_packaging_report.py` and `packaging_compare.yml` on `feat/phase-02-native-compression` (based on the unmerged Phase 1 branch). Local ARM64 A/B built from one commit with debug signing. No device tests. Not released. |
