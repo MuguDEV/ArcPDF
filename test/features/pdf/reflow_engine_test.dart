@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:arcpdf/src/core/native/native_job_runtime.dart';
 import 'package:arcpdf/src/features/pdf/data/reflow_engine.dart';
+import 'package:arcpdf/src/features/pdf/data/reflow_ocr_service.dart';
 import 'package:arcpdf/src/features/pdf/domain/reflow_document.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -121,4 +123,142 @@ void main() {
     );
     expect(cache.listSync().whereType<File>(), hasLength(2));
   });
+
+  group('OCR', () {
+    late _FakeNative native;
+    late _FakeOcr ocr;
+    late ReflowEngine engine;
+
+    setUp(() {
+      native = _FakeNative();
+      ocr = _FakeOcr();
+      engine = ReflowEngine(
+        cacheDirectory: () async => cache,
+        nativeRuntime: native,
+        ocrService: ocr,
+      );
+    });
+
+    test('cache key and engine version are unchanged', () {
+      expect(ReflowEngine.engineVersion, 4);
+      expect(const ReflowSettings().cacheKey,
+          'tables_figures_clean-running-content_ocr');
+      expect(const ReflowSettings(enableOcr: false).cacheKey,
+          'tables_figures_clean-running-content_no-ocr');
+    });
+
+    test('documents without scanned pages never call OCR', () async {
+      native.pages = [];
+      final result = await engine.loadWithStatus(source);
+      expect(result.ocrStatus, ReflowOcrStatus.notNeeded);
+      expect(ocr.calls, 0);
+      expect(native.requests, hasLength(1));
+      expect((await engine.load(source)).pageCount, 2);
+    });
+
+    test('recognized pages are merged with a second native run', () async {
+      ocr.result = const OcrOk([
+        {'page': 1}
+      ]);
+      final result = await engine.loadWithStatus(source);
+      expect(result.ocrStatus, ReflowOcrStatus.completed);
+      expect(native.requests, hasLength(2));
+      expect(native.requests.last['ocrPages'], [
+        {'page': 1}
+      ]);
+    });
+
+    test('empty recognized text is reported without an error', () async {
+      ocr.result = const OcrEmptyText([
+        {'page': 1, 'lines': []}
+      ]);
+      final result = await engine.loadWithStatus(source);
+      expect(result.ocrStatus, ReflowOcrStatus.emptyText);
+      expect(result.ocrError, isNull);
+    });
+
+    test('OCR failures are surfaced and never cached as complete', () async {
+      for (final entry in {
+        OcrFailureKind.moduleMissing: ReflowOcrStatus.moduleMissing,
+        OcrFailureKind.unsupportedDevice: ReflowOcrStatus.unsupported,
+        OcrFailureKind.timeout: ReflowOcrStatus.failed,
+        OcrFailureKind.failed: ReflowOcrStatus.failed,
+        OcrFailureKind.cancelled: ReflowOcrStatus.cancelled,
+      }.entries) {
+        native.requests.clear();
+        ocr.result = OcrFailure(OcrException(entry.key));
+        final result = await engine.loadWithStatus(source);
+        expect(result.ocrStatus, entry.value, reason: '${entry.key}');
+        expect(result.ocrError?.kind, entry.key);
+        expect(result.document.ocrPages, [1]);
+        expect(native.requests, hasLength(1), reason: 'no second run');
+      }
+      expect((await engine.loadWithStatus(source)).needsOcr, isFalse);
+    });
+
+    test('moduleMissing needs OCR so the UI can prompt', () async {
+      ocr.result = const OcrFailure(OcrException(OcrFailureKind.moduleMissing));
+      expect((await engine.loadWithStatus(source)).needsOcr, isTrue);
+    });
+
+    test('OCR disabled skips recognition', () async {
+      final result = await engine.loadWithStatus(
+        source,
+        settings: const ReflowSettings(enableOcr: false),
+      );
+      expect(result.ocrStatus, ReflowOcrStatus.disabled);
+      expect(ocr.calls, 0);
+    });
+
+    test('closing the document mid OCR publishes nothing', () async {
+      final token = OcrCancellationToken();
+      ocr.onRecognize = token.cancel;
+      ocr.result = const OcrOk([
+        {'page': 1}
+      ]);
+      final result = await engine.loadWithStatus(source, cancellation: token);
+      expect(result.ocrStatus, ReflowOcrStatus.cancelled);
+      expect(native.requests, hasLength(1));
+    });
+  });
+}
+
+class _FakeNative extends Fake implements NativeJobRuntime {
+  List<int> pages = [1];
+  final requests = <Map<String, dynamic>>[];
+
+  @override
+  Future<Map<String, dynamic>> executeReflow({
+    required Map<String, dynamic> request,
+    void Function(NativeJobHandle handle)? onHandle,
+    void Function(NativeJobSnapshot event)? onEvent,
+  }) async {
+    requests.add(request);
+    return {
+      'fileHash': 'h',
+      'engineVersion': ReflowEngine.engineVersion,
+      'settingsKey': request['settingsKey'],
+      'pageCount': 2,
+      'blocks': <Object?>[],
+      'ocrPages': request.containsKey('ocrPages') ? <int>[] : pages,
+    };
+  }
+}
+
+class _FakeOcr extends ReflowOcrService {
+  int calls = 0;
+  OcrResult result = const OcrEmptyText([]);
+  void Function()? onRecognize;
+
+  @override
+  Future<OcrResult> recognizePages(
+    String path,
+    List<int> pages, {
+    void Function(OcrProgress progress)? onProgress,
+    OcrCancellationToken? cancellation,
+  }) async {
+    calls++;
+    onRecognize?.call();
+    return result;
+  }
 }

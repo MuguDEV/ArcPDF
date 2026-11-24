@@ -28,7 +28,9 @@ import '../../settings/haptic_service.dart';
 import '../domain/pdf_file_item.dart';
 import '../data/reading_progress_repository.dart';
 import '../data/annotation_repository.dart';
+import '../data/ocr_module_controller.dart';
 import '../data/reflow_engine.dart';
+import '../data/reflow_ocr_service.dart';
 import '../domain/pdf_annotation.dart';
 import '../domain/reflow_document.dart';
 import '../application/open_tabs_provider.dart';
@@ -2042,6 +2044,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       builder: (context) => _ReflowReaderView(
         document: _pdfViewerController.document,
         engine: ref.read(reflowEngineProvider),
+        enableOcr: ref.read(settingsControllerProvider).enableOcr,
         path: widget.item.path,
         initialPage: _page,
         textScale: _reflowTextScale,
@@ -2981,10 +2984,90 @@ class _ArcSelectionHandlePainter extends CustomPainter {
       oldDelegate.state != state;
 }
 
-class _ReflowReaderView extends StatefulWidget {
+/// Shown in the reflow reader when a scanned page needs OCR that cannot run
+/// yet. Ordinary reading stays available through the original page view.
+class _OcrPromptCard extends ConsumerWidget {
+  const _OcrPromptCard({required this.status, required this.onRetry});
+
+  final ReflowOcrStatus status;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final module = ref.watch(ocrModuleControllerProvider);
+    final controller = ref.read(ocrModuleControllerProvider.notifier);
+    final unsupported = status == ReflowOcrStatus.unsupported ||
+        module.state == OcrModuleState.unsupported;
+    final busy = module.state == OcrModuleState.downloading ||
+        module.state == OcrModuleState.waiting;
+    // A deferred wait is scheduled by Play services; offer an immediate start.
+    final canStartNow =
+        module.state == OcrModuleState.waiting && module.deferred;
+    final String message;
+    if (unsupported) {
+      message = 'This page is scanned and needs text recognition, which is '
+          'not available on this device. You can still read the original '
+          'page.';
+    } else if (status == ReflowOcrStatus.failed) {
+      message = 'Text recognition failed for this page. You can try again or '
+          'read the original page.';
+    } else if (module.state == OcrModuleState.downloading) {
+      message = 'Downloading the text recognition component. Google Play '
+          'services controls the download.';
+    } else if (module.state == OcrModuleState.waiting) {
+      message = 'The text recognition download is waiting for Google Play '
+          'services to start it.';
+    } else {
+      message = 'This page is scanned. To read it as text, download the text '
+          'recognition component once. Recognition then runs on this device '
+          'and nothing is uploaded.';
+    }
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(unsupported ? ArcIcons.info : ArcIcons.download, size: 36),
+            const SizedBox(height: 12),
+            Text(message,
+                textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+            if (busy) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(value: module.progress),
+            ],
+            if (!unsupported && (!busy || canStartNow)) ...[
+              const SizedBox(height: 12),
+              if (status == ReflowOcrStatus.failed)
+                FilledButton.tonal(
+                  onPressed: onRetry,
+                  child: const Text('Retry'),
+                )
+              else
+                FilledButton.tonal(
+                  onPressed: () => module.state == OcrModuleState.failed
+                      ? controller.retry()
+                      : controller.installNow(),
+                  child: Text(module.state == OcrModuleState.failed
+                      ? 'Retry'
+                      : canStartNow
+                          ? 'Download now'
+                          : 'Download'),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReflowReaderView extends ConsumerStatefulWidget {
   const _ReflowReaderView({
     required this.document,
     required this.engine,
+    this.enableOcr = true,
     required this.path,
     required this.initialPage,
     required this.textScale,
@@ -2994,6 +3077,7 @@ class _ReflowReaderView extends StatefulWidget {
 
   final PdfDocument document;
   final ReflowEngine engine;
+  final bool enableOcr;
   final String path;
   final int initialPage;
   final double textScale;
@@ -3001,16 +3085,19 @@ class _ReflowReaderView extends StatefulWidget {
   final ValueChanged<int> onPageChanged;
 
   @override
-  State<_ReflowReaderView> createState() => _ReflowReaderViewState();
+  ConsumerState<_ReflowReaderView> createState() => _ReflowReaderViewState();
 }
 
-class _ReflowReaderViewState extends State<_ReflowReaderView> {
+class _ReflowReaderViewState extends ConsumerState<_ReflowReaderView> {
   late int _page;
   late double _textScale;
   late double _lineSpacing;
   late final ReflowEngine _engine;
-  late Future<ReflowDocument> _reflow;
+  late Future<ReflowLoadResult> _reflow;
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<OcrProgress?> _ocrProgress = ValueNotifier(null);
+  OcrCancellationToken _ocrToken = OcrCancellationToken();
+  bool _awaitingOcrModule = false;
 
   @override
   void initState() {
@@ -3019,8 +3106,29 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
     _textScale = widget.textScale;
     _lineSpacing = widget.lineSpacing;
     _engine = widget.engine;
-    _reflow = _engine.load(widget.path);
+    _reflow = _startLoad();
   }
+
+  Future<ReflowLoadResult> _startLoad() {
+    // A new load supersedes any OCR work of the previous one.
+    _ocrToken.cancel();
+    final token = _ocrToken = OcrCancellationToken();
+    _ocrProgress.value = null;
+    return _engine.loadWithStatus(
+      widget.path,
+      settings: ReflowSettings(enableOcr: widget.enableOcr),
+      cancellation: token,
+      onOcrProgress: (progress) {
+        if (mounted && !token.isCancelled) _ocrProgress.value = progress;
+      },
+    ).then((result) {
+      _awaitingOcrModule =
+          result.needsOcr && result.ocrStatus == ReflowOcrStatus.moduleMissing;
+      return result;
+    });
+  }
+
+  void _reloadReflow() => setState(() => _reflow = _startLoad());
 
   void _changePage(int page) {
     if (page < 1 || page > widget.document.pages.length) return;
@@ -3045,6 +3153,9 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
 
   @override
   void dispose() {
+    // Closing the document cancels queued and running OCR for it.
+    _ocrToken.cancel();
+    _ocrProgress.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -3053,6 +3164,12 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final baseStyle = theme.textTheme.bodyLarge ?? const TextStyle();
+    ref.listen<OcrModuleStatus>(ocrModuleControllerProvider, (previous, next) {
+      if (next.isReady && _awaitingOcrModule) {
+        _awaitingOcrModule = false;
+        _reloadReflow();
+      }
+    });
     return RepaintBoundary(
       key: const ValueKey('reflow-reader-preview'),
       child: ColoredBox(
@@ -3092,17 +3209,25 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
                 ),
               ),
               Expanded(
-                child: FutureBuilder<ReflowDocument>(
+                child: FutureBuilder<ReflowLoadResult>(
                   future: _reflow,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
-                      return const Center(
+                      return Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 12),
-                            Text('Analyzing document layout…'),
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 12),
+                            ValueListenableBuilder<OcrProgress?>(
+                              valueListenable: _ocrProgress,
+                              builder: (context, progress, _) => Text(
+                                progress == null
+                                    ? 'Analyzing document layout…'
+                                    : 'Recognizing text, page '
+                                        '${progress.done} of ${progress.total}…',
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -3122,9 +3247,7 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
                                   textAlign: TextAlign.center),
                               const SizedBox(height: 12),
                               FilledButton.tonal(
-                                onPressed: () => setState(
-                                  () => _reflow = _engine.load(widget.path),
-                                ),
+                                onPressed: _reloadReflow,
                                 child: const Text('Try again'),
                               ),
                             ],
@@ -3132,17 +3255,32 @@ class _ReflowReaderViewState extends State<_ReflowReaderView> {
                         ),
                       );
                     }
-                    final blocks = snapshot.data!
+                    final loaded = snapshot.data!;
+                    if (loaded.needsOcr &&
+                        loaded.document.ocrPages.contains(_page)) {
+                      return _OcrPromptCard(
+                        status: loaded.ocrStatus,
+                        onRetry: _reloadReflow,
+                      );
+                    }
+                    final blocks = loaded.document
                         .blocksForPage(_page)
                         .where(
                             (block) => block.type != ReflowBlockType.pageBreak)
                         .toList(growable: false);
                     if (blocks.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(24),
                           child: Text(
-                            'No selectable text or structured regions were found. Try OCR for a scanned PDF.',
+                            switch (loaded.ocrStatus) {
+                              ReflowOcrStatus.emptyText =>
+                                'Text recognition ran but found no text on this page.',
+                              ReflowOcrStatus.disabled =>
+                                'No selectable text was found. Turn on text recognition in Settings to read scanned pages.',
+                              _ =>
+                                'No selectable text or structured regions were found.',
+                            },
                             textAlign: TextAlign.center,
                           ),
                         ),

@@ -81,6 +81,8 @@ class AppSettings {
     this.performancePreset = PerformancePreset.balanced,
     this.accent = ArcAccent.none,
     this.highContrast = HighContrastMode.system,
+    this.enableOcr = true,
+    this.ocrBackgroundDownload = true,
   });
 
   final ThemeMode themeMode;
@@ -100,6 +102,12 @@ class AppSettings {
   final PerformancePreset performancePreset;
   final ArcAccent accent;
   final HighContrastMode highContrast;
+
+  /// Recognize text in scanned PDFs on this device.
+  final bool enableOcr;
+
+  /// Let Google Play services fetch the OCR module in the background.
+  final bool ocrBackgroundDownload;
 
   /// The named preset the individual settings currently match, or
   /// [PerformancePreset.custom] when they diverge from all of them.
@@ -175,6 +183,8 @@ class AppSettings {
     PerformancePreset? performancePreset,
     ArcAccent? accent,
     HighContrastMode? highContrast,
+    bool? enableOcr,
+    bool? ocrBackgroundDownload,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -194,6 +204,9 @@ class AppSettings {
       performancePreset: performancePreset ?? this.performancePreset,
       accent: accent ?? this.accent,
       highContrast: highContrast ?? this.highContrast,
+      enableOcr: enableOcr ?? this.enableOcr,
+      ocrBackgroundDownload:
+          ocrBackgroundDownload ?? this.ocrBackgroundDownload,
     );
   }
 }
@@ -341,6 +354,16 @@ class SettingsController extends StateNotifier<AppSettings> {
     await _syncPreset();
   }
 
+  Future<void> setEnableOcr(bool value) async {
+    state = state.copyWith(enableOcr: value);
+    await _box.put('enableOcr', value);
+  }
+
+  Future<void> setOcrBackgroundDownload(bool value) async {
+    state = state.copyWith(ocrBackgroundDownload: value);
+    await _box.put('ocrBackgroundDownload', value);
+  }
+
   Future<void> setSkippedUpdateVersion(String version) async {
     state = state.copyWith(skippedUpdateVersion: version);
     await _box.put('skippedUpdateVersion', version);
@@ -385,6 +408,8 @@ AppSettings _loadSettings(Box box) {
     skippedUpdateVersion: skippedVersion is String ? skippedVersion : null,
     accent: choice('accent', ArcAccent.values, 0),
     highContrast: choice('highContrast', HighContrastMode.values, 1),
+    enableOcr: flag('enableOcr', true),
+    ocrBackgroundDownload: flag('ocrBackgroundDownload', true),
   );
   // Keep a stored preset only while the individual settings still match it
   // (or it is explicitly custom); otherwise derive it. Older installs have no

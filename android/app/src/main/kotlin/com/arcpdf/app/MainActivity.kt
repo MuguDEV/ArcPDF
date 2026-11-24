@@ -25,11 +25,14 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingStorageAccessResult: MethodChannel.Result? = null
     private var readerSpeech: TextToSpeech? = null
     private var readerSpeechChannel: MethodChannel? = null
+    private var ocrModuleChannel: OcrModuleChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         ReflowOcrChannel.register(this, messenger)
+        ocrModuleChannel?.dispose()
+        ocrModuleChannel = OcrModuleChannel(this, messenger)
         MethodChannel(messenger, "com.arcpdf.app/file_access")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -160,6 +163,19 @@ class MainActivity : FlutterFragmentActivity() {
         }
     }
 
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        ReflowOcrChannel.unregister(flutterEngine.dartExecutor.binaryMessenger)
+        ocrModuleChannel?.dispose()
+        ocrModuleChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Module availability is re-queried, never trusted from a stored flag.
+        ocrModuleChannel?.onResume()
+    }
+
     private fun requestAllFilesAccess(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             result.success(null)
@@ -224,6 +240,9 @@ class MainActivity : FlutterFragmentActivity() {
         readerSpeech?.stop()
         readerSpeech?.shutdown()
         readerSpeech = null
+        flutterEngine?.let { ReflowOcrChannel.unregister(it.dartExecutor.binaryMessenger) }
+        ocrModuleChannel?.dispose()
+        ocrModuleChannel = null
         super.onDestroy()
     }
 

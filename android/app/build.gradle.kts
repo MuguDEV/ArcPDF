@@ -164,8 +164,21 @@ flutter {
     source = "../.."
 }
 
+// The bundled recognizer (com.google.mlkit:text-recognition) ships
+// libmlkit_google_ocr_pipeline.so and assets/mlkit-google-ocr-models. It must not
+// come back through any transitive dependency; OCR uses the Google Play Services
+// module that is installed on demand.
+configurations.all {
+    exclude(group = "com.google.mlkit", module = "text-recognition")
+}
+
 dependencies {
-    // Bundled Latin recognizer: works fully offline after installation and is
-    // invoked only for pages the Rust layout pass identifies as scans.
-    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Unbundled Latin recognizer. The native engine and models live in Google Play
+    // services and are installed through ModuleInstallClient (see OcrModuleManager).
+    // The manifest deliberately has no com.google.mlkit.vision.DEPENDENCIES entry,
+    // because that would force an install-time download regardless of user choice.
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.2")
+    implementation("com.google.android.gms:play-services-base:18.5.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

@@ -46,6 +46,55 @@ class ReflowSettings {
       };
 }
 
+/// What happened to OCR while loading a document.
+enum ReflowOcrStatus {
+  /// The document has no pages that need OCR, or the Dart fallback was used.
+  notNeeded,
+
+  /// OCR is turned off in settings.
+  disabled,
+
+  /// Scanned pages were recognized and merged into the document.
+  completed,
+
+  /// OCR ran but found no text on the scanned pages. Not an error.
+  emptyText,
+
+  /// The OCR module is not installed yet.
+  moduleMissing,
+
+  /// This device cannot run OCR.
+  unsupported,
+
+  /// The load was cancelled (document closed). Nothing was published.
+  cancelled,
+
+  /// Recognition failed (timeout, permission, or unexpected error).
+  failed,
+}
+
+/// A reflow document plus the outcome of OCR for it.
+class ReflowLoadResult {
+  const ReflowLoadResult(
+    this.document, {
+    this.ocrStatus = ReflowOcrStatus.notNeeded,
+    this.ocrError,
+  });
+
+  final ReflowDocument document;
+  final ReflowOcrStatus ocrStatus;
+  final OcrException? ocrError;
+
+  /// Pages that still lack text because OCR did not complete.
+  bool get needsOcr => switch (ocrStatus) {
+        ReflowOcrStatus.moduleMissing ||
+        ReflowOcrStatus.unsupported ||
+        ReflowOcrStatus.failed =>
+          document.ocrPages.isNotEmpty,
+        _ => false,
+      };
+}
+
 class ReflowEngine {
   ReflowEngine({
     Future<Directory> Function()? cacheDirectory,
@@ -63,6 +112,17 @@ class ReflowEngine {
   Future<ReflowDocument> load(
     String path, {
     ReflowSettings settings = const ReflowSettings(),
+  }) async =>
+      (await loadWithStatus(path, settings: settings)).document;
+
+  /// Like [load] but also reports the OCR outcome so callers can show a
+  /// download prompt instead of an empty page. When OCR cannot run, the
+  /// native-text document is returned and the OCR result is not cached.
+  Future<ReflowLoadResult> loadWithStatus(
+    String path, {
+    ReflowSettings settings = const ReflowSettings(),
+    OcrCancellationToken? cancellation,
+    void Function(OcrProgress progress)? onOcrProgress,
   }) async {
     final file = File(path);
     if (!await file.exists()) {
@@ -87,18 +147,51 @@ class ReflowEngine {
         };
         final result = await native.executeReflow(request: request);
         final document = ReflowDocument.fromJson(result);
-        if (settings.enableOcr && document.ocrPages.isNotEmpty) {
-          final recognized =
-              await _ocrService.recognizePages(path, document.ocrPages);
-          if (recognized.isNotEmpty) {
+        if (document.ocrPages.isEmpty) return ReflowLoadResult(document);
+        if (!settings.enableOcr) {
+          return ReflowLoadResult(document,
+              ocrStatus: ReflowOcrStatus.disabled);
+        }
+        final outcome = await _ocrService.recognizePages(
+          path,
+          document.ocrPages,
+          onProgress: onOcrProgress,
+          cancellation: cancellation,
+        );
+        switch (outcome) {
+          case OcrFailure(:final error):
+            return ReflowLoadResult(
+              document,
+              ocrStatus: switch (error.kind) {
+                OcrFailureKind.moduleMissing => ReflowOcrStatus.moduleMissing,
+                OcrFailureKind.unsupportedDevice => ReflowOcrStatus.unsupported,
+                OcrFailureKind.cancelled => ReflowOcrStatus.cancelled,
+                _ => ReflowOcrStatus.failed,
+              },
+              ocrError: error,
+            );
+          case OcrOk(:final pages) || OcrEmptyText(:final pages):
+            if (cancellation?.isCancelled ?? false) {
+              return ReflowLoadResult(
+                document,
+                ocrStatus: ReflowOcrStatus.cancelled,
+              );
+            }
+            final empty = outcome is OcrEmptyText;
+            if (pages.isEmpty) {
+              return ReflowLoadResult(document,
+                  ocrStatus: ReflowOcrStatus.emptyText);
+            }
             final completed = await native.executeReflow(request: {
               ...request,
-              'ocrPages': recognized,
+              'ocrPages': pages,
             });
-            return ReflowDocument.fromJson(completed);
-          }
+            return ReflowLoadResult(
+              ReflowDocument.fromJson(completed),
+              ocrStatus:
+                  empty ? ReflowOcrStatus.emptyText : ReflowOcrStatus.completed,
+            );
         }
-        return document;
       } on FormatException {
         // Older native libraries do not expose reflow; keep the Dart engine
         // available so app upgrades never make documents unreadable.
@@ -124,7 +217,7 @@ class ReflowEngine {
         if (document.fileHash == hash &&
             document.engineVersion == engineVersion &&
             document.settingsKey == settings.cacheKey) {
-          return document;
+          return ReflowLoadResult(document);
         }
       } on Object {
         // A partial/stale cache is safe to replace from the source PDF.
@@ -141,9 +234,9 @@ class ReflowEngine {
     final temporary = File('${cache.path}.tmp');
     await temporary.writeAsString(encoded, flush: true);
     await temporary.rename(cache.path);
-    return ReflowDocument.fromJson(
+    return ReflowLoadResult(ReflowDocument.fromJson(
       (jsonDecode(encoded) as Map).cast<String, dynamic>(),
-    );
+    ));
   }
 
   static Future<Directory> _defaultCacheDirectory() async => Directory(
