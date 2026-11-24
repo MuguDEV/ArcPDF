@@ -1,4 +1,4 @@
-import com.arcpdf.build.RustAbi
+import com.arcpdf.build.AbiSelection
 import com.arcpdf.build.RustIndexerSettings
 import com.arcpdf.build.RustIndexerTasks
 
@@ -8,11 +8,6 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
-
-// Optional comma separated ABI restriction, e.g. -PARCPDF_ABIS=arm64-v8a or
-// ARCPDF_ABIS=arm64-v8a. Defaults to every supported ABI.
-val requestedAbis = ((project.findProperty("ARCPDF_ABIS") as String?) ?: System.getenv("ARCPDF_ABIS"))
-    ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
 
 // Experimental: store native libraries compressed inside the APK
 // (useLegacyPackaging = true). Set -PARCPDF_COMPRESS_NATIVE_LIBS=true or the
@@ -28,13 +23,9 @@ val compressNativeLibs = compressNativeLibsRequested && !bundleTaskRequested
 if (compressNativeLibsRequested && bundleTaskRequested) {
     logger.warn("ARCPDF_COMPRESS_NATIVE_LIBS is ignored for bundle tasks; AAB keeps modern packaging.")
 }
-val activeRustAbis = if (requestedAbis.isNullOrEmpty()) {
-    RustAbi.all
-} else {
-    RustAbi.all.filter { it.abi in requestedAbis }.also {
-        require(it.isNotEmpty()) { "ARCPDF_ABIS=$requestedAbis matches no supported ABI" }
-    }
-}
+// ARCPDF_ABIS (property or environment) and Flutter's target-platform decide the ABIs. Unknown
+// ABIs and sets that disagree fail the build; unrestricted builds use every supported ABI.
+val activeRustAbis = AbiSelection.resolve(project).abis
 
 // One independent, incremental task per selected ABI (buildRustIndexerArm64,
 // buildRustIndexerArmV7, buildRustIndexerX64), each with its own output directory.
