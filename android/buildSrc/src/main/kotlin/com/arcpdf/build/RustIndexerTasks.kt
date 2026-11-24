@@ -24,7 +24,6 @@ object RustIndexerTasks {
     ): Map<RustAbi, TaskProvider<BuildRustAbiTask>> {
         val repoRoot = project.rootProject.file("..")
         val crateDir = File(repoRoot, "native/arcpdf_indexer")
-        val pdfiumBuildDir = File(repoRoot, ".dart_tool/hooks_runner/shared/pdfium_dart/build")
         val targetDirOverride = System.getenv(CargoSettings.TARGET_DIR_VARIABLE)
         val jobs = CargoSettings.jobs(
             cpus = Runtime.getRuntime().availableProcessors(),
@@ -61,13 +60,9 @@ object RustIndexerTasks {
                     File(repoRoot, ".cargo/config.toml"),
                     File(repoRoot, ".cargo/config"),
                 )
+                pdfiumRevision.set(project.provider { PdfiumResolver.revision(repoRoot) })
                 pdfiumLibrary.set(
-                    pdfiumBuildDir.listFiles()
-                        ?.filter { it.isDirectory }
-                        ?.sortedByDescending { it.name }
-                        ?.map { File(it, "android-${abi.pdfiumArch}/libpdfium.so") }
-                        ?.firstOrNull { it.exists() }
-                        ?: File(pdfiumBuildDir, "android-${abi.pdfiumArch}/libpdfium.so"),
+                    project.layout.file(project.provider { PdfiumResolver.library(repoRoot, abi.pdfiumArch) }),
                 )
                 outputDirectory.set(project.layout.buildDirectory.dir("generated/rustJni/${abi.abi}"))
             }

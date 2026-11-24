@@ -5,7 +5,7 @@ import java.nio.ByteOrder
 
 /** Builds small synthetic ELF images for validator tests. */
 object ElfFixtures {
-    data class Load(val offset: Long, val fileSize: Long, val align: Long, val vaddr: Long = offset)
+    data class Load(val offset: Long, val fileSize: Long, val align: Long, val vaddr: Long = offset, val memSize: Long = fileSize)
 
     fun elf(
         is64: Boolean,
@@ -43,14 +43,14 @@ object ElfFixtures {
                 buf.putLong(o + 16, l.vaddr)
                 buf.putLong(o + 24, l.vaddr)
                 buf.putLong(o + 32, l.fileSize)
-                buf.putLong(o + 40, l.fileSize)
+                buf.putLong(o + 40, l.memSize)
                 buf.putLong(o + 48, l.align)
             } else {
                 buf.putInt(o + 4, l.offset.toInt())
                 buf.putInt(o + 8, l.vaddr.toInt())
                 buf.putInt(o + 12, l.vaddr.toInt())
                 buf.putInt(o + 16, l.fileSize.toInt())
-                buf.putInt(o + 20, l.fileSize.toInt())
+                buf.putInt(o + 20, l.memSize.toInt())
                 buf.putInt(o + 28, l.align.toInt())
             }
         }

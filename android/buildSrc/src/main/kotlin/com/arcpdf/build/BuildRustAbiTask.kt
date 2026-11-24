@@ -47,6 +47,9 @@ abstract class BuildRustAbiTask @Inject constructor(
     /** Compiler flag environment (RUSTFLAGS and friends) that changes the produced binary. */
     @get:Input abstract val compilerFlags: MapProperty<String, String>
 
+    /** Pinned PDFium release; a revision bump invalidates the task even before the file hash. */
+    @get:Input abstract val pdfiumRevision: Property<String>
+
     @get:Input @get:Optional abstract val androidHome: Property<String>
 
     /** Cargo.toml, Cargo.lock, build.rs, Cargo config files and the crate sources. */
