@@ -270,16 +270,24 @@ def _check_elf(res, p, name, abi, data, readelf, tmp, runner):
                   f"llvm-readelf {tool_aligns} vs parsed {aligns}")
 
 
+_SIGNER_DIGEST_RE = re.compile(
+    r"^[ \t]*(?:V\d+(?:\.\d+)?[ \t]+)?Signer"
+    r"(?:[ \t]*#\d+|[ \t]*\([^)\n]*\))?[ \t]*:?[ \t]*"
+    r"certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})\b", re.M)
+
+
 def signer_cert_digests(out):
     """Distinct signer certificate SHA-256 digests in apksigner --print-certs output.
 
-    apksigner repeats the signer once per scheme, as "Signer #1 certificate ..."
-    (v1/v2) or "Signer (minSdkVersion=24, maxSdkVersion=...) certificate ..." (v3).
-    The first digest seen is listed first, duplicates are dropped.
+    Accepted line prefixes (the scheme prefix is optional):
+      "Signer #1 certificate SHA-256 digest: ..."
+      "V2 Signer: certificate SHA-256 digest: ..."  (also V3, V3.1, V3.2)
+      "Signer (minSdkVersion=24, maxSdkVersion=...) certificate SHA-256 digest: ..."
+    Public key, SHA-1 and MD5 lines never match. Digests are lowercased, the
+    first one seen is listed first and duplicates are dropped.
     """
     digests = []
-    for d in re.findall(r"^\s*Signer\b[^\n]*?certificate SHA-256 digest:\s*([0-9a-fA-F]{64})",
-                        out, re.M):
+    for d in _SIGNER_DIGEST_RE.findall(out):
         d = d.lower()
         if d not in digests:
             digests.append(d)

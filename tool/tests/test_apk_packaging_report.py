@@ -268,6 +268,63 @@ class SignerParsingTests(unittest.TestCase):
     def test_no_signer(self):
         self.assertEqual(v.signer_cert_digests("Verifies\n"), [])
 
+    CI_V2_OUTPUT = (
+        "Number of signers: 1\n"
+        "V2 Signer: certificate DN: CN=ArcPDF packaging comparison\n"
+        "V2 Signer: certificate SHA-256 digest: "
+        "8b36a5b77d390347f329a2737288c3a73121b94e04c68d2196b6ae86158ceb7a\n")
+    CI_CERT = "8b36a5b77d390347f329a2737288c3a73121b94e04c68d2196b6ae86158ceb7a"
+
+    def test_ci_v2_signer_fixture(self):
+        self.assertEqual(v.signer_cert_digests(self.CI_V2_OUTPUT), [self.CI_CERT])
+
+    def test_scheme_prefixes_and_case(self):
+        for prefix in ("V2 Signer:", "V3 Signer:", "V3.1 Signer:", "V3.2 Signer:",
+                       "Signer #1", "Signer (minSdkVersion=24, maxSdkVersion=2147483647)",
+                       "V3 Signer (minSdkVersion=28, maxSdkVersion=2147483647):"):
+            for d in (CERT, CERT.upper()):
+                out = f"{prefix} certificate SHA-256 digest: {d}\n"
+                self.assertEqual(v.signer_cert_digests(out), [CERT], prefix)
+
+    def test_repeated_across_schemes_is_one(self):
+        out = "".join(f"{p} certificate SHA-256 digest: {self.CI_CERT}\n"
+                       for p in ("Signer #1", "V2 Signer:", "V3 Signer:", "V3.1 Signer:"))
+        self.assertEqual(v.signer_cert_digests(out), [self.CI_CERT])
+
+    def test_different_certs_across_schemes(self):
+        out = (f"V2 Signer: certificate SHA-256 digest: {CERT}\n"
+               f"V3 Signer: certificate SHA-256 digest: {self.OTHER}\n")
+        self.assertEqual(v.signer_cert_digests(out), [CERT, self.OTHER])
+
+    def test_missing_digest(self):
+        out = ("Number of signers: 1\nV2 Signer: certificate DN: CN=ArcPDF packaging comparison\n"
+               "V2 Signer: certificate SHA-256 digest: nothex\n")
+        self.assertEqual(v.signer_cert_digests(out), [])
+
+    def test_ignores_public_key_sha1_md5(self):
+        out = (f"V2 Signer: public key SHA-256 digest: {self.OTHER}\n"
+               f"Signer #1 public key SHA-256 digest: {self.OTHER}\n"
+               f"V2 Signer: certificate SHA-1 digest: {'ab' * 20}\n"
+               f"V2 Signer: certificate MD5 digest: {'ab' * 16}\n"
+               f"Signer #1 certificate DN: CN=x certificate SHA-256 digest: {self.OTHER}\n")
+        self.assertEqual(v.signer_cert_digests(out), [])
+        res = _Res()
+        v._check_signing(res, "A", "a.apk", TOOLS, lambda cmd: (0, "Verified using v2 scheme: true\n" + out), {})
+        self.assertFalse(res.results["A:signer-cert-parsed"])
+        self.assertFalse(res.results["A:single-signer"])
+
+    def test_public_key_line_does_not_add_second_signer(self):
+        out = self.CI_V2_OUTPUT + f"V2 Signer: public key SHA-256 digest: {self.OTHER}\n"
+        self.assertEqual(v.signer_cert_digests(out), [self.CI_CERT])
+
+    def test_ci_fixture_through_check_signing(self):
+        res, facts = _Res(), {}
+        v._check_signing(res, "A", "a.apk", TOOLS,
+                         lambda cmd: (0, "Verified using v2 scheme (APK Signature Scheme v2): true\n" + self.CI_V2_OUTPUT), facts)
+        self.assertTrue(res.results["A:signer-cert-parsed"])
+        self.assertTrue(res.results["A:single-signer"])
+        self.assertEqual(facts["cert"], self.CI_CERT)
+
     def test_check_flags(self):
         for out, ok in ((f"Signer (minSdkVersion=24, maxSdkVersion=2147483647) certificate SHA-256 digest: {CERT}\n"
                          f"Signer #1 certificate SHA-256 digest: {CERT}\n", True),
