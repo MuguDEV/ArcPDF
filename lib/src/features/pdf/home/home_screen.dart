@@ -349,7 +349,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               },
               child: CustomScrollView(
-                cacheExtent: 200.0,
+                scrollCacheExtent: 200.0,
                 controller: _scrollController,
                 physics: const ClampingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),

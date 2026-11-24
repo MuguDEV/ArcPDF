@@ -136,7 +136,7 @@ class _RearrangePagesPageState extends State<RearrangePagesPage> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 16, horizontal: 16),
                         itemCount: _pageOrder.length,
-                        onReorder: (oldIndex, newIndex) {
+                        onReorderItem: (oldIndex, newIndex) {
                           setState(() {
                             final item = _pageOrder.removeAt(oldIndex);
                             _pageOrder.insert(newIndex, item);
