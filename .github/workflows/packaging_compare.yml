@@ -1,7 +1,9 @@
 name: Packaging comparison (experimental)
 
 # Builds the same commit twice, with modern (A) and compressed (B) native
-# library packaging, and uploads a comparison report. Non-publishing: no
+# library packaging, then validates the result in a separate job. The build job
+# uploads the APKs and AABs with provenance and checksums, so a failed
+# validation job can be re-run alone without recompiling. Non-publishing: no
 # release, no tags, no secrets. Both builds are signed with the same throwaway
 # keystore generated at run time, so the signing identity never matches
 # production and these APKs must not be distributed.
@@ -23,6 +25,8 @@ on:
       - 'tool/apk_packaging_validate.py'
       - 'tool/tests/**'
       - '.github/workflows/packaging_compare.yml'
+      - '.github/workflows/packaging_validate.yml'
+      - '.github/actions/packaging-validate/**'
 
 permissions:
   contents: read
@@ -32,7 +36,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  compare:
+  build:
     name: Build A (modern) and B (compressed)
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -186,29 +190,59 @@ jobs:
             cp -p build/app/outputs/bundle/release/app-release.aab "out/aab/app-$compress.aab"
           done
 
-      - name: Strict validation and report
+      - name: Record provenance and checksums
         shell: bash
         env:
           ALL_ABIS: ${{ inputs.all_abis }}
         run: |
           set -euo pipefail
-          flags=()
-          if [[ "$ALL_ABIS" == "true" ]]; then flags+=(--all-abis); fi
-          status=0
-          python3 tool/apk_packaging_report.py validate \
-            --a-dir out/A --b-dir out/B "${flags[@]}" \
-            --not-before "$(cat out/build-start.txt)" \
-            --aab-off out/aab/app-false.aab --aab-on out/aab/app-true.aab \
-            --json out/validation.json --md out/report.md || status=$?
-          cat out/report.md >> "$GITHUB_STEP_SUMMARY" || true
-          exit "$status"
+          {
+            echo "sha=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "all_abis=$([[ "$ALL_ABIS" == "true" ]] && echo true || echo false)"
+          } > out/provenance.txt
+          (cd out && find A B aab -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 
-      - name: Upload comparison
-        if: always()
+      - name: Upload build output
         uses: actions/upload-artifact@v4
         with:
           name: packaging-compare
+          path: out/**
+          if-no-files-found: error
+          retention-days: 7
+
+  validate:
+    name: Strict validation
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Re-run this job alone ("Re-run failed jobs") to validate again without a rebuild.
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: packaging-compare
+          path: out
+
+      - name: Validate
+        uses: ./.github/actions/packaging-validate
+        with:
+          dir: out
+          expected-sha: ${{ github.sha }}
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-validation-report
           path: |
-            out/**
+            out/validation.json
+            out/report.md
           if-no-files-found: warn
           retention-days: 7

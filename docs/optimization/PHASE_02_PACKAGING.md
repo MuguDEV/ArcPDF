@@ -262,3 +262,31 @@ python3 -m pytest tool/tests -q        # or: python3 -m unittest discover tool/t
 ### CI fix: certificate digests come from a plain `--print-certs` call
 
 `--verbose --print-certs` output on the CI runner had no line matching the digest regex, so `_check_signing` now reads digests from a separate `apksigner verify --print-certs` call (as `auto_release.yml` does), falls back to the verbose output, and prints the raw output in the failure detail.
+
+### CI fix: apksigner `V2 Signer:` prefix (run 45329524793)
+
+Run 45329524793 (head `5c7f9ed`, PR #111) built the APKs and AABs, then strict validation failed 5 of 117 checks. The CI runner's apksigner (build-tools 37.0.0) prints one scheme-prefixed line per signer:
+
+```
+Number of signers: 1
+V2 Signer: certificate DN: CN=ArcPDF packaging comparison
+V2 Signer: certificate SHA-256 digest: 8b36a5b77d390347f329a2737288c3a73121b94e04c68d2196b6ae86158ceb7a
+```
+
+`signer_cert_digests()` required the line to start with `Signer`, so it found no digest. The five failures were `signer-cert-parsed` and `single-signer` for A and for B, plus the A/B `signing-cert` comparison. Nothing else was wrong with the builds.
+
+Fix: `signer_cert_digests()` in `tool/apk_packaging_validate.py` now accepts `Signer #N`, `V2 Signer:`, `V3 Signer:`, `V3.1`/`V3.2` prefixes and `Signer (minSdkVersion=..., maxSdkVersion=...)`, in upper or lower case hex, and de-duplicates repeated certificates. Public key, SHA-1 and MD5 lines never match. All strict checks are unchanged: each APK still needs exactly one distinct certificate and A and B must match. The exact CI output above is a regression fixture in `tool/tests/test_apk_packaging_report.py` (64 tests pass).
+
+### Re-validation of the existing CI artifact (no rebuild)
+
+Artifact `packaging-compare` (id 14891997085, 95,320,390 bytes) of run 45329524793 was downloaded with the REST API. Run metadata was checked first: workflow `.github/workflows/packaging_compare.yml`, head_sha `5c7f9ed097f8dfa17cbcb2391056f0f1d77f391e`, branch `feat/phase-02-native-compression`, event `pull_request`, same-repository (not a fork), artifact not expired. The corrected validator ran against its APKs and AABs with `--not-before` taken from its `build-start.txt`, using local build-tools 36.0.0 and NDK 28.2.13676358 (CI used build-tools 37.0.0).
+
+Result: **117 checks, 117 passed, 0 failed.** This covers the single-ABI (`arm64-v8a`) artifact only. It is a re-validation of old build output, not a new workflow run, and the full workflow has not passed yet.
+
+### CI structure: separate build and validate jobs
+
+- `packaging_compare.yml` now has a `build` job (Flutter, Rust, Gradle, throwaway keystore) and a `validate` job (`needs: build`). `build` uploads `packaging-compare` with `provenance.txt` (commit SHA, run id, ABI mode) and `SHA256SUMS`.
+- `validate` needs no Flutter, Rust or keystore. It downloads the artifact, checks the SHA against the checked-out commit, checks `SHA256SUMS` and that no unlisted file exists, installs build-tools 36.0.0 and an NDK `llvm-readelf`, then runs the strict validator. Re-running the failed `validate` job alone does not rebuild.
+- `.github/actions/packaging-validate` holds those validation steps so both workflows share them.
+- `packaging_validate.yml` (workflow_dispatch, inputs `run_id` and optional `expected_sha`) validates the artifact of an earlier run. Permissions are `contents: read` and `actions: read`; no secrets and no publishing. It rejects a source run unless the workflow path and name match, the run is completed, the event is `pull_request` or `workflow_dispatch`, the head repository is this repository and not a fork, the `build` job succeeded, and the head SHA matches `expected_sha` when given. A run whose validation job failed is accepted, because the artifact depends on the build job. Runs made before this split (single `compare` job) are not accepted; validate them locally.
+- `actionlint` 1.7.7 reports no findings on both workflows. Neither workflow has run on GitHub yet.

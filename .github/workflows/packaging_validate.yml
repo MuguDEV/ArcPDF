@@ -1,0 +1,111 @@
+name: Packaging validation only (experimental)
+
+# Re-validates the packaging-compare artifact of an earlier, trusted run of
+# "Packaging comparison (experimental)" without rebuilding anything. No secrets,
+# no publishing, read-only permissions. Runs from fork pull requests are
+# rejected because their artifacts are untrusted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run ID of the Packaging comparison run that produced the artifact
+        required: true
+        type: string
+      expected_sha:
+        description: Optional commit SHA the source run must have been built from
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate:
+    name: Validate existing artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Verify the source run
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "::error::run_id must be numeric"; exit 1; }
+          if [[ -n "$EXPECTED_SHA" && ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_sha must be a full lowercase 40 character SHA"; exit 1
+          fi
+          run="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
+          field() { jq -r "$1" <<<"$run"; }
+
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$(field .path)" == ".github/workflows/packaging_compare.yml" ]] \
+            || fail "source run is not from packaging_compare.yml (path: $(field .path))"
+          [[ "$(field .name)" == "Packaging comparison (experimental)" ]] \
+            || fail "unexpected workflow name: $(field .name)"
+          [[ "$(field .status)" == "completed" ]] || fail "source run is not completed"
+          case "$(field .event)" in
+            pull_request|workflow_dispatch) ;;
+            *) fail "unsupported source event: $(field .event)" ;;
+          esac
+          # Fork pull requests run attacker-controlled code: never trust their output.
+          [[ "$(field .head_repository.full_name)" == "$REPO" ]] \
+            || fail "source run head repository is $(field .head_repository.full_name), not $REPO"
+          [[ "$(field .head_repository.fork)" == "false" ]] || fail "source run comes from a fork"
+          sha="$(field .head_sha)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || fail "source run has no valid head_sha"
+          if [[ -n "$EXPECTED_SHA" && "$sha" != "$EXPECTED_SHA" ]]; then
+            fail "source run head_sha $sha does not match expected $EXPECTED_SHA"
+          fi
+
+          # The run itself may have failed validation. The artifact is trusted
+          # only when the build job succeeded.
+          build="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.name | startswith("Build A")) | .conclusion' | head -n 1)"
+          [[ "$build" == "success" ]] || fail "build job conclusion is '${build:-missing}', need success"
+
+          artifact="$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --paginate \
+            --jq '.artifacts[] | select(.name == "packaging-compare" and .expired == false) | .id' | head -n 1)"
+          [[ -n "$artifact" ]] || fail "no unexpired packaging-compare artifact on run $RUN_ID"
+          [[ "$(gh api "repos/$REPO/actions/artifacts/$artifact" --jq .workflow_run.head_sha)" == "$sha" ]] \
+            || fail "artifact head_sha does not match the run"
+
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Source run $RUN_ID: sha $sha, conclusion $(field .conclusion), build job $build, artifact $artifact"
+
+      - name: Checkout validator
+        uses: actions/checkout@v4
+
+      - name: Download artifact from the source run
+        uses: actions/download-artifact@v4
+        with:
+          name: packaging-compare
+          path: out
+          run-id: ${{ inputs.run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+
+      - name: Validate
+        uses: ./.github/actions/packaging-validate
+        with:
+          dir: out
+          expected-sha: ${{ steps.source.outputs.sha }}
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-validation-report-${{ inputs.run_id }}
+          path: |
+            out/validation.json
+            out/report.md
+          if-no-files-found: warn
+          retention-days: 7

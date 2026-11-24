@@ -1,0 +1,88 @@
+name: Packaging validation
+description: >
+  Verifies the integrity of a packaging-compare artifact directory and runs the
+  strict A/B validator on it. Needs no Flutter, Rust or signing secrets. The
+  caller must check out the repository and download the artifact first.
+
+inputs:
+  dir:
+    description: Directory holding the downloaded packaging-compare artifact
+    required: false
+    default: out
+  expected-sha:
+    description: Source commit the artifact must have been built from
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Android build-tools
+      uses: android-actions/setup-android@v3
+      with:
+        packages: 'build-tools;36.0.0'
+
+    - name: Locate Android verification tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        tools="$ANDROID_HOME/build-tools/36.0.0"
+        readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
+        if [[ -z "$readelf" ]]; then
+          sdkmanager --install 'ndk;28.2.13676358'
+          readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
+        fi
+        missing=0
+        for t in apksigner zipalign aapt2; do
+          [[ -x "$tools/$t" ]] || { echo "::error::missing $tools/$t"; missing=1; }
+        done
+        [[ -n "$readelf" ]] || { echo "::error::llvm-readelf not found in the NDK"; missing=1; }
+        [[ "$missing" == 0 ]]
+        echo "$tools" >> "$GITHUB_PATH"
+        echo "$(dirname "$readelf")" >> "$GITHUB_PATH"
+
+    - name: Verify artifact provenance and integrity
+      shell: bash
+      env:
+        DIR: ${{ inputs.dir }}
+        EXPECTED_SHA: ${{ inputs.expected-sha }}
+      run: |
+        set -euo pipefail
+        cd "$DIR"
+        for f in provenance.txt SHA256SUMS build-start.txt; do
+          [[ -f "$f" ]] || { echo "::error::artifact is missing $f"; exit 1; }
+        done
+        sha="$(sed -n 's/^sha=//p' provenance.txt)"
+        if [[ "$sha" != "$EXPECTED_SHA" ]]; then
+          echo "::error::artifact built from $sha, expected $EXPECTED_SHA"
+          exit 1
+        fi
+        sha256sum --check --strict SHA256SUMS
+        # Nothing may exist in the artifact that the checksum list does not cover.
+        listed="$(awk '{print $2}' SHA256SUMS | sed 's#^\./##' | sort)"
+        actual="$(find A B aab -type f | sort)"
+        if [[ "$listed" != "$actual" ]]; then
+          echo "::error::artifact files differ from SHA256SUMS"
+          diff <(echo "$listed") <(echo "$actual") || true
+          exit 1
+        fi
+
+    - name: Unit tests for the packaging validator
+      shell: bash
+      run: python3 -m unittest discover -s tool/tests
+
+    - name: Strict validation and report
+      shell: bash
+      env:
+        DIR: ${{ inputs.dir }}
+      run: |
+        set -euo pipefail
+        flags=()
+        if grep -qx 'all_abis=true' "$DIR/provenance.txt"; then flags+=(--all-abis); fi
+        status=0
+        python3 tool/apk_packaging_report.py validate \
+          --a-dir "$DIR/A" --b-dir "$DIR/B" "${flags[@]}" \
+          --not-before "$(cat "$DIR/build-start.txt")" \
+          --aab-off "$DIR/aab/app-false.aab" --aab-on "$DIR/aab/app-true.aab" \
+          --json "$DIR/validation.json" --md "$DIR/report.md" || status=$?
+        cat "$DIR/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+        exit "$status"
