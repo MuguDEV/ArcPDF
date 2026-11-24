@@ -27,6 +27,21 @@ val rustAbis = listOf(
 // ARCPDF_ABIS=arm64-v8a. Defaults to every supported ABI.
 val requestedAbis = ((project.findProperty("ARCPDF_ABIS") as String?) ?: System.getenv("ARCPDF_ABIS"))
     ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+
+// Experimental: store native libraries compressed inside the APK
+// (useLegacyPackaging = true). Set -PARCPDF_COMPRESS_NATIVE_LIBS=true or the
+// environment variable of the same name; the environment variable is the way to
+// reach Gradle through `flutter build apk`. Default is off (modern packaging:
+// uncompressed, page aligned, mapped directly from the APK). The setting is
+// ignored when a bundle task is requested so the AAB keeps modern packaging.
+val compressNativeLibsRequested =
+    ((project.findProperty("ARCPDF_COMPRESS_NATIVE_LIBS") as String?) ?: System.getenv("ARCPDF_COMPRESS_NATIVE_LIBS"))
+        ?.trim()?.equals("true", ignoreCase = true) == true
+val bundleTaskRequested = gradle.startParameter.taskNames.any { it.contains("bundle", ignoreCase = true) }
+val compressNativeLibs = compressNativeLibsRequested && !bundleTaskRequested
+if (compressNativeLibsRequested && bundleTaskRequested) {
+    logger.warn("ARCPDF_COMPRESS_NATIVE_LIBS is ignored for bundle tasks; AAB keeps modern packaging.")
+}
 val activeRustAbis = if (requestedAbis.isNullOrEmpty()) {
     rustAbis
 } else {
@@ -151,6 +166,7 @@ android {
 
     packaging {
         jniLibs {
+            useLegacyPackaging = compressNativeLibs
             excludes += setOf(
                 "lib/x86/**",
             )
