@@ -176,3 +176,66 @@ alignment checks pass, but installation, upgrade, startup, storage and 16 KB-dev
 behaviour are untested, so production acceptance stays pending. Next step: run
 `packaging_compare.yml`, then install A and B on an arm64 device and a 16 KB
 emulator image, record the not-run items above, and only then decide.
+
+## Phase 2.1: packaging validation hardening
+
+Native compression stays experimental and disabled by default. Nothing in
+`android/app/build.gradle.kts` changed; `ARCPDF_COMPRESS_NATIVE_LIBS` still defaults
+to off and is still ignored for bundle tasks. This phase only hardens the checks.
+
+### What changed
+
+- `tool/apk_packaging_validate.py` (new) and the `validate` subcommand of
+  `tool/apk_packaging_report.py`. The existing Markdown report is unchanged. The
+  strict mode writes a JSON verdict (`ok`, `failures`, every check with id and
+  detail, per-library SHA-256, package, versionCode, certificate) and exits 1 on any
+  failure.
+- `.github/workflows/packaging_compare.yml` runs the strict validation, fails the job
+  on any failed check, and uploads `out/validation.json` and `out/report.md`.
+- `tool/tests/test_apk_packaging_report.py`: 47 tests on synthetic APKs and AABs.
+
+### Checks
+
+| Requirement | Check |
+| --- | --- |
+| Required tools | `apksigner`, `zipalign`, `aapt2` (build-tools) and `llvm-readelf` (NDK) must exist. A missing tool fails `tools:available`. The workflow also checks them in an earlier step. |
+| ELF alignment | PT_LOAD headers are parsed in Python (ELF32 and ELF64, either endianness) and cross-checked with `llvm-readelf -lW`. arm64-v8a and x86_64 need `p_align` as a multiple of 0x4000. armeabi-v7a needs a multiple of 0x1000 (32-bit ARM does not run on 16 KB page kernels). All need `p_vaddr` congruent to `p_offset` modulo `p_align` and an `e_machine` matching the ABI folder. |
+| 16 KB ZIP alignment | `zipalign -c -P 16 -v 4` must pass for A and B (it skips compressed libraries). Stored libraries must also have a data offset divisible by 16384. The previous warning-only handling for B is removed. |
+| Modern vs compressed | A must have every `lib/*/*.so` stored. B must have every one deflated (`--expect-a`, `--expect-b` override). |
+| Content equality | SHA-256 of each uncompressed library is compared between A and B per APK. Names must match too. Signed archives are never compared byte for byte. |
+| ABI coverage | Exact ABI set per APK: `app-arm64-v8a`, `app-armeabi-v7a`, `app-x86_64` each have only their ABI, `app-universal` has all three. Exactly the six expected libraries per ABI (`libapp`, `libflutter`, `libpdfium`, `libarcpdf_indexer`, `libdartjni`, `libpdfrx_pdfium_gate`). Any other ABI such as `lib/x86` or any extra library fails. |
+| Identity | `aapt2 dump badging` package and versionCode must match between A and B for the same APK (split APKs have different versionCodes per ABI, so they are not compared across ABIs). `apksigner verify --print-certs` must pass with a v2 or newer scheme, show exactly one signer, and A and B must share the certificate SHA-256, as must all APKs. |
+| OCR absent | No `libmlkit_google_ocr_pipeline.so` and nothing under `assets/mlkit-google-ocr-models` in any APK or AAB. |
+| AAB equivalence | Switch off and on AABs are compared by entry names and (size, CRC), ignoring `META-INF/` (signatures, jar manifest). `BundleConfig.pb` is decoded for `optimizations.uncompress_native_libraries.enabled` and `.alignment` (protobuf field path 2.2.1 and 2.2.2, checked on a real bundletool 1.18.1 AAB: enabled 1, alignment 2 = 16 KB) and compared, then compared byte for byte. |
+| Stale outputs | The directories must contain exactly the expected file names (extras and missing files fail). `--not-before` fails files with an older mtime. The workflow deletes `build/app/outputs` and `out`, records the start time, and copies with `cp -p` after each build. |
+
+### Running locally
+
+```
+python3 tool/apk_packaging_report.py validate --a-dir out/A --b-dir out/B \
+  [--all-abis] [--not-before EPOCH] [--aab-off X.aab --aab-on Y.aab] \
+  --json out/validation.json --md out/report.md
+python3 -m pytest tool/tests -q        # or: python3 -m unittest discover tool/tests
+```
+
+### Verification done
+
+- 47 unit tests pass. They use synthetic APKs and AABs with hand-built tiny ELF32 and
+  ELF64 files and a fake tool runner, so ARMv7, x86_64 and universal layouts are
+  covered without real builds. Each check has a passing and a failing case.
+- The strict validator ran against the real Phase 2 arm64 APKs (A stored, B deflated),
+  with the real `apksigner`, `zipalign`, `aapt2` and `llvm-readelf`: 107 checks, all
+  passed. The real switch off and on AABs also passed the AAB checks.
+- Workflow YAML parsed with PyYAML and linted with actionlint 1.7.7 (shellcheck
+  integration disabled because shellcheck is not installed locally).
+
+### Not verified
+
+- The workflow was not executed. GitHub Actions cannot be run from this environment
+  and the push is done separately. Its first run on the PR is the real test; expect
+  the possibility of failures that only appear on CI (for example if two builds of
+  `libapp.so` are not bit identical, which `sha256-equal` would report).
+- Real ARMv7, x86_64 and universal APKs were not built (only the aarch64 Rust target
+  is installed locally), so those layouts are tested synthetically only.
+- No device validation. Compression remains experimental and off by default until
+  the physical-device checks listed above are done.

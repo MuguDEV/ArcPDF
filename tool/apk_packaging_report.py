@@ -2,6 +2,10 @@
 """Report native library packaging of one or two APKs.
 
 Usage: tool/apk_packaging_report.py A.apk [B.apk] [--out report.md]
+       tool/apk_packaging_report.py validate --a-dir DIR --b-dir DIR ... (strict mode)
+
+Strict mode (see tool/apk_packaging_validate.py) writes a JSON verdict and exits
+non-zero on any failed check or missing tool.
 
 Prints total size, per-category sizes, and for every lib/*/*.so entry the
 stored size, uncompressed size, ZIP method, ratio and ELF PT_LOAD p_align.
@@ -125,6 +129,10 @@ def report(apk):
 
 
 def main(argv):
+    if argv and argv[0] == "validate":
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import apk_packaging_validate
+        return apk_packaging_validate.main(argv[1:])
     out = None
     if "--out" in argv:
         k = argv.index("--out")

@@ -20,6 +20,8 @@ on:
       - 'android/gradle.properties'
       - 'android/app/src/main/AndroidManifest.xml'
       - 'tool/apk_packaging_report.py'
+      - 'tool/apk_packaging_validate.py'
+      - 'tool/tests/**'
       - '.github/workflows/packaging_compare.yml'
 
 permissions:
@@ -79,6 +81,25 @@ jobs:
             'build-tools;36.0.0' \
             'ndk;28.2.13676358'
 
+      - name: Check required Android verification tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          missing=0
+          for t in apksigner zipalign aapt2; do
+            [[ -x "$tools/$t" ]] || { echo "::error::missing $tools/$t"; missing=1; }
+          done
+          readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
+          [[ -n "$readelf" ]] || { echo "::error::llvm-readelf not found in the NDK"; missing=1; }
+          [[ "$missing" == 0 ]]
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$(dirname "$readelf")" >> "$GITHUB_PATH"
+
+      - name: Unit tests for the packaging validator
+        shell: bash
+        run: python3 -m unittest discover -s tool/tests -v
+
       - name: Create throwaway signing key
         shell: bash
         run: |
@@ -103,87 +124,78 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Stale output guard: nothing from a previous build may survive.
+          rm -rf build/app/outputs out
+          mkdir -p out/A out/B out/aab
+          date +%s > out/build-start.txt
+          sleep 1
+
           if [[ "$ALL_ABIS" == "true" ]]; then
             platforms='android-arm,android-arm64,android-x64'
-            split_flag='--split-per-abi'
           else
             platforms='android-arm64'
-            split_flag='--split-per-abi'
           fi
 
-          build() {
+          build_apks() {
             label="$1"; compress="$2"
+            rm -rf build/app/outputs/flutter-apk
             ARCPDF_COMPRESS_NATIVE_LIBS="$compress" flutter build apk \
-              --release $split_flag \
+              --release --split-per-abi \
               --target-platform "$platforms" \
               --build-name=0.0.0-compare \
               --build-number=1 \
               --obfuscate \
               --split-debug-info="build/symbols/$label"
-            mkdir -p "out/$label"
-            cp build/app/outputs/flutter-apk/app-*-release.apk "out/$label/"
+            cp -p build/app/outputs/flutter-apk/app-*-release.apk "out/$label/"
           }
 
-          build A false
-          build B true
+          build_universal() {
+            label="$1"; compress="$2"
+            rm -rf build/app/outputs/flutter-apk
+            ARCPDF_COMPRESS_NATIVE_LIBS="$compress" flutter build apk --release \
+              --target-platform "$platforms" \
+              --build-name=0.0.0-compare --build-number=1 \
+              --obfuscate --split-debug-info="build/symbols/$label-universal"
+            cp -p build/app/outputs/flutter-apk/app-release.apk \
+              "out/$label/app-universal-release.apk"
+          }
 
+          build_apks A false
+          build_apks B true
           if [[ "$ALL_ABIS" == "true" ]]; then
-            for label in A B; do
-              ARCPDF_COMPRESS_NATIVE_LIBS="$([[ $label == B ]] && echo true || echo false)" \
-                flutter build apk --release \
-                --target-platform "$platforms" \
-                --build-name=0.0.0-compare --build-number=1 \
-                --obfuscate --split-debug-info="build/symbols/$label-universal"
-              cp build/app/outputs/flutter-apk/app-release.apk \
-                "out/$label/app-universal-release.apk"
-            done
+            build_universal A false
+            build_universal B true
           fi
 
-      - name: Check the AAB ignores the compression switch
+      - name: Build AABs with the switch off and on
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p out/aab
           for compress in false true; do
+            rm -rf build/app/outputs/bundle
             ARCPDF_COMPRESS_NATIVE_LIBS="$compress" flutter build appbundle --release \
               --target-platform android-arm64 \
               --build-name=0.0.0-compare --build-number=1 \
               --obfuscate --split-debug-info="build/symbols/aab-$compress"
-            unzip -p build/app/outputs/bundle/release/app-release.aab \
-              BundleConfig.pb > "out/aab/BundleConfig-$compress.pb"
+            cp -p build/app/outputs/bundle/release/app-release.aab "out/aab/app-$compress.aab"
           done
-          cmp out/aab/BundleConfig-false.pb out/aab/BundleConfig-true.pb
-          echo "BundleConfig.pb identical with and without the switch" | tee out/aab/result.txt
 
-      - name: Report
+      - name: Strict validation and report
         shell: bash
+        env:
+          ALL_ABIS: ${{ inputs.all_abis }}
         run: |
           set -euo pipefail
-          : > out/report.md
-          for apk in out/A/*.apk out/B/*.apk; do
-            python3 tool/apk_packaging_report.py "$apk" --out "$apk.md" > /dev/null
-            echo "## $apk" >> out/report.md
-            cat "$apk.md" >> out/report.md
-          done
-          cat out/report.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Fail on invalid signature or misalignment
-        shell: bash
-        run: |
-          set -euo pipefail
-          tools="$ANDROID_HOME/build-tools/36.0.0"
-          for apk in out/A/*.apk out/B/*.apk; do
-            "$tools/apksigner" verify --verbose "$apk"
-          done
-          # Stored libraries must be 16 KB aligned. Compressed libraries are
-          # skipped by zipalign; their ELF p_align is listed in the report.
-          for apk in out/A/*.apk; do
-            "$tools/zipalign" -c -P 16 -v 4 "$apk"
-          done
-          for apk in out/B/*.apk; do
-            "$tools/zipalign" -c -P 16 -v 4 "$apk" || \
-              echo "::warning::zipalign reported issues for $apk (see report)"
-          done
+          flags=()
+          if [[ "$ALL_ABIS" == "true" ]]; then flags+=(--all-abis); fi
+          status=0
+          python3 tool/apk_packaging_report.py validate \
+            --a-dir out/A --b-dir out/B "${flags[@]}" \
+            --not-before "$(cat out/build-start.txt)" \
+            --aab-off out/aab/app-false.aab --aab-on out/aab/app-true.aab \
+            --json out/validation.json --md out/report.md || status=$?
+          cat out/report.md >> "$GITHUB_STEP_SUMMARY" || true
+          exit "$status"
 
       - name: Upload comparison
         if: always()
