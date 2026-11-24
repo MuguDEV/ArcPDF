@@ -329,6 +329,44 @@ class IdentityTests(Base):
         self.assertFailed(r, ":signing-cert")
         self.assertFailed(r, "all:single-signing-cert")
 
+    def _signer_runner(self, plain, verbose):
+        base = fake_runner()
+
+        def runner(cmd):
+            if os.path.basename(cmd[0]) == "apksigner":
+                text = verbose if "--verbose" in cmd else plain
+                return 0, "Verified using v2 scheme (APK Signature Scheme v2): true\n" + text
+            return base(cmd)
+        return runner
+
+    def test_certs_taken_from_plain_print_certs_call(self):
+        a, b = build_dirs(self.root)
+        calls = []
+        r0 = self._signer_runner(f"Signer #1 certificate SHA-256 digest: {CERT}\n", "no digests here\n")
+
+        def runner(cmd):
+            if os.path.basename(cmd[0]) == "apksigner":
+                calls.append(cmd[2:-1])
+            return r0(cmd)
+        r = self.run_validate(a, b, runner=runner)
+        self.assertEqual(ids(r), [])
+        self.assertIn(["--verbose", "--print-certs"], calls)
+        self.assertIn(["--print-certs"], calls)
+
+    def test_certs_fall_back_to_verbose_output(self):
+        a, b = build_dirs(self.root)
+        r = self.run_validate(a, b, runner=self._signer_runner(
+            "", f"Signer #1 certificate SHA-256 digest: {CERT}\n"))
+        self.assertEqual(ids(r), [])
+
+    def test_no_digest_failure_includes_raw_output(self):
+        a, b = build_dirs(self.root)
+        r = self.run_validate(a, b, runner=self._signer_runner("PLAINFMT\n", "VERBOSEFMT\n"))
+        self.assertFailed(r, ":signer-cert-parsed")
+        detail = " ".join(c["detail"] for c in r["checks"] if c["id"].endswith(":signer-cert-parsed"))
+        self.assertIn("PLAINFMT", detail)
+        self.assertIn("VERBOSEFMT", detail)
+
     def test_split_version_codes_may_differ_across_abis(self):
         a, b = build_dirs(self.root, all_abis=True)
         vc = {n: 3000 + i for i, n in enumerate(sorted(v.expected_apk_names(True)))}

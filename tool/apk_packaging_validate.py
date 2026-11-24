@@ -294,8 +294,15 @@ def _check_signing(res, p, apk, tools, runner, facts):
     schemes = re.findall(r"Verified using v(\d) scheme.*?: true", out)
     res.check(f"{p}:signature-scheme", any(s in ("2", "3", "4") for s in schemes),
               f"verified schemes: {schemes}")
-    certs = signer_cert_digests(out)
-    res.check(f"{p}:signer-cert-parsed", bool(certs), "no certificate SHA-256 digest in apksigner output")
+    # Certificates come from a plain --print-certs call (the format the release
+    # workflow parses); the verbose output is only a fallback.
+    _rc2, certs_out = runner([tools["apksigner"], "verify", "--print-certs", apk])
+    certs = signer_cert_digests(certs_out) or signer_cert_digests(out)
+    detail = "no certificate SHA-256 digest in apksigner output"
+    if not certs:
+        detail += (f"\n--print-certs output: {certs_out[:1500]!r}"
+                   f"\n--verbose --print-certs output: {out[:1500]!r}")
+    res.check(f"{p}:signer-cert-parsed", bool(certs), detail)
     facts["cert"] = certs[0] if certs else None
     res.check(f"{p}:single-signer", len(certs) == 1,
               f"expected exactly one signer, found {len(certs)} distinct certificates: {certs}")

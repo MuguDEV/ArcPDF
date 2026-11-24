@@ -258,3 +258,7 @@ python3 -m pytest tool/tests -q        # or: python3 -m unittest discover tool/t
   is installed locally), so those layouts are tested synthetically only.
 - No device validation. Compression remains experimental and off by default until
   the physical-device checks listed above are done.
+
+### CI fix: certificate digests come from a plain `--print-certs` call
+
+`--verbose --print-certs` output on the CI runner had no line matching the digest regex, so `_check_signing` now reads digests from a separate `apksigner verify --print-certs` call (as `auto_release.yml` does), falls back to the verbose output, and prints the raw output in the failure detail.
