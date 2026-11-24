@@ -194,6 +194,17 @@ to off and is still ignored for bundle tasks. This phase only hardens the checks
   on any failed check, and uploads `out/validation.json` and `out/report.md`.
 - `tool/tests/test_apk_packaging_report.py`: 47 tests on synthetic APKs and AABs.
 
+### CI fix: ARCPDF_ABIS matches the Flutter target platforms
+
+`build.gradle.kts` builds Rust and PDFium for every ABI unless `ARCPDF_ABIS` is set,
+so a run with `all_abis` not true (`--target-platform android-arm64`) failed in
+`:app:buildRustIndexer` because the armeabi-v7a `libpdfium.so` was never generated.
+The workflow now exports `ARCPDF_ABIS` for every `flutter build apk` and
+`flutter build appbundle` step: `arm64-v8a` by default and
+`armeabi-v7a,arm64-v8a,x86_64` when `all_abis` is true. The AAB step always targets
+`android-arm64`, so it uses `ARCPDF_ABIS=arm64-v8a`. `build.gradle.kts` and the
+default-off compression are unchanged.
+
 ### Checks
 
 | Requirement | Check |

@@ -132,9 +132,13 @@ jobs:
 
           if [[ "$ALL_ABIS" == "true" ]]; then
             platforms='android-arm,android-arm64,android-x64'
+            abis='armeabi-v7a,arm64-v8a,x86_64'
           else
             platforms='android-arm64'
+            abis='arm64-v8a'
           fi
+          # Keep the Gradle Rust/PDFium build in line with --target-platform.
+          export ARCPDF_ABIS="$abis"
 
           build_apks() {
             label="$1"; compress="$2"
@@ -171,6 +175,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Matches --target-platform android-arm64 below.
+          export ARCPDF_ABIS=arm64-v8a
           for compress in false true; do
             rm -rf build/app/outputs/bundle
             ARCPDF_COMPRESS_NATIVE_LIBS="$compress" flutter build appbundle --release \
