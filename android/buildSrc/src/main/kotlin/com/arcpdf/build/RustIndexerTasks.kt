@@ -25,8 +25,11 @@ object RustIndexerTasks {
         val repoRoot = project.rootProject.file("..")
         val crateDir = File(repoRoot, "native/arcpdf_indexer")
         val pdfiumBuildDir = File(repoRoot, ".dart_tool/hooks_runner/shared/pdfium_dart/build")
-        val cargoTargetBase = File(
-            System.getenv("ARCPDF_RUST_TARGET_DIR") ?: File(repoRoot, "build/rust-target").absolutePath,
+        val targetDirOverride = System.getenv(CargoSettings.TARGET_DIR_VARIABLE)
+        val jobs = CargoSettings.jobs(
+            cpus = Runtime.getRuntime().availableProcessors(),
+            selectedAbis = abis.size,
+            explicit = System.getenv(CargoSettings.JOBS_VARIABLE) ?: System.getenv("CARGO_BUILD_JOBS"),
         )
         val androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
         val flags = compilerFlagVariables.mapNotNull { name -> System.getenv(name)?.let { name to it } }.toMap()
@@ -46,7 +49,8 @@ object RustIndexerTasks {
                 compilerFlags.set(flags)
                 if (androidHome != null) this.androidHome.set(androidHome)
                 crateDirectory.set(crateDir)
-                cargoTargetDirectory.set(cargoTargetBase)
+                cargoTargetDirectory.set(CargoSettings.targetDirectory(repoRoot, targetDirOverride, abi.rustTarget))
+                cargoJobs.set(jobs)
                 crateInputs.from(
                     project.fileTree(File(crateDir, "src")),
                     File(crateDir, "Cargo.toml"),

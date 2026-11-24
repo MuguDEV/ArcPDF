@@ -62,6 +62,9 @@ abstract class BuildRustAbiTask @Inject constructor(
     @get:Internal abstract val crateDirectory: DirectoryProperty
     @get:Internal abstract val cargoTargetDirectory: DirectoryProperty
 
+    /** CARGO_BUILD_JOBS budget; does not change the produced binary, so it is not an input. */
+    @get:Internal abstract val cargoJobs: Property<Int>
+
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 
     @TaskAction
@@ -89,6 +92,7 @@ abstract class BuildRustAbiTask @Inject constructor(
             environment("CC_$envTriple", clang.absolutePath)
             environment("AR_$envTriple", llvmAr.absolutePath)
             environment("CARGO_TARGET_DIR", cargoTarget.absolutePath)
+            environment("CARGO_BUILD_JOBS", cargoJobs.get().toString())
         }
 
         val indexer = cargoTarget.resolve("$target/release/libarcpdf_indexer.so")
