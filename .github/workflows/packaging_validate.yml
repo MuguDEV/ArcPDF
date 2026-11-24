@@ -3,7 +3,9 @@ name: Packaging validation only (experimental)
 # Re-validates the packaging-compare artifact of an earlier, trusted run of
 # "Packaging comparison (experimental)" without rebuilding anything. No secrets,
 # no publishing, read-only permissions. Runs from fork pull requests are
-# rejected because their artifacts are untrusted.
+# rejected because their artifacts are untrusted. Use this after a validator-only
+# change (tool/apk_packaging_*.py, tool/tests/**) to check an existing build.
+# Contains no Flutter or Rust setup.
 
 on:
   workflow_dispatch:
@@ -67,19 +69,25 @@ jobs:
           fi
 
           # The run itself may have failed validation. The artifact is trusted
-          # only when the build job succeeded.
-          build="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-            --jq '.jobs[] | select(.name | startswith("Build A")) | .conclusion' | head -n 1)"
-          [[ "$build" == "success" ]] || fail "build job conclusion is '${build:-missing}', need success"
+          # only when the build job succeeded. The job is selected by its exact,
+          # fixed name (the legacy name covers runs from before the rename), and
+          # exactly one match is required.
+          jobs="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.name == "Build packaging variants" or .name == "Build A (modern) and B (compressed)")] | map(.conclusion // "none") | join(",")')"
+          [[ -n "$jobs" && "$jobs" != *,* ]] || fail "expected exactly one build job, found: '${jobs:-none}'"
+          [[ "$jobs" == "success" ]] || fail "build job conclusion is '$jobs', need success"
 
-          artifact="$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts" --paginate \
-            --jq '.artifacts[] | select(.name == "packaging-compare" and .expired == false) | .id' | head -n 1)"
-          [[ -n "$artifact" ]] || fail "no unexpired packaging-compare artifact on run $RUN_ID"
-          [[ "$(gh api "repos/$REPO/actions/artifacts/$artifact" --jq .workflow_run.head_sha)" == "$sha" ]] \
-            || fail "artifact head_sha does not match the run"
+          arts="$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.name == "packaging-compare" and .expired == false) | .id] | map(tostring) | join(",")')"
+          [[ -n "$arts" && "$arts" != *,* ]] || fail "expected exactly one unexpired packaging-compare artifact, found: '${arts:-none}'"
+          artifact="$arts"
+          info="$(gh api "repos/$REPO/actions/artifacts/$artifact")"
+          [[ "$(jq -r .workflow_run.id <<<"$info")" == "$RUN_ID" ]] || fail "artifact belongs to another run"
+          [[ "$(jq -r .workflow_run.head_sha <<<"$info")" == "$sha" ]] || fail "artifact head_sha does not match the run"
 
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Source run $RUN_ID: sha $sha, conclusion $(field .conclusion), build job $build, artifact $artifact"
+          echo "artifact_id=$artifact" >> "$GITHUB_OUTPUT"
+          echo "Source run $RUN_ID: sha $sha, conclusion $(field .conclusion), build job $jobs, artifact $artifact"
 
       - name: Checkout validator
         uses: actions/checkout@v4
@@ -87,7 +95,8 @@ jobs:
       - name: Download artifact from the source run
         uses: actions/download-artifact@v4
         with:
-          name: packaging-compare
+          artifact-ids: ${{ steps.source.outputs.artifact_id }}
+          merge-multiple: true
           path: out
           run-id: ${{ inputs.run_id }}
           repository: ${{ github.repository }}
@@ -98,6 +107,7 @@ jobs:
         with:
           dir: out
           expected-sha: ${{ steps.source.outputs.sha }}
+          expected-run-id: ${{ inputs.run_id }}
 
       - name: Upload validation report
         if: always()

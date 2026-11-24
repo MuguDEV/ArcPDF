@@ -1,5 +1,22 @@
-
 name: ArcPDF Release
+
+# Jobs: build (compile, sign, package, upload), validate (verify checksums,
+# native libraries and signing certificate on the packaged files), publish
+# (version bump commit and GitHub Release). Publish needs both. Jobs run on
+# different runners and hand files over as the ArcPDF-<tag> artifact.
+# The release keystore is decoded only inside the job that needs it and is
+# never uploaded.
+#
+# Cache mechanisms, one per category: Flutter (subosito/flutter-action),
+# Gradle (gradle/actions/setup-gradle), Rust (Swatinem/rust-cache, one step per ABI with
+# keys arcpdf-arm64, arcpdf-armv7, arcpdf-x64 mapped to .arc-build/cargo-target/<triple>).
+# setup-java has no cache. The three APK/AAB
+# builds in the build job use identical flags apart from packaging mode, so
+# Gradle and Cargo outputs are reused within the runner.
+#
+# Rust toolchain pin: 1.92.0, the compiler the committed Cargo.lock was last
+# built and tested with (no rust-toolchain file exists in the repo).
+# Bundletool decision: see docs/optimization/PHASE_02_PACKAGING.md.
 
 on:
   push:
@@ -19,17 +36,23 @@ on:
           - major
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: arcpdf-auto-release
   cancel-in-progress: false
 
+env:
+  RUST_TOOLCHAIN: '1.92.0'
+
 jobs:
-  build-release:
-    name: Build and publish release
+  build:
+    name: Build signed release files
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Checkout source
@@ -42,7 +65,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -51,20 +73,43 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          packages: 'platform-tools'
+          cache-read-only: ${{ github.ref != 'refs/heads/Main' }}
 
       - name: Install Rust Android targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
-      - name: Cache Rust
+      - name: Cache Rust (ARM64)
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/arcpdf_indexer
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/aarch64-linux-android
+          shared-key: arcpdf-arm64
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Cache Rust (ARMv7)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/armv7-linux-androideabi
+          shared-key: arcpdf-armv7
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Cache Rust (x86_64)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/x86_64-linux-android
+          shared-key: arcpdf-x64
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
 
       - name: Determine version
         id: version
@@ -142,20 +187,13 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Install Android SDK packages and NDK
+      - name: Set up Android SDK and Gradle workers
         shell: bash
         run: |
           set -euo pipefail
 
-          flutter precache --android
-
-          sdkmanager --install \
-            'platform-tools' \
-            'platforms;android-36' \
-            'build-tools;36.0.0' \
-            'ndk;28.2.13676358'
-
-          sdkmanager --list_installed
+          tool/setup_android_sdk.sh
+          tool/ci_gradle_workers.sh
 
           cargo metadata \
             --locked \
@@ -255,27 +293,122 @@ jobs:
             --obfuscate \
             --split-debug-info=build/symbols/bundle
 
-      - name: Verify native libraries and APK signatures
+      - name: Package release files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag='${{ steps.version.outputs.tag }}'
+
+          mkdir -p release
+
+          cp \
+            build/universal/app-universal-release.apk \
+            "release/ArcPDF-$tag-universal.apk"
+
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp \
+              "build/app/outputs/flutter-apk/app-$abi-release.apk" \
+              "release/ArcPDF-$tag-$abi.apk"
+          done
+
+          cp \
+            build/app/outputs/bundle/release/app-release.aab \
+            "release/ArcPDF-$tag.aab"
+
+          (
+            cd release
+            sha256sum *.apk *.aab > SHA256SUMS.txt
+          )
+
+          ls -lh release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArcPDF-${{ steps.version.outputs.tag }}
+          path: |
+            release/*
+            build/symbols/**
+          if-no-files-found: error
+          retention-days: 30
+
+  validate:
+    name: Validate release files
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ArcPDF-${{ needs.build.outputs.tag }}
+          path: .
+
+      - name: Verify checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum --check --strict SHA256SUMS.txt)
+
+      - name: Install pinned Android build-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          if [[ ! -x "$tools/apksigner" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0' < <(yes) > /dev/null
+          fi
+          [[ -x "$tools/apksigner" ]] || { echo "::error::apksigner not found"; exit 1; }
+          echo "ARCPDF_BUILD_TOOLS_DIR=$tools" >> "$GITHUB_ENV"
+
+      - name: Load production keystore for certificate comparison
         shell: bash
         env:
+          KEYSTORE_B64: ${{ secrets.ARCPDF_KEYSTORE_BASE64 }}
           STORE_PASS: ${{ secrets.ARCPDF_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ARCPDF_KEY_ALIAS }}
         run: |
           set -euo pipefail
 
-          aab='build/app/outputs/bundle/release/app-release.aab'
-          split_dir='build/app/outputs/flutter-apk'
+          for key in KEYSTORE_B64 STORE_PASS KEY_ALIAS; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Missing secret: $key"
+              exit 1
+            fi
+          done
+
+          keystore="$RUNNER_TEMP/arcpdf-release.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          echo "::add-mask::$STORE_PASS"
+          echo "ARCPDF_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Verify native libraries and APK signatures
+        shell: bash
+        env:
+          STORE_PASS: ${{ secrets.ARCPDF_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ARCPDF_KEY_ALIAS }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          aab="release/ArcPDF-$TAG.aab"
 
           test -s "$aab"
 
-          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-
-          if [[ -z "$sdk" ]]; then
-            echo "::error::Android SDK path missing"
-            exit 1
-          fi
-
-          signer="$sdk/build-tools/36.0.0/apksigner"
+          signer="$ARCPDF_BUILD_TOOLS_DIR/apksigner"
 
           if [[ ! -x "$signer" ]]; then
             echo "::error::apksigner not found"
@@ -301,10 +434,10 @@ jobs:
           fi
 
           checks=(
-            "build/universal/app-universal-release.apk:arm64-v8a armeabi-v7a x86_64"
-            "$split_dir/app-arm64-v8a-release.apk:arm64-v8a"
-            "$split_dir/app-armeabi-v7a-release.apk:armeabi-v7a"
-            "$split_dir/app-x86_64-release.apk:x86_64"
+            "release/ArcPDF-$TAG-universal.apk:arm64-v8a armeabi-v7a x86_64"
+            "release/ArcPDF-$TAG-arm64-v8a.apk:arm64-v8a"
+            "release/ArcPDF-$TAG-armeabi-v7a.apk:armeabi-v7a"
+            "release/ArcPDF-$TAG-x86_64.apk:x86_64"
           )
 
           for entry in "${checks[@]}"; do
@@ -374,51 +507,76 @@ jobs:
           echo "========================================"
           echo "All APKs, Rust, PDFium and signatures verified"
 
-      - name: Package release files
+  publish:
+    name: Publish GitHub Release
+    needs: [build, validate]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.validate.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ArcPDF-${{ needs.build.outputs.tag }}
+          path: .
+
+      - name: Verify checksums
         shell: bash
         run: |
           set -euo pipefail
+          (cd release && sha256sum --check --strict SHA256SUMS.txt)
 
-          tag='${{ steps.version.outputs.tag }}'
+      - name: Ensure tag does not exist
+        shell: bash
+        env:
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
 
-          mkdir -p release
-
-          cp \
-            build/universal/app-universal-release.apk \
-            "release/ArcPDF-$tag-universal.apk"
-
-          for abi in arm64-v8a armeabi-v7a x86_64; do
-            cp \
-              "build/app/outputs/flutter-apk/app-$abi-release.apk" \
-              "release/ArcPDF-$tag-$abi.apk"
-          done
-
-          cp \
-            build/app/outputs/bundle/release/app-release.aab \
-            "release/ArcPDF-$tag.aab"
-
-          (
-            cd release
-            sha256sum *.apk *.aab > SHA256SUMS.txt
-          )
-
-          ls -lh release
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ArcPDF-${{ steps.version.outputs.tag }}
-          path: |
-            release/*
-            build/symbols/**
-          if-no-files-found: error
-          retention-days: 30
+          if git ls-remote --tags origin \
+            "refs/tags/$TAG" | \
+            grep -Fq "refs/tags/$TAG"; then
+            echo "::error::Tag already exists"
+            exit 1
+          fi
 
       - name: Commit manually bumped version
         if: github.event_name == 'workflow_dispatch'
         shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          TAG: ${{ needs.build.outputs.tag }}
         run: |
           set -euo pipefail
+
+          # Same edit the build job applied before compiling.
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          file = pathlib.Path('pubspec.yaml')
+          source = file.read_text()
+          match = re.search(
+              r'(?m)^version:\s*(\d+)\.(\d+)\.(\d+)(?:\+\d+)?\s*$',
+              source
+          )
+          if not match:
+              raise SystemExit('Invalid pubspec version')
+          file.write_text(
+              source[:match.start()]
+              + f"version: {os.environ['VERSION']}"
+              + source[match.end():]
+          )
+          PY
 
           git config user.name 'github-actions[bot]'
           git config user.email \
@@ -427,7 +585,7 @@ jobs:
           git add pubspec.yaml
 
           git commit -m \
-            'chore: release ${{ steps.version.outputs.tag }} [skip ci]'
+            "chore: release $TAG [skip ci]"
 
           git push origin HEAD:Main
 
@@ -440,11 +598,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.build.outputs.tag }}
           target_commitish: ${{ steps.release_commit.outputs.sha }}
-          name: ArcPDF ${{ steps.version.outputs.tag }}
+          name: ArcPDF ${{ needs.build.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           make_latest: ${{ github.event_name == 'workflow_dispatch' }}
           files: release/*
-          

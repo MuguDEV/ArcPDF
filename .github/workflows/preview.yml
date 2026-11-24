@@ -1,0 +1,152 @@
+name: Preview APK
+
+# Manual, non-publishing release-mode preview build. Signed with a throwaway
+# key generated at run time (never the production key). No secrets, no tags,
+# no release. The APK must not be distributed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      abi:
+        description: ABI set to build
+        required: true
+        default: arm64
+        type: choice
+        options:
+          - arm64
+          - all
+      compress_native_libs:
+        description: Build with experimental native library compression
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: '1.92.0'
+
+jobs:
+  preview:
+    name: Build preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/Main' }}
+
+      # ARM64 previews install only aarch64-linux-android.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ inputs.abi == 'all' && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || 'aarch64-linux-android' }}
+
+      - name: Cache Rust (ARM64)
+        if: ${{ inputs.abi == 'arm64' || inputs.abi == 'all' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/aarch64-linux-android
+          shared-key: arcpdf-arm64
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Cache Rust (ARMv7)
+        if: ${{ inputs.abi == 'all' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/armv7-linux-androideabi
+          shared-key: arcpdf-armv7
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Cache Rust (x86_64)
+        if: ${{ inputs.abi == 'all' }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/x86_64-linux-android
+          shared-key: arcpdf-x64
+          cache-bin: false
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Set up Android SDK and Gradle workers
+        shell: bash
+        run: |
+          set -euo pipefail
+          tool/setup_android_sdk.sh
+          tool/ci_gradle_workers.sh
+
+      - name: Create throwaway signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/preview.jks"
+          pass="$(openssl rand -hex 16)"
+          echo "::add-mask::$pass"
+          keytool -genkeypair -keystore "$keystore" -storepass "$pass" \
+            -keypass "$pass" -alias preview -keyalg RSA -keysize 2048 \
+            -validity 2 -dname 'CN=ArcPDF preview (not for distribution)'
+          {
+            echo "ARCPDF_KEYSTORE_PATH=$keystore"
+            echo "ARCPDF_STORE_PASSWORD=$pass"
+            echo "ARCPDF_KEY_ALIAS=preview"
+            echo "ARCPDF_KEY_PASSWORD=$pass"
+          } >> "$GITHUB_ENV"
+
+      - name: Build
+        shell: bash
+        env:
+          ABI: ${{ inputs.abi }}
+          COMPRESS: ${{ inputs.compress_native_libs }}
+        run: |
+          set -euo pipefail
+          if [[ "$ABI" == "all" ]]; then
+            ARCPDF_COMPRESS_NATIVE_LIBS="$COMPRESS" tool/build_android.sh full
+          elif [[ "$COMPRESS" == "true" ]]; then
+            tool/build_android.sh preview-compressed
+          else
+            tool/build_android.sh preview
+          fi
+
+      - name: Collect APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp -p build/app/outputs/flutter-apk/app-*-release.apk out/
+          ls -lh out
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcpdf-preview-${{ inputs.abi }}${{ inputs.compress_native_libs && '-compressed' || '' }}
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 7

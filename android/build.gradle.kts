@@ -1,6 +1,10 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
+import com.arcpdf.build.AbiSelection
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+// Keep Flutter's target-platform in line with ARCPDF_ABIS before :app applies the Flutter plugin.
+AbiSelection.syncFlutterTargetPlatform(rootProject)
 
 allprojects {
     repositories {

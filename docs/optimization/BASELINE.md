@@ -294,7 +294,9 @@ Facts (`android/app/build.gradle.kts`, `native/arcpdf_indexer`, release APK):
 - Gradle task `buildRustIndexer` runs `cargo build --release --target <triple>
   --locked` per ABI during `preBuild`, copies `libarcpdf_indexer.so` and the
   `libpdfium.so` found under `.dart_tool/hooks_runner/shared/pdfium_dart/build`
-  into `build/generated/rustJniLibs/<abi>`. PDFium is therefore packaged as a
+  into `build/generated/rustJniLibs/<abi>` (as audited; since Phase 2.5 the output is
+  `build/app/generated/rustJni/<abi>/<abi>/`, see
+  [PHASE_02_5_BUILD_SPEED.md](PHASE_02_5_BUILD_SPEED.md)). PDFium is therefore packaged as a
   normal JNI library because Flutter native assets are not placed in the APK.
 - All native libraries are stored uncompressed in the APK (compress type 0 in the
   ZIP directory). Uncompressed storage is the AGP default for

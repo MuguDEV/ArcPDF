@@ -290,7 +290,7 @@ void main() {
     Finder preset(String label) => find.widgetWithText(OutlinedButton, label);
     expect(
         tester.getSemantics(preset('Balanced')),
-        containsSemantics(
+        isSemantics(
             isButton: true, isSelected: true, hasTapAction: true));
     expect(tester.getSize(preset('Smooth')).height,
         greaterThanOrEqualTo(ArcColors.minTouchTarget));
@@ -302,7 +302,7 @@ void main() {
     expect(settings.state.enableMeshBackground, isTrue);
     expect(settings.state.readerCacheMb, 96);
     expect(tester.getSemantics(preset('Smooth')),
-        containsSemantics(isButton: true, isSelected: true));
+        isSemantics(isButton: true, isSelected: true));
     verify(() => box.put('performancePreset', PerformancePreset.smooth.index))
         .called(1);
 
@@ -321,7 +321,7 @@ void main() {
     expect(find.text('Your individual settings do not match a preset.'),
         findsOneWidget);
     expect(tester.getSemantics(preset('Custom')),
-        containsSemantics(isButton: true, isSelected: true));
+        isSemantics(isButton: true, isSelected: true));
     semantics.dispose();
   });
 

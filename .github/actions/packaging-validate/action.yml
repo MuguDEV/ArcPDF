@@ -12,32 +12,32 @@ inputs:
   expected-sha:
     description: Source commit the artifact must have been built from
     required: true
+  expected-run-id:
+    description: Workflow run id the artifact must have been built by
+    required: true
 
 runs:
   using: composite
   steps:
-    - name: Install Android build-tools
-      uses: android-actions/setup-android@v3
-      with:
-        packages: 'build-tools;36.0.0'
+    - name: Install pinned Android build-tools and NDK
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Installs only missing packages and exports the pinned build-tools path.
+        ARCPDF_SKIP_PRECACHE=1 tool/setup_android_sdk.sh
 
     - name: Locate Android verification tools
       shell: bash
       run: |
         set -euo pipefail
-        tools="$ANDROID_HOME/build-tools/36.0.0"
-        readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
-        if [[ -z "$readelf" ]]; then
-          sdkmanager --install 'ndk;28.2.13676358'
-          readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
-        fi
+        tools="$ARCPDF_BUILD_TOOLS_DIR"
+        readelf="$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
         missing=0
         for t in apksigner zipalign aapt2; do
           [[ -x "$tools/$t" ]] || { echo "::error::missing $tools/$t"; missing=1; }
         done
-        [[ -n "$readelf" ]] || { echo "::error::llvm-readelf not found in the NDK"; missing=1; }
+        [[ -x "$readelf" ]] || { echo "::error::llvm-readelf not found in NDK 28.2.13676358"; missing=1; }
         [[ "$missing" == 0 ]]
-        echo "$tools" >> "$GITHUB_PATH"
         echo "$(dirname "$readelf")" >> "$GITHUB_PATH"
 
     - name: Verify artifact provenance and integrity
@@ -45,6 +45,7 @@ runs:
       env:
         DIR: ${{ inputs.dir }}
         EXPECTED_SHA: ${{ inputs.expected-sha }}
+        EXPECTED_RUN_ID: ${{ inputs.expected-run-id }}
       run: |
         set -euo pipefail
         cd "$DIR"
@@ -56,10 +57,28 @@ runs:
           echo "::error::artifact built from $sha, expected $EXPECTED_SHA"
           exit 1
         fi
+        run_id="$(sed -n 's/^run_id=//p' provenance.txt)"
+        if [[ "$run_id" != "$EXPECTED_RUN_ID" ]]; then
+          echo "::error::artifact built by run $run_id, expected $EXPECTED_RUN_ID"
+          exit 1
+        fi
+        # compare_aab is recorded by the build. Older artifacts lack the key:
+        # then the aab directory decides.
+        compare_aab="$(sed -n 's/^compare_aab=//p' provenance.txt)"
+        if [[ -z "$compare_aab" ]]; then
+          [[ -d aab ]] && compare_aab=true || compare_aab=false
+        fi
+        dirs=(A B)
+        if [[ "$compare_aab" == "true" ]]; then
+          dirs+=(aab)
+        elif [[ -e aab ]]; then
+          echo "::error::artifact contains aab files but provenance records compare_aab=false"
+          exit 1
+        fi
         sha256sum --check --strict SHA256SUMS
         # Nothing may exist in the artifact that the checksum list does not cover.
         listed="$(awk '{print $2}' SHA256SUMS | sed 's#^\./##' | sort)"
-        actual="$(find A B aab -type f | sort)"
+        actual="$(find "${dirs[@]}" -type f | sort)"
         if [[ "$listed" != "$actual" ]]; then
           echo "::error::artifact files differ from SHA256SUMS"
           diff <(echo "$listed") <(echo "$actual") || true
@@ -78,11 +97,17 @@ runs:
         set -euo pipefail
         flags=()
         if grep -qx 'all_abis=true' "$DIR/provenance.txt"; then flags+=(--all-abis); fi
+        aab_flags=()
+        if [[ -d "$DIR/aab" ]]; then
+          aab_flags+=(--aab-off "$DIR/aab/app-false.aab" --aab-on "$DIR/aab/app-true.aab")
+        else
+          echo "AAB comparison not requested (compare_aab=false)"
+        fi
         status=0
         python3 tool/apk_packaging_report.py validate \
           --a-dir "$DIR/A" --b-dir "$DIR/B" "${flags[@]}" \
           --not-before "$(cat "$DIR/build-start.txt")" \
-          --aab-off "$DIR/aab/app-false.aab" --aab-on "$DIR/aab/app-true.aab" \
+          "${aab_flags[@]}" \
           --json "$DIR/validation.json" --md "$DIR/report.md" || status=$?
         cat "$DIR/report.md" >> "$GITHUB_STEP_SUMMARY" || true
         exit "$status"

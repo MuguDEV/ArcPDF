@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:flutter/scheduler.dart';
 import '../../../core/utils/logger.dart';
@@ -1700,30 +1701,34 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('Page layout'),
-              subtitle: Text('Choose how pages are arranged while reading'),
-            ),
-            for (final mode in ReaderLayoutMode.values)
-              RadioListTile<ReaderLayoutMode>(
-                value: mode,
-                groupValue: _layoutMode,
-                onChanged: (value) => Navigator.pop(context, value),
-                secondary: Icon(switch (mode) {
-                  ReaderLayoutMode.continuous => ArcIcons.layoutContinuous,
-                  ReaderLayoutMode.singlePage => ArcIcons.layoutSingle,
-                  ReaderLayoutMode.twoPage => ArcIcons.layoutTwoPage,
-                }),
-                title: Text(switch (mode) {
-                  ReaderLayoutMode.continuous => 'Continuous scroll',
-                  ReaderLayoutMode.singlePage => 'Single-page swipe',
-                  ReaderLayoutMode.twoPage => 'Two-page spread',
-                }),
+        child: RadioGroup<ReaderLayoutMode>(
+          groupValue: _layoutMode,
+          onChanged: (value) {
+            if (value != null) Navigator.pop(context, value);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text('Page layout'),
+                subtitle: Text('Choose how pages are arranged while reading'),
               ),
-          ],
+              for (final mode in ReaderLayoutMode.values)
+                RadioListTile<ReaderLayoutMode>(
+                  value: mode,
+                  secondary: Icon(switch (mode) {
+                    ReaderLayoutMode.continuous => ArcIcons.layoutContinuous,
+                    ReaderLayoutMode.singlePage => ArcIcons.layoutSingle,
+                    ReaderLayoutMode.twoPage => ArcIcons.layoutTwoPage,
+                  }),
+                  title: Text(switch (mode) {
+                    ReaderLayoutMode.continuous => 'Continuous scroll',
+                    ReaderLayoutMode.singlePage => 'Single-page swipe',
+                    ReaderLayoutMode.twoPage => 'Two-page spread',
+                  }),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2295,7 +2300,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                       controller: scrollController,
                       padding: EdgeInsets.fromLTRB(20, 12, 20,
                           MediaQuery.paddingOf(context).bottom + 20),
-                      cacheExtent: 200.0,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(200.0),
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 180,

@@ -94,7 +94,7 @@ class _ImagesToPdfPageState extends State<ImagesToPdfPage> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     itemCount: _selectedFiles.length,
-                    onReorder: (oldIndex, newIndex) {
+                    onReorderItem: (oldIndex, newIndex) {
                       setState(() {
                         final item = _selectedFiles.removeAt(oldIndex);
                         _selectedFiles.insert(newIndex, item);

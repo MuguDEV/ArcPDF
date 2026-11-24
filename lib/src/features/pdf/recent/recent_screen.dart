@@ -1,6 +1,7 @@
 import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,7 +43,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
     final isEmpty = groups.isEmpty;
 
     return CustomScrollView(
-      cacheExtent: 200.0,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(200.0),
       controller:
           _scrollController, // Optimize cache extent for smoother scroll memory allocation
       physics:
