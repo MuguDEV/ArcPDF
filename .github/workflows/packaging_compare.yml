@@ -1,9 +1,12 @@
 name: Packaging comparison (experimental)
 
 # Builds the same commit twice, with modern (A) and compressed (B) native
-# library packaging, then validates the result in a separate job. The build job
-# uploads the APKs and AABs with provenance and checksums, so a failed
-# validation job can be re-run alone without recompiling. Non-publishing: no
+# library packaging, then validates the result in a separate job. ARM64 only by
+# default; all_abis adds the other ABIs and universal APKs; compare_aab adds the
+# AAB comparison. The build job uploads the APKs (and AABs) with provenance and
+# checksums, so a failed validation job can be re-run alone without recompiling.
+# After a validator-only change, use packaging_validate.yml with the run id of
+# an earlier successful build instead of rebuilding. Non-publishing: no
 # release, no tags, no secrets. Both builds are signed with the same throwaway
 # keystore generated at run time, so the signing identity never matches
 # production and these APKs must not be distributed.
@@ -16,17 +19,25 @@ on:
         required: false
         default: false
         type: boolean
+      compare_aab:
+        description: Also build and compare AABs (ARM64) with the switch off and on
+        required: false
+        default: false
+        type: boolean
+  # Only files that change what gets compiled or packaged. Validation-only files
+  # (tool/apk_packaging_*.py, tool/tests/**, docs/**, the validate workflow and
+  # action) are deliberately absent so they never trigger a compilation.
   pull_request:
     paths:
       - 'android/app/build.gradle.kts'
+      - 'android/buildSrc/**'
       - 'android/gradle.properties'
       - 'android/app/src/main/AndroidManifest.xml'
-      - 'tool/apk_packaging_report.py'
-      - 'tool/apk_packaging_validate.py'
-      - 'tool/tests/**'
+      - 'native/arcpdf_indexer/**'
+      - 'tool/build_android.sh'
+      - 'tool/setup_android_sdk.sh'
+      - 'tool/ci_gradle_workers.sh'
       - '.github/workflows/packaging_compare.yml'
-      - '.github/workflows/packaging_validate.yml'
-      - '.github/actions/packaging-validate/**'
 
 permissions:
   contents: read
@@ -35,11 +46,16 @@ concurrency:
   group: packaging-compare-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RUST_TOOLCHAIN: '1.92.0'
+
 jobs:
   build:
-    name: Build A (modern) and B (compressed)
+    name: Build packaging variants
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
 
     steps:
       - name: Checkout source
@@ -50,7 +66,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -59,50 +74,65 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          packages: 'platform-tools'
+          cache-read-only: ${{ github.ref != 'refs/heads/Main' }}
 
+      # ARM64 comparisons install only aarch64-linux-android.
       - name: Install Rust Android targets
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ inputs.all_abis && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || 'aarch64-linux-android' }}
 
-      - name: Cache Rust
+      - name: Cache Rust (arm64)
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/arcpdf_indexer
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/aarch64-linux-android
+          shared-key: arcpdf-arm64
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
 
-      - name: Install SDK packages and dependencies
+      - name: Cache Rust (armv7)
+        if: ${{ inputs.all_abis }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/armv7-linux-androideabi
+          shared-key: arcpdf-armv7
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Cache Rust (x64)
+        if: ${{ inputs.all_abis }}
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/x86_64-linux-android
+          shared-key: arcpdf-x64
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/Main' }}
+
+      - name: Install dependencies and Android SDK
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
-          flutter precache --android
-          sdkmanager --install \
-            'platforms;android-36' \
-            'build-tools;36.0.0' \
-            'ndk;28.2.13676358'
+          tool/setup_android_sdk.sh
+          tool/ci_gradle_workers.sh
 
       - name: Check required Android verification tools
         shell: bash
         run: |
           set -euo pipefail
-          tools="$ANDROID_HOME/build-tools/36.0.0"
+          tools="$ARCPDF_BUILD_TOOLS_DIR"
           missing=0
           for t in apksigner zipalign aapt2; do
             [[ -x "$tools/$t" ]] || { echo "::error::missing $tools/$t"; missing=1; }
           done
-          readelf="$(ls "$ANDROID_HOME"/ndk/*/toolchains/llvm/prebuilt/*/bin/llvm-readelf 2>/dev/null | tail -n 1 || true)"
-          [[ -n "$readelf" ]] || { echo "::error::llvm-readelf not found in the NDK"; missing=1; }
+          readelf="$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          [[ -x "$readelf" ]] || { echo "::error::llvm-readelf not found in NDK 28.2.13676358"; missing=1; }
           [[ "$missing" == 0 ]]
-          echo "$tools" >> "$GITHUB_PATH"
           echo "$(dirname "$readelf")" >> "$GITHUB_PATH"
-
-      - name: Unit tests for the packaging validator
-        shell: bash
-        run: python3 -m unittest discover -s tool/tests -v
 
       - name: Create throwaway signing key
         shell: bash
@@ -176,6 +206,7 @@ jobs:
           fi
 
       - name: Build AABs with the switch off and on
+        if: ${{ inputs.compare_aab }}
         shell: bash
         run: |
           set -euo pipefail
@@ -194,6 +225,7 @@ jobs:
         shell: bash
         env:
           ALL_ABIS: ${{ inputs.all_abis }}
+          COMPARE_AAB: ${{ inputs.compare_aab }}
         run: |
           set -euo pipefail
           {
@@ -201,10 +233,14 @@ jobs:
             echo "run_id=$GITHUB_RUN_ID"
             echo "run_attempt=$GITHUB_RUN_ATTEMPT"
             echo "all_abis=$([[ "$ALL_ABIS" == "true" ]] && echo true || echo false)"
+            echo "compare_aab=$([[ "$COMPARE_AAB" == "true" ]] && echo true || echo false)"
           } > out/provenance.txt
-          (cd out && find A B aab -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          dirs=(A B)
+          [[ "$COMPARE_AAB" == "true" ]] && dirs+=(aab)
+          (cd out && find "${dirs[@]}" -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 
       - name: Upload build output
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: packaging-compare
@@ -218,16 +254,35 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     # Re-run this job alone ("Re-run failed jobs") to validate again without a rebuild.
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Verify artifact identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]] || { echo "::error::build job did not output an artifact id"; exit 1; }
+          info="$(gh api "repos/$REPO/actions/artifacts/$ARTIFACT_ID")"
+          [[ "$(jq -r .name <<<"$info")" == "packaging-compare" ]] || { echo "::error::unexpected artifact name"; exit 1; }
+          [[ "$(jq -r .expired <<<"$info")" == "false" ]] || { echo "::error::artifact expired"; exit 1; }
+          [[ "$(jq -r .workflow_run.id <<<"$info")" == "$RUN_ID" ]] || { echo "::error::artifact belongs to another run"; exit 1; }
+
       - name: Download build output
         uses: actions/download-artifact@v4
         with:
-          name: packaging-compare
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          merge-multiple: true
           path: out
 
       - name: Validate
@@ -235,6 +290,7 @@ jobs:
         with:
           dir: out
           expected-sha: ${{ github.sha }}
+          expected-run-id: ${{ github.run_id }}
 
       - name: Upload validation report
         if: always()
