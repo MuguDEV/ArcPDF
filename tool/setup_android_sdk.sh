@@ -41,7 +41,7 @@ _arcpdf_sdk_main() {
       fi
     fi
     echo "Installing missing SDK packages: ${missing[*]}"
-    yes | "$sdkmanager" --sdk_root="$sdk" "${missing[@]}" >/dev/null || return 1
+    "$sdkmanager" --sdk_root="$sdk" "${missing[@]}" < <(yes) >/dev/null || return 1
   else
     echo "Android SDK packages already installed"
   fi

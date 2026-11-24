@@ -11,12 +11,17 @@ object ElfValidator {
     private const val PAGE_16K = 0x4000L
 
     /** Throws [IllegalStateException] describing the first problem found. */
-    fun validate(file: File, abi: RustAbi) {
+    fun validate(file: File, abi: RustAbi, enforce16k: Boolean = true): List<String> {
         check(file.isFile) { "${file.name}: file does not exist at ${file.absolutePath}" }
-        validate(file.name, file.readBytes(), abi)
+        return validate(file.name, file.readBytes(), abi, enforce16k)
     }
 
-    fun validate(name: String, data: ByteArray, abi: RustAbi) {
+    /**
+     * When [enforce16k] is false (third-party prebuilt libraries), a 64-bit segment that is
+     * 4 KB aligned but not 16 KB aligned is reported in the returned warnings instead of failing.
+     */
+    fun validate(name: String, data: ByteArray, abi: RustAbi, enforce16k: Boolean = true): List<String> {
+        val warnings = mutableListOf<String>()
         check(data.isNotEmpty()) { "$name: file is empty" }
         check(
             data.size >= 52 && data[0] == 0x7f.toByte() && data[1] == 'E'.code.toByte() &&
@@ -87,7 +92,10 @@ object ElfValidator {
                 "$name: PT_LOAD #$i (offset $offset, size $fileSize) exceeds file length $length"
             }
             check(fileSize <= memSize) { "$name: PT_LOAD #$i p_filesz $fileSize exceeds p_memsz $memSize" }
-            val required = if (abi.is64Bit) PAGE_16K else PAGE_4K
+            val required = if (abi.is64Bit && enforce16k) PAGE_16K else PAGE_4K
+            if (abi.is64Bit && !enforce16k && align % PAGE_16K != 0L && warnings.none { "p_align" in it }) {
+                warnings += "$name: PT_LOAD #$i p_align 0x${align.toString(16)} is not 16 KB aligned (16 KB page size support)"
+            }
             check(align >= required && align % required == 0L) {
                 "$name: PT_LOAD #$i p_align 0x${align.toString(16)} must be a multiple of 0x${required.toString(16)}" +
                     if (abi.is64Bit) " (16 KB page size support)" else ""
@@ -97,5 +105,6 @@ object ElfValidator {
             }
         }
         check(loads > 0) { "$name: no PT_LOAD segments" }
+        return warnings
     }
 }

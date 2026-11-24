@@ -160,26 +160,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.9'
-          channel: stable
-          cache: true
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.1.0'
           cache-read-only: ${{ github.ref != 'refs/heads/Main' }}
 
-      # flutter pub get writes android/local.properties (flutter.sdk), which
-      # android/settings.gradle.kts requires before any task can run.
-      - name: Install Flutter dependencies
-        run: flutter pub get
-
       - name: buildSrc unit tests
-        run: gradle -p android :buildSrc:test --no-daemon
+        run: gradle -p android/buildSrc test --no-daemon
 
   kotlin-app-test:
     name: Kotlin app unit tests
@@ -219,8 +207,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            'platforms;android-36' 'build-tools;36.0.0' > /dev/null
+          # Process substitution: a plain `yes | ...` pipe exits 141 (SIGPIPE) under pipefail.
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' < <(yes) > /dev/null
 
       # The Rust indexer build is excluded: unit tests do not need native libraries.
       - name: App unit tests

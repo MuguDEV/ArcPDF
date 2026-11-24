@@ -1,5 +1,6 @@
 package com.arcpdf.build
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -45,6 +46,13 @@ class ElfValidatorTest {
         assertTrue(message(data).contains("16 KB"))
         val x64 = ElfFixtures.elf(true, 62, loads = listOf(ElfFixtures.Load(0, 0x100, 0x1000)))
         assertTrue(message(x64, RustAbi.X64).contains("p_align"))
+    }
+
+    @Test fun warnsInsteadOfFailingWhen16kIsNotEnforced() {
+        val data = ElfFixtures.elf(true, 183, loads = listOf(ElfFixtures.Load(0, 0x100, 0x1000)))
+        val warnings = ElfValidator.validate("a.so", data, RustAbi.ARM64, enforce16k = false)
+        assertEquals(1, warnings.size)
+        assertTrue(warnings[0].contains("16 KB"))
     }
 
     @Test fun rejectsAlignmentThatIsNotAMultipleOf16k() {

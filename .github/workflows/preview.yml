@@ -66,29 +66,12 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: ${{ inputs.abi == 'all' && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || 'aarch64-linux-android' }}
 
-      - name: Cache Rust (arm64)
+      - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/aarch64-linux-android
-          shared-key: arcpdf-arm64
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/Main' }}
-
-      - name: Cache Rust (armv7)
-        if: ${{ inputs.abi == 'all' }}
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/armv7-linux-androideabi
-          shared-key: arcpdf-armv7
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/Main' }}
-
-      - name: Cache Rust (x64)
-        if: ${{ inputs.abi == 'all' }}
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/x86_64-linux-android
-          shared-key: arcpdf-x64
+          workspaces: native/arcpdf_indexer
+          cache-directories: .arc-build/cargo-target
+          shared-key: arcpdf-android
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/Main' }}
 

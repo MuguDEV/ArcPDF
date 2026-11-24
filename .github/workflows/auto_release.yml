@@ -8,8 +8,8 @@ name: ArcPDF Release
 # never uploaded.
 #
 # Cache mechanisms, one per category: Flutter (subosito/flutter-action),
-# Gradle (gradle/actions/setup-gradle), Rust (Swatinem/rust-cache mapped to
-# .arc-build/cargo-target/<triple>). setup-java has no cache. The three APK/AAB
+# Gradle (gradle/actions/setup-gradle), Rust (Swatinem/rust-cache, one step caching
+# .arc-build/cargo-target via cache-directories). setup-java has no cache. The three APK/AAB
 # builds in the build job use identical flags apart from packaging mode, so
 # Gradle and Cargo outputs are reused within the runner.
 #
@@ -83,27 +83,12 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
-      - name: Cache Rust (arm64)
+      - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/aarch64-linux-android
-          shared-key: arcpdf-arm64
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/Main' }}
-
-      - name: Cache Rust (armv7)
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/armv7-linux-androideabi
-          shared-key: arcpdf-armv7
-          cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/Main' }}
-
-      - name: Cache Rust (x64)
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/arcpdf_indexer -> ../../.arc-build/cargo-target/x86_64-linux-android
-          shared-key: arcpdf-x64
+          workspaces: native/arcpdf_indexer
+          cache-directories: .arc-build/cargo-target
+          shared-key: arcpdf-android
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/Main' }}
 
@@ -364,7 +349,7 @@ jobs:
           set -euo pipefail
           tools="$ANDROID_HOME/build-tools/36.0.0"
           if [[ ! -x "$tools/apksigner" ]]; then
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0' > /dev/null
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0' < <(yes) > /dev/null
           fi
           [[ -x "$tools/apksigner" ]] || { echo "::error::apksigner not found"; exit 1; }
           echo "ARCPDF_BUILD_TOOLS_DIR=$tools" >> "$GITHUB_ENV"

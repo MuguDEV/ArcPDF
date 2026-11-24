@@ -63,7 +63,12 @@ is rejected, not silently completed. Covered by the 8 `AbiSelection` JUnit tests
   and little-endian, `e_machine` for the ABI, program header table bounds, each
   `PT_LOAD` segment (bounds, `p_filesz <= p_memsz`, alignment, and
   `p_vaddr % p_align == p_offset % p_align`). 64-bit ABIs require 16 KB alignment,
-  32-bit require 4 KB.
+  32-bit require 4 KB. The Rust indexer is ours, so a missing 16 KB alignment fails
+  the build. `libpdfium.so` is a third-party prebuilt at the revision pinned by
+  `pdfium_dart`. It is checked with `enforce16k = false`: every structural check still
+  fails the build, but a 64-bit PDFium whose segments are only 4 KB aligned logs a
+  warning instead. Its alignment could not be verified in the sandbox (no Flutter cache),
+  and a third-party binary should not newly block releases.
 
 ## Gradle defaults and worker policy
 
@@ -130,7 +135,7 @@ One mechanism per category; no category is cached twice.
 | --- | --- | --- |
 | Flutter SDK and pub | `subosito/flutter-action` (`cache: true`) | |
 | Gradle | `gradle/actions/setup-gradle@v4` | Read-only unless the ref is `Main`. |
-| Rust | `Swatinem/rust-cache@v2`, one entry per triple mapped to `.arc-build/cargo-target/<triple>` | Saved only on `Main`. `rust-test` uses the default `target`. |
+| Rust | One `Swatinem/rust-cache@v2` step with `cache-directories: .arc-build/cargo-target` | Saved only on `Main`. One step avoids saving the same `~/.cargo` registry three times. The per-triple directories are one level deeper than rust-cache expects, so they are cached as plain directories without its target pruning. Check the cache size after the first `Main` run. `rust-test` uses the default `target`. |
 | Java | `actions/setup-java` | No cache. |
 | Local builds | Gradle build cache and `.arc-build/cargo-target` | Persist across runs. |
 
@@ -220,3 +225,9 @@ gradle -p android :app:buildRustIndexer --console=plain
 
 Restore any temporary edit after each run and record the command, the machine
 and the number together.
+
+## Review follow-ups
+
+- `ci.yml` runs buildSrc tests with `gradle -p android/buildSrc test`, which needs no Flutter.
+- `sdkmanager` license input uses `< <(yes)` so `yes` cannot trigger SIGPIPE (exit 141) under `pipefail`.
+- `target-platform` injection and `kotlin-app-test` gating are not changed. The injection only affects direct Gradle runs and needs a real run with `-PARCPDF_ABIS=arm64-v8a` to confirm an arm64-only APK. `kotlin-app-test` stays informational until it has passed once, then should be made blocking.
