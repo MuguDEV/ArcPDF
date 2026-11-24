@@ -102,8 +102,7 @@ abstract class BuildRustAbiTask @Inject constructor(
         val pdfium = pdfiumLibrary.get().asFile
         val rustAbi = RustAbi.all.first { it.abi == abi.get() }
         ElfValidator.validate(indexer, rustAbi)
-        // PDFium is a third-party prebuilt: a missing 16 KB alignment is a warning, not a build failure.
-        ElfValidator.validate(pdfium, rustAbi, enforce16k = false).forEach { logger.warn("warning: $it") }
+        ElfValidator.validate(pdfium, rustAbi)
 
         // pdfium_dart's native-assets manifest references libpdfium.so, but Flutter does
         // not place that asset in an Android APK. Package it as a normal JNI library so

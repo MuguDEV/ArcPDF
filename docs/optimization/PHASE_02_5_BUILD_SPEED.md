@@ -63,12 +63,12 @@ is rejected, not silently completed. Covered by the 8 `AbiSelection` JUnit tests
   and little-endian, `e_machine` for the ABI, program header table bounds, each
   `PT_LOAD` segment (bounds, `p_filesz <= p_memsz`, alignment, and
   `p_vaddr % p_align == p_offset % p_align`). 64-bit ABIs require 16 KB alignment,
-  32-bit require 4 KB. The Rust indexer is ours, so a missing 16 KB alignment fails
-  the build. `libpdfium.so` is a third-party prebuilt at the revision pinned by
-  `pdfium_dart`. It is checked with `enforce16k = false`: every structural check still
-  fails the build, but a 64-bit PDFium whose segments are only 4 KB aligned logs a
-  warning instead. Its alignment could not be verified in the sandbox (no Flutter cache),
-  and a third-party binary should not newly block releases.
+  32-bit require 4 KB. Both `libarcpdf_indexer.so` and
+  `libpdfium.so` are validated with 16 KB enforcement for 64-bit ABIs, and a missing
+  16 KB alignment fails the build (no warn-only mode). Residual risk: the alignment of
+  the PDFium binary at the revision pinned by `pdfium_dart` could not be verified in
+  the sandbox (no Flutter cache). If that revision is only 4 KB aligned, the first
+  64-bit build fails and the pin must be bumped.
 
 ## Gradle defaults and worker policy
 
@@ -135,7 +135,7 @@ One mechanism per category; no category is cached twice.
 | --- | --- | --- |
 | Flutter SDK and pub | `subosito/flutter-action` (`cache: true`) | |
 | Gradle | `gradle/actions/setup-gradle@v4` | Read-only unless the ref is `Main`. |
-| Rust | One `Swatinem/rust-cache@v2` step with `cache-directories: .arc-build/cargo-target` | Saved only on `Main`. One step avoids saving the same `~/.cargo` registry three times. The per-triple directories are one level deeper than rust-cache expects, so they are cached as plain directories without its target pruning. Check the cache size after the first `Main` run. `rust-test` uses the default `target`. |
+| Rust | One `Swatinem/rust-cache@v2` step per ABI, shared keys `arcpdf-arm64`, `arcpdf-armv7`, `arcpdf-x64`, each mapped to `.arc-build/cargo-target/<triple>` | Saved only on `Main`. `preview.yml` restores only the key for the selected ABI. `cache-bin: false` limits per-step extras, but each step still stores its own `~/.cargo` registry copy (small, one lockfile). `rust-test` uses the default `target`. |
 | Java | `actions/setup-java` | No cache. |
 | Local builds | Gradle build cache and `.arc-build/cargo-target` | Persist across runs. |
 
