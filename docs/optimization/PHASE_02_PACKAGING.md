@@ -290,3 +290,76 @@ Result: **117 checks, 117 passed, 0 failed.** This covers the single-ABI (`arm64
 - `.github/actions/packaging-validate` holds those validation steps so both workflows share them.
 - `packaging_validate.yml` (workflow_dispatch, inputs `run_id` and optional `expected_sha`) validates the artifact of an earlier run. Permissions are `contents: read` and `actions: read`; no secrets and no publishing. It rejects a source run unless the workflow path and name match, the run is completed, the event is `pull_request` or `workflow_dispatch`, the head repository is this repository and not a fork, the `build` job succeeded, and the head SHA matches `expected_sha` when given. A run whose validation job failed is accepted, because the artifact depends on the build job. Runs made before this split (single `compare` job) are not accepted; validate them locally.
 - `actionlint` 1.7.7 reports no findings on both workflows. Neither workflow has run on GitHub yet.
+
+## Phase 2.5 release workflow notes
+
+### Release workflow structure
+
+`auto_release.yml` keeps its triggers (push to `Main`, `workflow_dispatch` bump),
+production signing, all three ABIs, build flags, verification logic, checksums and
+publication. It is split into three jobs with stable ids:
+
+| Job id | Purpose | Permissions |
+| --- | --- | --- |
+| `build` | Version/tag, signed universal, per-ABI and AAB builds, packaging, `SHA256SUMS.txt`, artifact upload | `contents: read` |
+| `validate` | Checksums, native library presence, apksigner verification, signing certificate comparison with the production keystore | `contents: read` |
+| `publish` | Re-check tag, manual-bump commit to `Main`, GitHub Release | `contents: write` |
+
+`publish` needs `build` and `validate` to succeed. The files travel as the
+`ArcPDF-<tag>` artifact. The keystore is decoded only in `build` and `validate`
+(from secrets) and is never uploaded. The manual-bump commit is now created by
+`publish`, using the same `pubspec.yaml` edit that `build` applied before compiling.
+
+### Caching
+
+One mechanism per category: Flutter (`subosito/flutter-action`), Java without cache
+(`actions/setup-java`), Gradle (`gradle/actions/setup-gradle@v4`), Rust
+(`dtolnay/rust-toolchain` plus `Swatinem/rust-cache@v2`, one step and shared key per
+ABI: `arcpdf-arm64`, `arcpdf-armv7`, `arcpdf-x64`, each mapped to
+`.arc-build/cargo-target/<triple>`, saved only on `Main`). There is no extra
+`actions/cache`. Nothing containing signing material, keystores, APKs or whole build
+directories is cached.
+
+### Rust toolchain pin
+
+`1.92.0`. The repository has no `rust-toolchain` file, and the committed `Cargo.lock`
+(edition 2021) was last built and tested locally with `rustc 1.92.0`. The pin is the
+`RUST_TOOLCHAIN` env value in each workflow. Raise it deliberately; do not use
+`stable`, which would invalidate Rust caches on every upstream release.
+
+### Bundletool decision
+
+Decision: **retain the three Flutter APK builds** (universal, split-per-ABI) plus the
+AAB build. Generating the APKs from the AAB with bundletool (`build-apks
+--mode=universal` or `--mode=standalone`) would save two Flutter/Gradle invocations,
+but equivalence with the shipped APKs could not be shown and was not testable in the
+environment used for this change (no Flutter, Android SDK or device). The open points:
+
+- Standalone APKs from bundletool name and compress native libraries by bundle
+  configuration, which can differ from the AGP packaging used for direct APK builds.
+- ABI coverage and split naming (`ArcPDF-<tag>-<abi>.apk`) would have to be
+  reproduced and checked against the current assets.
+- `versionCode` handling, signing certificate (bundletool needs the keystore passed
+  explicitly) and upgrade compatibility with already installed releases must match.
+- The packaging validator and release verification are written for Flutter output.
+
+Revisit when a bundletool-built set has been compared with a Flutter-built set using
+`tool/apk_packaging_report.py` and an upgrade install test. Until then,
+same-runner reuse comes from identical flags and shared Gradle/Cargo caches.
+
+### Packaging workflows
+
+- `packaging_compare.yml` builds ARM64 only by default (`all_abis` adds armeabi-v7a,
+  x86_64 and universal APKs) and compares AABs only when `compare_aab` is true. The
+  choice is recorded in `provenance.txt`. Job ids: `build`, `validate`. Pull-request
+  triggers cover files that change compilation only, so edits to
+  `tool/apk_packaging_*.py`, `tool/tests/**`, `docs/**` and the validation workflow
+  or action do not compile anything.
+- `packaging_validate.yml` validates an existing artifact without Flutter or Rust.
+  After a validator-only change, run it from the Actions tab with the `run_id` of an
+  earlier successful `Packaging comparison` run. It checks the source run, the build
+  job by its fixed name, the artifact by its id, the source SHA, the run id and the
+  checksums. Re-running only the validation job of a run whose build succeeded works
+  too.
+- `ci.yml` runs the Python validator tests on every change, so validator edits are
+  covered without any build.
