@@ -54,8 +54,9 @@ documentation and website screenshots:
 - A structured reflow engine with glyph geometry, reading-order reconstruction,
   headings, paragraphs, lists, tables, figures, charts, equations, footnotes,
   repeated-header removal, source anchors, and versioned caching.
-- Selective offline OCR using bundled ML Kit Latin text recognition for scanned
-  pages identified by the layout pass.
+- Selective on-device OCR for scanned pages identified by the layout pass. It
+  uses the ML Kit Latin text recognition module delivered by Google Play
+  services (one-time download, then recognition runs offline on the device).
 - Reader layouts for continuous, single-page, and two-page viewing, plus vertical
   or horizontal navigation, fit-width, fit-page, rotation, fullscreen, and
   auto-scroll.

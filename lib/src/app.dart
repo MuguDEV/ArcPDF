@@ -5,9 +5,12 @@ import 'features/navigation/app_shell.dart';
 import 'features/security/lock_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'dart:async';
 import 'dart:io';
 
 import 'features/settings/settings_controller.dart';
+import 'features/onboarding/onboarding_controller.dart';
+import 'features/pdf/data/ocr_module_controller.dart';
 
 import 'features/sharing/intent_service.dart';
 import 'theme/arc_typography.dart';
@@ -58,6 +61,25 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
     super.initState();
     ref.read(intentServiceProvider).init();
 
+    // Request the OCR module in the background once onboarding is done. This
+    // runs after the first frame and is never awaited by startup.
+    ref.listenManual<bool>(onboardingCompletedProvider, (previous, next) {
+      if (next) _requestBackgroundOcr();
+    });
+    // Turning OCR or background download on later also requests the module.
+    ref.listenManual<AppSettings>(settingsControllerProvider,
+        (previous, next) {
+      if (previous == null || !ref.read(onboardingCompletedProvider)) return;
+      final enabledNow = (next.enableOcr && !previous.enableOcr) ||
+          (next.ocrBackgroundDownload && !previous.ocrBackgroundDownload);
+      if (enabledNow) _requestBackgroundOcr();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(onboardingCompletedProvider)) {
+        _requestBackgroundOcr();
+      }
+    });
+
     // Apply initial refresh rate safely outside of build
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isAndroid) {
@@ -101,6 +123,20 @@ class _ArcPdfAppState extends ConsumerState<ArcPdfApp> {
         } catch (_) {}
       }
     });
+  }
+
+  void _requestBackgroundOcr() {
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.enableOcr || !settings.ocrBackgroundDownload) return;
+    unawaited(() async {
+      try {
+        await ref
+            .read(ocrModuleControllerProvider.notifier)
+            .requestBackgroundInstallIfAllowed();
+      } catch (_) {
+        // OCR is optional. Never let it affect startup.
+      }
+    }());
   }
 
   @override

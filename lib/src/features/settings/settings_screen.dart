@@ -20,6 +20,7 @@ import '../../shared/widgets/glass_app_bar.dart';
 import '../../shared/theme/arc_colors.dart';
 import '../../shared/theme/arc_theme.dart';
 import '../backup/backup_sheet.dart';
+import '../pdf/data/ocr_module_controller.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -548,6 +549,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               max: 5,
               divisions: 4,
               onChanged: (value) => ctrl.setCompressionThreads(value.toInt()),
+            ),
+          ),
+        ],
+      ),
+      _Group(
+        id: 'text-recognition',
+        title: 'Text recognition',
+        entries: [
+          const _Entry(
+            title: 'Offline text recognition',
+            keywords: 'ocr text recognition scanned offline download module '
+                'install status retry google play services',
+            child: _OcrStatusTile(),
+          ),
+          _Entry(
+            title: 'Enable OCR for scanned PDFs',
+            keywords: 'ocr text recognition scanned offline',
+            child: SwitchListTile.adaptive(
+              value: settings.enableOcr,
+              secondary: const Icon(ArcIcons.reading),
+              onChanged: ctrl.setEnableOcr,
+              title: const Text('Enable OCR for scanned PDFs'),
+              subtitle: const Text('Read scanned pages as text in reflow'),
+            ),
+          ),
+          _Entry(
+            title: 'Download in background',
+            keywords: 'ocr background download wifi mobile data offline',
+            child: SwitchListTile.adaptive(
+              value: settings.ocrBackgroundDownload && settings.enableOcr,
+              secondary: const Icon(ArcIcons.download),
+              onChanged:
+                  settings.enableOcr ? ctrl.setOcrBackgroundDownload : null,
+              title: const Text('Download in background'),
+              subtitle: const Text(
+                'Ask Google Play services to fetch the component when it can',
+              ),
+            ),
+          ),
+          const _Entry(
+            title: 'About offline recognition',
+            keywords: 'ocr privacy offline internet upload device',
+            child: ListTile(
+              leading: Icon(ArcIcons.info),
+              title: Text('About offline recognition'),
+              subtitle: Text(
+                'Recognition runs on this device. Documents and recognized '
+                'text are never uploaded. The component needs an internet '
+                'connection once. Google Play services controls its delivery, '
+                'timing and size, and a manual download may use mobile data. '
+                'Without it, all other PDF features keep working.',
+              ),
             ),
           ),
         ],
@@ -1216,6 +1269,97 @@ class _SliderSetting extends StatelessWidget {
               semanticFormatterCallback: (_) => valueLabel,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Availability, install status and the manual download or retry action.
+class _OcrStatusTile extends ConsumerWidget {
+  const _OcrStatusTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final enabled = ref.watch(settingsControllerProvider).enableOcr;
+    final status = ref.watch(ocrModuleControllerProvider);
+    final controller = ref.read(ocrModuleControllerProvider.notifier);
+    final (String label, String? action) = switch (status.state) {
+      OcrModuleState.checking => ('Checking availability', null),
+      OcrModuleState.notInstalled => (
+          'Not downloaded. Scanned pages cannot be read as text yet.',
+          'Download now'
+        ),
+      OcrModuleState.waiting => (
+          'Download requested. Google Play services will start it when it can.',
+          status.deferred ? 'Download now' : null
+        ),
+      OcrModuleState.downloading => (
+          'Downloading. Google Play services controls the download.',
+          null
+        ),
+      OcrModuleState.ready => ('Ready. Works offline on this device.', null),
+      OcrModuleState.failed => ('Download failed. You can try again.', 'Retry'),
+      OcrModuleState.unsupported => (
+          'Not available on this device. All other PDF features keep working.',
+          null
+        ),
+    };
+    final busy = status.state == OcrModuleState.downloading ||
+        status.state == OcrModuleState.waiting ||
+        status.state == OcrModuleState.checking;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                status.state == OcrModuleState.ready
+                    ? ArcIcons.success
+                    : status.state == OcrModuleState.failed
+                        ? ArcIcons.error
+                        : ArcIcons.document,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Offline text recognition',
+                    style: theme.textTheme.bodyLarge),
+              ),
+            ],
+          ),
+          const SizedBox(height: ArcColors.space8),
+          Text(label,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          if (busy && status.state != OcrModuleState.checking) ...[
+            const SizedBox(height: ArcColors.space8),
+            // Determinate only when Play services reports progress.
+            LinearProgressIndicator(value: status.progress),
+          ],
+          if (action != null) ...[
+            const SizedBox(height: ArcColors.space8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonal(
+                onPressed: enabled
+                    ? () => status.state == OcrModuleState.failed
+                        ? controller.retry()
+                        : controller.installNow()
+                    : null,
+                child: Text(action),
+              ),
+            ),
+            if (!enabled)
+              Padding(
+                padding: const EdgeInsets.only(top: ArcColors.space8),
+                child: Text('Turn on OCR to download.',
+                    style: theme.textTheme.bodySmall),
+              ),
+          ],
         ],
       ),
     );

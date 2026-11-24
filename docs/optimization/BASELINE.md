@@ -103,7 +103,12 @@ Sum of all 530 entries (compressed): 46,353,562 bytes. The remaining 131,877
 bytes of the 46,485,439 file are ZIP headers, alignment padding and the APK
 signing block. Uncompressed total of all entries: 50,556,358 bytes.
 
-Native libraries together are 29,821,204 bytes (64.1 percent of the APK).
+Native libraries together are 41,421,600 bytes (89.1 percent of the APK):
+libflutter 11,763,360 + ML Kit 11,064,544 + libapp 11,010,952 + libpdfium
+6,598,376 + indexer 854,696 + dartjni 124,592 + pdfium gate 5,080.
+
+Correction: earlier revisions of this file stated 29,821,204 bytes (64.1
+percent). That figure omitted components and was wrong.
 
 `flutter_assets` detail (compressed bytes): six `LucideVariable-w100..w600.ttf`
 fonts total 1,457,296; `NOTICES.Z` 133,183; `lucide.ttf` 21,739; two identical
