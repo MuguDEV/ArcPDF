@@ -1,6 +1,7 @@
 import 'package:arcpdf/src/shared/theme/arc_icons.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../settings/haptic_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
