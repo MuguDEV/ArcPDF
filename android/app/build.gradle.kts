@@ -91,7 +91,17 @@ android {
     }
 }
 
-tasks.named("preBuild").configure { dependsOn("buildRustIndexer") }
+// pdfium_dart downloads libpdfium.so from Flutter's native-assets hook inside
+// compileFlutterBuild<Variant>. Run that task before the Rust task snapshots its
+// PDFium input, then stage the Rust/PDFium output before AGP merges JNI folders.
+// Wiring preBuild to buildRustIndexer would run in the opposite order.
+val flutterCompileTasks = tasks.matching { it.name.startsWith("compileFlutterBuild") }
+rustIndexerTasks.values.forEach { rustTask ->
+    rustTask.configure { dependsOn(flutterCompileTasks) }
+}
+tasks.matching { it.name.matches(Regex("""merge.+JniLibFolders""")) }.configureEach {
+    dependsOn(RustIndexerTasks.aggregate(project))
+}
 
 flutter {
     source = "../.."

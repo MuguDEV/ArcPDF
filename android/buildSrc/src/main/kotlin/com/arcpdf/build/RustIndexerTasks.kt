@@ -62,7 +62,7 @@ object RustIndexerTasks {
                 )
                 pdfiumRevision.set(project.provider { PdfiumResolver.revision(repoRoot) })
                 pdfiumLibrary.set(
-                    project.layout.file(project.provider { PdfiumResolver.library(repoRoot, abi.pdfiumArch) }),
+                    project.layout.file(project.provider { PdfiumResolver.libraryPath(repoRoot, abi.pdfiumArch) }),
                 )
                 outputDirectory.set(project.layout.buildDirectory.dir("generated/rustJni/${abi.abi}"))
             }

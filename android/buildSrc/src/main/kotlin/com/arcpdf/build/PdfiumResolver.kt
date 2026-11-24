@@ -51,10 +51,22 @@ object PdfiumResolver {
     /** Directory name the build hook uses for [revision]. */
     fun cacheDirectoryName(revision: String): String = revision.replace("%2F", "_")
 
-    fun library(repoRoot: File, pdfiumArch: String): File {
+    /**
+     * Expected cache path without requiring the file to exist yet.
+     *
+     * Gradle evaluates task input providers while it builds the execution graph. The
+     * Flutter compile task creates this file by running pdfium_dart's native-assets
+     * hook, so checking existence here would fail before that dependency can run.
+     */
+    fun libraryPath(repoRoot: File, pdfiumArch: String): File {
         val revision = revision(repoRoot)
         val cache = File(repoRoot, ".dart_tool/hooks_runner/shared/pdfium_dart/build")
-        val library = File(cache, "${cacheDirectoryName(revision)}/android-$pdfiumArch/libpdfium.so")
+        return File(cache, "${cacheDirectoryName(revision)}/android-$pdfiumArch/libpdfium.so")
+    }
+
+    fun library(repoRoot: File, pdfiumArch: String): File {
+        val revision = revision(repoRoot)
+        val library = libraryPath(repoRoot, pdfiumArch)
         check(library.isFile) {
             "PDFium $revision for android-$pdfiumArch was not found at ${library.path}. " +
                 "The pdfium_dart build hook downloads it during the Flutter native-assets step " +
