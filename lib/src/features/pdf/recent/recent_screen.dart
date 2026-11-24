@@ -42,7 +42,7 @@ class _RecentScreenState extends ConsumerState<RecentScreen> {
     final isEmpty = groups.isEmpty;
 
     return CustomScrollView(
-      scrollCacheExtent: 200.0,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(200.0),
       controller:
           _scrollController, // Optimize cache extent for smoother scroll memory allocation
       physics:

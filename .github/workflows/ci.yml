@@ -114,6 +114,9 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Precache test fonts
+        run: flutter precache --linux
+
       - name: Test
         run: flutter test
 

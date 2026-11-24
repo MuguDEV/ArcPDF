@@ -2299,7 +2299,7 @@ class _PdfViewerScreenState extends ConsumerState<PdfViewerScreen>
                       controller: scrollController,
                       padding: EdgeInsets.fromLTRB(20, 12, 20,
                           MediaQuery.paddingOf(context).bottom + 20),
-                      scrollCacheExtent: 200.0,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(200.0),
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 180,
