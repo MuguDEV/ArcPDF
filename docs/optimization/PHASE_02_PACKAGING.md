@@ -27,7 +27,8 @@ Findings from inspection:
   `libapp.so` (Flutter Gradle plugin), the plugin JNI libs (`libdartjni.so`,
   `libpdfrx_pdfium_gate.so`), and the `buildRustIndexer` task, which copies
   `libarcpdf_indexer.so` and `libpdfium.so` into `build/generated/rustJniLibs/<abi>`
-  (registered as a `jniLibs` source dir). All six end up as ordinary `lib/<abi>/*.so`
+  (since Phase 2.5 these are per-ABI tasks writing to `build/app/generated/rustJni/<abi>/<abi>/`,
+  see [PHASE_02_5_BUILD_SPEED.md](PHASE_02_5_BUILD_SPEED.md); registered as a `jniLibs` source dir). All six end up as ordinary `lib/<abi>/*.so`
   entries, so one AGP setting governs all of them (verified in the table below).
 - `AndroidManifest.xml` has no `android:extractNativeLibs`. AGP writes it into the
   built manifest from `useLegacyPackaging`: `false` in A, `true` in B (checked with
