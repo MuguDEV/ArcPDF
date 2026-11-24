@@ -238,6 +238,54 @@ class AbiTests(Base):
         self.assertFailed(self.run_validate(a, b, all_abis=True), "exact-files")
 
 
+class SignerParsingTests(unittest.TestCase):
+    OTHER = "cd" * 32
+
+    def test_single_scheme(self):
+        out = f"Verifies\nNumber of signers: 1\nSigner #1 certificate SHA-256 digest: {CERT}\n"
+        self.assertEqual(v.signer_cert_digests(out), [CERT])
+
+    def test_all_schemes_same_signer(self):
+        out = (f"Verifies\nVerified using v1 scheme (JAR signing): true\n"
+               f"Verified using v2 scheme (APK Signature Scheme v2): true\n"
+               f"Verified using v3 scheme (APK Signature Scheme v3): true\n"
+               f"Number of signers: 1\n"
+               f"Signer #1 certificate DN: CN=x\n"
+               f"Signer #1 certificate SHA-256 digest: {CERT}\n"
+               f"Signer (minSdkVersion=24, maxSdkVersion=2147483647) certificate SHA-256 digest: {CERT.upper()}\n"
+               f"Signer #1 certificate SHA-256 digest: {CERT}\n")
+        self.assertEqual(v.signer_cert_digests(out), [CERT])
+
+    def test_v3_only_format(self):
+        out = f"Signer (minSdkVersion=24, maxSdkVersion=2147483647) certificate SHA-256 digest: {CERT}\n"
+        self.assertEqual(v.signer_cert_digests(out), [CERT])
+
+    def test_two_different_signers(self):
+        out = (f"Number of signers: 2\nSigner #1 certificate SHA-256 digest: {CERT}\n"
+               f"Signer #2 certificate SHA-256 digest: {self.OTHER}\n")
+        self.assertEqual(v.signer_cert_digests(out), [CERT, self.OTHER])
+
+    def test_no_signer(self):
+        self.assertEqual(v.signer_cert_digests("Verifies\n"), [])
+
+    def test_check_flags(self):
+        for out, ok in ((f"Signer (minSdkVersion=24, maxSdkVersion=2147483647) certificate SHA-256 digest: {CERT}\n"
+                         f"Signer #1 certificate SHA-256 digest: {CERT}\n", True),
+                        (f"Signer #1 certificate SHA-256 digest: {CERT}\n"
+                         f"Signer #2 certificate SHA-256 digest: {self.OTHER}\n", False)):
+            res = _Res()
+            v._check_signing(res, "A", "a.apk", TOOLS, lambda cmd: (0, "Verified using v2 scheme: true\n" + out), {})
+            self.assertEqual(res.results["A:single-signer"], ok)
+
+
+class _Res:
+    def __init__(self):
+        self.results = {}
+
+    def check(self, cid, cond, detail=""):
+        self.results[cid] = bool(cond)
+
+
 class HashTests(Base):
     def test_content_difference_fails(self):
         a, b = build_dirs(self.root)

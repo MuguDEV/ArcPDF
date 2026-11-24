@@ -194,6 +194,14 @@ to off and is still ignored for bundle tasks. This phase only hardens the checks
   on any failed check, and uploads `out/validation.json` and `out/report.md`.
 - `tool/tests/test_apk_packaging_report.py`: 47 tests on synthetic APKs and AABs.
 
+### CI fix: single-signer check counts distinct certificates
+
+The `single-signer` check counted `Signer #N certificate SHA-256` lines, which misses
+the v3 form `Signer (minSdkVersion=..., maxSdkVersion=...) certificate SHA-256 digest`
+that the runner's apksigner prints. It now collects the distinct certificate digests
+across all schemes (`signer_cert_digests`) and requires exactly one. Two different
+certificates still fail, and the A/B certificate equality check is unchanged.
+
 ### CI fix: ARCPDF_ABIS matches the Flutter target platforms
 
 `build.gradle.kts` builds Rust and PDFium for every ABI unless `ARCPDF_ABIS` is set,

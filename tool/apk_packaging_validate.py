@@ -270,6 +270,22 @@ def _check_elf(res, p, name, abi, data, readelf, tmp, runner):
                   f"llvm-readelf {tool_aligns} vs parsed {aligns}")
 
 
+def signer_cert_digests(out):
+    """Distinct signer certificate SHA-256 digests in apksigner --print-certs output.
+
+    apksigner repeats the signer once per scheme, as "Signer #1 certificate ..."
+    (v1/v2) or "Signer (minSdkVersion=24, maxSdkVersion=...) certificate ..." (v3).
+    The first digest seen is listed first, duplicates are dropped.
+    """
+    digests = []
+    for d in re.findall(r"^\s*Signer\b[^\n]*?certificate SHA-256 digest:\s*([0-9a-fA-F]{64})",
+                        out, re.M):
+        d = d.lower()
+        if d not in digests:
+            digests.append(d)
+    return digests
+
+
 def _check_signing(res, p, apk, tools, runner, facts):
     if "apksigner" not in tools:
         return
@@ -278,11 +294,11 @@ def _check_signing(res, p, apk, tools, runner, facts):
     schemes = re.findall(r"Verified using v(\d) scheme.*?: true", out)
     res.check(f"{p}:signature-scheme", any(s in ("2", "3", "4") for s in schemes),
               f"verified schemes: {schemes}")
-    m = re.search(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", out)
-    res.check(f"{p}:signer-cert-parsed", bool(m), "no certificate SHA-256 digest in apksigner output")
-    facts["cert"] = m.group(1).lower() if m else None
-    res.check(f"{p}:single-signer", len(re.findall(r"Signer #\d+ certificate SHA-256", out)) == 1,
-              "expected exactly one signer")
+    certs = signer_cert_digests(out)
+    res.check(f"{p}:signer-cert-parsed", bool(certs), "no certificate SHA-256 digest in apksigner output")
+    facts["cert"] = certs[0] if certs else None
+    res.check(f"{p}:single-signer", len(certs) == 1,
+              f"expected exactly one signer, found {len(certs)} distinct certificates: {certs}")
 
 
 def _check_badging(res, p, apk, tools, runner, facts):
